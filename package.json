@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test:done-pick && vite build",
+    "build": "npm run test:pick-slip && npm run test:done-pick && vite build",
     "preview": "vite preview",
-    "test:done-pick": "node --experimental-strip-types tests/donePickReader.test.mjs"
+    "test:done-pick": "node --experimental-strip-types tests/donePickReader.test.mjs",
+    "test:pick-slip": "node --experimental-strip-types tests/pickSlipReader.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
