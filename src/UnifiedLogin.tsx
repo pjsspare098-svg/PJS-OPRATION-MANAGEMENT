@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {ArrowRight,CheckCircle2,LockKeyhole,ShieldCheck,AlertCircle,LayoutDashboard,Sparkles,Eye,EyeOff,ExternalLink} from 'lucide-react';
 import {supabase} from './independentClient';
 import './login-help.css';
@@ -11,6 +11,16 @@ export default function UnifiedLogin({onDemo}:{onDemo:()=>void}){
   const [busy,setBusy]=useState<'google'|'password'|null>(null);
   const [message,setMessage]=useState('');
   const [needsSetup,setNeedsSetup]=useState(false);
+  useEffect(()=>{
+    const url=new URL(window.location.href);
+    const error=url.searchParams.get('error_description')||url.searchParams.get('error')||'';
+    if(!error)return;
+    const setup=/provider|disabled|unsupported|not enabled|configuration/i.test(error);
+    setNeedsSetup(setup);
+    setMessage(setup?'Google sign-in needs to be enabled once in the independent Supabase project. See administrator settings below.':'Google sign-in could not finish: '+error);
+    url.searchParams.delete('error');url.searchParams.delete('error_description');
+    window.history.replaceState(null,'',url.pathname+url.search+url.hash);
+  },[]);
   async function google(){
     if(!supabase){setMessage('Cloud is not configured.');return}
     setBusy('google');setMessage('');setNeedsSetup(false);
