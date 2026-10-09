@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {ArrowRight,CheckCircle2,LockKeyhole,Mail,ShieldCheck,AlertCircle,LayoutDashboard,Sparkles,ExternalLink} from 'lucide-react';
 import {supabase} from './independentClient';
+import './login-help.css';
 
 const AUTH_SETTINGS='https://supabase.com/dashboard/project/tbkytdktututiyeoqkwa/auth/smtp';
 export default function UnifiedLogin({onDemo}:{onDemo:()=>void}){
