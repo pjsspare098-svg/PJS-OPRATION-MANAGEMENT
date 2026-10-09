@@ -1,1 +1,8 @@
 .ux-auth-setup{margin-top:14px;padding:15px;border:1px solid #dbe7f5;background:#f6f9ff;border-radius:11px;color:#425b7d;font-size:12px;line-height:1.6}.ux-auth-setup strong{font-size:12px;display:block;color:#27476a;margin-bottom:5px}.ux-auth-setup p{margin:0 0 9px;font-size:11px;line-height:1.55;color:#7184a0}.ux-auth-setup a{display:inline-flex;align-items:center;gap:7px;color:#3867d9;text-decoration:none;font-weight:800;font-size:11px}.ux-auth-setup a:hover{text-decoration:underline}
+
+.ux-google-login{width:100%;border:1px solid #cddcf4;background:#f8fbff;color:#24446c;border-radius:10px;display:flex;align-items:center;gap:12px;justify-content:center;padding:14px;margin:17px 0 9px;font-size:13px;font-weight:900;cursor:pointer;transition:.15s}
+.ux-google-login:hover:not(:disabled){background:#edf4ff;border-color:#91b0ef}.ux-google-login:disabled{opacity:.55;cursor:not-allowed}
+.ux-google-login>b{font-family:Arial,sans-serif;font-weight:900;color:#4285f4;background:white;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;border:1px solid #e6edf7;font-size:18px}
+.ux-google-login>svg{margin-left:auto;color:#7089b0}.ux-pw-label{margin-top:15px}.ux-password-input{display:flex;align-items:center;position:relative}
+.ux-password-input input{padding-right:46px}.ux-password-input button{position:absolute;right:5px;bottom:5px;height:33px;width:35px;display:grid;place-items:center;border:0;color:#758ba7;background:transparent;border-radius:8px;cursor:pointer}
+.ux-login-card form>.ux-primary{margin-top:20px}
