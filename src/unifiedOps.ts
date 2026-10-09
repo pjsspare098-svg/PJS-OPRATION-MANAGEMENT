@@ -1,0 +1,40 @@
+import { supabase } from './independentClient';
+import { cloud } from './cloud';
+
+export type JobType='bill_submit'|'datadoc_submit'|'tracking'|'delivery_proof_submit'|'email_reply';
+export type Job={id:string;process_id:string;process_no:string;job_type:JobType;status:string;progress:number;error_message:string|null;created_at:string;updated_at:string;payload:any;result:any};
+export type AuditEvent={id:string;process_id:string|null;process_no:string;action:string;details:any;created_at:string};
+export type Preferences={ebill_threshold:number;retrack_days:number;reminder_days:number};
+export const defaults:Preferences={ebill_threshold:50000,retrack_days:3,reminder_days:10};
+const DEMO_KEY='oms-unified-demo-v1';
+function demoData(){try{return JSON.parse(localStorage.getItem(DEMO_KEY)||'{}')}catch{return {}}}
+export function showDate(value:any){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
+export function missingDocs(r:any){const kinds=new Set((r.documents||[]).map((d:any)=>d.kind));const warnings:string[]=[];if(!kinds.has('pickDoc'))warnings.push('Pick Slip');if(!r.so)warnings.push('SO No.');if(!r.party)warnings.push('Party Name');if(!r.invoice)warnings.push('Invoice No.');if(!kinds.has('invoiceDoc'))warnings.push('Invoice PDF');if(!kinds.has('einvoiceDoc')&&!kinds.has('ebillDoc'))warnings.push('E-Invoice or E-Bill');return warnings}
+export function readyForBill(r:any){const kinds=new Set((r.documents||[]).map((d:any)=>d.kind));return Boolean(r.invoice&&r.credit&&kinds.has('invoiceDoc')&&(kinds.has('einvoiceDoc')||kinds.has('ebillDoc')))}
+export function stageName(r:any){return r.stage||'Universal Process'}
+export function isException(r:any){return /check list|exception|rto|delay|return|error|failed/i.test([r.stage,r.status,r.trackingStatus,r.exceptionReason].join(' '))}
+export function mockRecords():any[]{const base=[{id:'demo-1',process:'292184',so:'26270964',party:'Madelin Enterprises Pvt. Ltd.',stage:'Universal Process',status:'Review',invoice:'',credit:'Credit',transporter:'',docs:0,documents:[]},{id:'demo-2',process:'292168',so:'26271016',party:'Ultratech Cement Limited',stage:'DataDoc Submission',status:'Pending',invoice:'INV-26271016',credit:'Credit',transporter:'TCI FREIGHT',docs:2,documents:[{id:'demo-inv',kind:'invoiceDoc',name:'Invoice.pdf'},{id:'demo-einv',kind:'einvoiceDoc',name:'E-Invoice.pdf'}]},{id:'demo-3',process:'292487',so:'26270965',party:'Coperion Ideal Pvt. Ltd.',stage:'Dispatch Tracking',status:'In Transit',invoice:'INV-26270965',transporter:'VRL',lr:'LR-485120',docs:3,documents:[{id:'d1',kind:'pickDoc',name:'Pick Slip.pdf'},{id:'d2',kind:'invoiceDoc',name:'Invoice.pdf'},{id:'d3',kind:'einvoiceDoc',name:'E-Invoice.pdf'}]},{id:'demo-4',process:'291771',so:'26271017',party:'Al Rashid A.HAK Saudi Co. Ltd.',stage:'Check List',status:'Exception',invoice:'INV-26271017',transporter:'V EXPRESS',lr:'LR-80145',exceptionReason:'Delivery address confirmation required',docs:2,documents:[{id:'d4',kind:'pickDoc',name:'Pick Slip.pdf'},{id:'d5',kind:'invoiceDoc',name:'Invoice.pdf'}]}];const data=demoData();return data.records||base}
+export function saveDemo(r:any){const records=mockRecords();const row={...r,id:r.id||'demo-'+Date.now()};const ix=records.findIndex(x=>x.id===row.id);if(ix>=0)records[ix]=row;else records.unshift(row);localStorage.setItem(DEMO_KEY,JSON.stringify({records}));return row}
+async function currentUser(){if(!supabase)throw Error('Sign in is required');const {data,error}=await supabase.auth.getUser();if(error||!data.user)throw Error('Sign in is required');return data.user}
+export const ops={
+  async listRecords(){return await cloud.list()},
+  async listJobs():Promise<Job[]>{await currentUser();const {data,error}=await supabase!.from('oms_jobs').select('*').order('created_at',{ascending:false}).limit(150);if(error)throw error;return data||[]},
+  async listEvents():Promise<AuditEvent[]>{await currentUser();const {data,error}=await supabase!.from('oms_events').select('*').order('created_at',{ascending:false}).limit(160);if(error)throw error;return data||[]},
+  async preferences():Promise<Preferences>{const u=await currentUser();const {data,error}=await supabase!.from('oms_preferences').select('*').eq('user_id',u.id).maybeSingle();if(error)throw error;return data?{ebill_threshold:Number(data.ebill_threshold),retrack_days:data.retrack_days,reminder_days:data.reminder_days}:defaults},
+  async updatePreferences(p:Preferences){const u=await currentUser();const {error}=await supabase!.from('oms_preferences').upsert({user_id:u.id,ebill_threshold:p.ebill_threshold,retrack_days:p.retrack_days,reminder_days:p.reminder_days,updated_at:new Date().toISOString()});if(error)throw error},
+  async audit(r:any,action:string,details:any={}){const u=await currentUser();const {error}=await supabase!.from('oms_events').insert({user_id:u.id,process_id:r.id||null,process_no:r.process||'',action,details});if(error)throw error},
+  async save(r:any,action='Process saved'){const result=await cloud.save(r);await ops.audit(result,action,{stage:result.stage||'Universal Process'});return result},
+  async stage(r:any,stage:string,status?:string){const saved=await cloud.save({...r,stage,status:status||r.status||'Pending'});await ops.audit(saved,'Moved to '+stage,{previousStage:r.stage||'Universal Process',newStage:stage});return saved},
+  async queue(r:any,type:JobType,existing:Job[]){
+    const u=await currentUser();
+    if(!r.id||!r.process)throw Error('Save this process first.');
+    if(existing.some(j=>j.process_id===r.id&&j.job_type===type&&['queued','running'].includes(j.status)))throw Error('A '+type.replaceAll('_',' ')+' job is already queued for '+r.process);
+    if(type==='bill_submit'&&!readyForBill(r))throw Error('DataDoc Bill requires Invoice No., Credit Type, Invoice PDF and E-Invoice or E-Bill PDF.');
+    if(type==='tracking'&&(!r.transporter||!r.lr))throw Error('Enter the transporter and LR / Docket No. in Universal Process first.');
+    if(type==='delivery_proof_submit'&&!/delivered|delivery proof/i.test([r.status,r.stage].join(' ')))throw Error('Mark delivery as confirmed before queuing delivery proof.');
+    const {data,error}=await supabase!.from('oms_jobs').insert({user_id:u.id,process_id:r.id,process_no:r.process,job_type:type,status:'queued',progress:0,payload:{process:r.process,so:r.so||'',transporter:r.transporter||'',tracking_id:r.lr||'',stage:r.stage||'Universal Process'}}).select().single();
+    if(error)throw error;
+    await ops.audit(r,'Job queued · '+type,{jobId:data.id,worker:'awaiting office worker'});
+    return data as Job;
+  }
+};
