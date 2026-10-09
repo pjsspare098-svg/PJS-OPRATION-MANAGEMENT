@@ -1,9 +1,9 @@
 import {Activity,AlertTriangle,ArrowRight,CheckCircle2,ChevronRight,Clock3,Cloud,Database,Download,FileCheck2,FileClock,FileText,FileUp,Inbox,PackageCheck,Plus,RefreshCw,ShieldCheck,Sparkles,Truck,Upload} from 'lucide-react';
 import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone,steps} from './UnifiedKit';
-import {missingDocs} from './unifiedOps';
+import {missingDocs,readyForBill} from './unifiedOps';
 
 export default function UnifiedCorePages({page,p}:{page:string;p:any}){
- const {records,results,stats,onEdit,onImport,onNew,onExport,onGoto,search,setSearch,jobs,demo,busy}=p;
+ const {records,results,stats,onEdit,onImport,onNew,onExport,onGoto,onStage,search,setSearch,jobs,demo,busy}=p;
  if(page==='Control Tower'){
   const pending=(jobs||[]).filter((j:any)=>['queued','running'].includes(j.status));
   return <>
@@ -21,7 +21,7 @@ export default function UnifiedCorePages({page,p}:{page:string;p:any}){
  </>;
  if(page==='Universal Process')return <>
   <Heading eyebrow='STAGE 02 · MASTER PROCESS' title='Universal Process' description='Maintain invoice details, freight, payment terms, sales personnel, carrier, attachments and dispatch status.' actions={<><Button onClick={onExport}><Download size={16}/> Export CSV</Button><Button variant='primary' onClick={onImport}><FileUp size={16}/> Upload Pick Slip</Button></>}/>
-  <Panel title='Process register' subtitle='The same master record is used from DataDoc to delivery proof.' actions={<Button onClick={onNew}><Plus size={16}/> New process</Button>}><SearchBar value={search} onChange={setSearch} count={results.length}/><RecordsTable records={results} onEdit={onEdit}/></Panel>
+  <Panel title='Process register' subtitle='The same master record is used from DataDoc to delivery proof.' actions={<Button onClick={onNew}><Plus size={16}/> New process</Button>}><SearchBar value={search} onChange={setSearch} count={results.length}/><RecordsTable records={results} onEdit={onEdit} renderAction={(r:any)=><><Button onClick={()=>onEdit(r)}>Edit</Button><Button variant='primary' disabled={!readyForBill(r)||busy} onClick={()=>onStage(r,'DataDoc Submission','Ready')}>Prepare DataDoc <ArrowRight size={13}/></Button></>}/></Panel>
  </>;
  return null;
 }
