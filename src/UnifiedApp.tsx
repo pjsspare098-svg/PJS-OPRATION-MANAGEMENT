@@ -4,6 +4,8 @@ import {supabase} from './independentClient';
 import {cloud} from './cloud';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
+import UnifiedLogin from './UnifiedLogin';
+import DonePickListUpload from './DonePickListUpload';
 import UnifiedShell,{type Section} from './UnifiedShell';
 import UnifiedCorePages from './UnifiedCorePages';
 import UnifiedStagePagesA from './UnifiedStagePagesA';
@@ -14,17 +16,18 @@ import './unified-extra.css';
 
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
- const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(true);
+ const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
  const [page,setPage]=useState<Section>('Control Tower'),[records,setRecords]=useState<any[]>([]);
  const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
+ const [donePickOpen,setDonePickOpen]=useState(false);
  const picker=useRef<HTMLInputElement>(null);
  useEffect(()=>{
   let active=true;
   if(!supabase){setChecking(false);return}
-  void supabase.auth.getSession().then(({data})=>{if(active){setUser(data.session?.user||null);setDemo(!data.session?.user);setChecking(false)}}).catch(()=>{if(active)setChecking(false)});
-  const {data}=supabase.auth.onAuthStateChange((_event,session)=>{if(active){setUser(session?.user||null);setDemo(!session?.user);setChecking(false)}});
+  void supabase.auth.getSession().then(({data})=>{if(active){setUser(data.session?.user||null);if(data.session?.user)setDemo(false);setChecking(false)}}).catch(()=>{if(active)setChecking(false)});
+  const {data}=supabase.auth.onAuthStateChange((_event,session)=>{if(active){setUser(session?.user||null);if(session?.user)setDemo(false);setChecking(false)}});
   return()=>{active=false;data.subscription.unsubscribe()};
  },[]);
  useEffect(()=>{
@@ -77,6 +80,15 @@ export default function UnifiedApp(){
   catch(e:any){setError(e?.message||'Could not upload file.')}
   finally{setBusy(false)}
  }
+ async function onAttachDonePick(r:any,file:File,extractedProcess:string){
+  if(!authenticated)throw Error('Sign in to private cloud before attaching a Done Pick List.');
+  const process=String(r.process||'').trim();
+  await cloud.upload(r.id,'donePickDoc',file,{verifiedProcessNo:process,extractedProcessNo:extractedProcess});
+  let auditWarning=false;
+  try{await ops.audit(r,'Done Pick List attached',{filename:file.name,extractedProcessNo:extractedProcess||null,verifiedProcessNo:process})}catch{auditWarning=true}
+  await refresh();
+  onNotice('Done Pick List photo saved under Process '+process+'.'+(auditWarning?' Audit entry could not be recorded.':''));
+ }
  async function onStage(r:any,stage:string,status?:string){
   if(demo){saveDemo({...r,stage,status:status||r.status});setRecords(mockRecords());onNotice('Stage updated in this browser only.');return}
   setBusy(true);try{await ops.stage(r,stage,status);await refresh();onNotice('Process '+r.process+' moved to '+stage)}
@@ -97,14 +109,16 @@ export default function UnifiedApp(){
   const csv='\uFEFF'+keys.map(x=>quote(x[1])).join(',')+'\n'+results.map(r=>keys.map(x=>quote(r[x[0]])).join(',')).join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='PJS_OMS_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
  }
- async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(true);setUser(null);setRecords(mockRecords());setPage('Control Tower');onNotice('Local workspace opened. Private cloud records are not available without authentication.')}
+ async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
- const p={records,results,stats,jobs,events,settings,setSettings,busy,demo,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
+ if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
+ const p={records,results,stats,jobs,events,settings,setSettings,busy,demo,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>setDonePickOpen(true),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
+  {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
   {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} demo={demo} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
  </UnifiedShell>;
 }
