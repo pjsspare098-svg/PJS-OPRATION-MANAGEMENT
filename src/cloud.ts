@@ -169,8 +169,32 @@ export const cloud={
     if(file.type==='application/pdf'){const result=await pdfRows(file);pdf=result.pdf;rows=result.rows}
     else {const result=await recognize(file,'eng');rows=result.data.text.split(/\r?\n/).filter(Boolean)}
     if(kind==='pickDoc'){
-      try{return parsePickSlipRows(rows)}
-      catch(firstError){if(!pdf)throw firstError;return parsePickSlipRows(await pdfOcr(pdf))}
+      const fields:PickSlipFields={process:'',party:'',so:''};
+      const merge=(partial:PickSlipFields)=>{
+        for(const key of ['process','party','so'] as const){
+          if(!partial[key])continue;
+          if(fields[key]&&fields[key].toLowerCase()!==partial[key].toLowerCase())throw new PickSlipParseError('Conflicting '+key+' in Pick Slip. Verify the original PDF.',fields);
+          fields[key]=partial[key];
+        }
+      };
+      const tryRows=(lines:string[])=>{
+        const result=parsePickSlipRows(lines,{allowPartial:true});
+        merge(result);
+      };
+      tryRows(rows);
+      if(pdf&&(!fields.process||!fields.party||!fields.so)){
+        const page=await pdf.getPage(1);
+        const items=(await page.getTextContent()).items as any[];
+        tryRows([items.map(item=>String(item.str||'')).join(' ')]);
+      }
+      if(pdf&&(!fields.process||!fields.party||!fields.so)){
+        try{tryRows(await pdfOcr(pdf))}catch(e:any){
+          if(/conflicting/i.test(String(e?.message||'')))throw e;
+        }
+      }
+      if(fields.process&&fields.party&&fields.so)return fields;
+      const missing=[!fields.process?'Process No.':'',!fields.party?'Party Name':'',!fields.so?'SO No.':''].filter(Boolean).join(', ');
+      throw new PickSlipParseError('Could not read '+missing+' from this PDF. Check the missing fields before saving.',fields);
     }
     if(rows.join('').trim().length<20&&pdf)rows=await pdfOcr(pdf);
     return genericExtract(rows);
