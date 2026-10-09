@@ -42,7 +42,7 @@ export default function UnifiedLogin({onDemo}:{onDemo:()=>void}){
     setMessage('Supabase is limiting repeated email requests. You can try again later, or configure custom SMTP for reliable delivery.');
    }else if(/error sending magic link email|smtp|sending confirmation email|mail server|dial tcp|email service/i.test(msg)){
     setServerLimited(true);
-    setMessage('Approval email could not be sent. Check Supabase SMTP settings: the Host must be the mail server (for Gmail, smtp.gmail.com), NOT the OMS website URL.');
+    setMessage('Google or your email server rejected the SMTP login. Verify the sender Gmail address and use a Google-generated App Password (not your regular Gmail password) in Supabase SMTP settings.');
    }else if(/not authorized|email address not authorized/i.test(msg)){
     setServerLimited(true);
     setMessage('The Supabase default sender can only email approved organization members. Configure custom SMTP for your address.');
@@ -65,7 +65,7 @@ export default function UnifiedLogin({onDemo}:{onDemo:()=>void}){
    </button>
    {sent&&<button className='ux-link' type='button' onClick={()=>{setSent(false);setMessage('')}}>Use a different email</button>}
    {message&&<div className='ux-auth-error' role='alert'><AlertCircle size={16}/><span>{message}</span></div>}
-   {serverLimited&&<div className='ux-auth-setup'><strong>One-time administrator setup required</strong><p>Connect an email sender to Supabase Authentication → SMTP. This fixes the restrictive built-in email quota; no change to your OMS records is needed.</p><a href={AUTH_SETTINGS} target='_blank' rel='noopener noreferrer'>Open email settings <ExternalLink size={14}/></a></div>}
+   {serverLimited&&<div className='ux-auth-setup'><strong>One-time administrator setup required</strong><p>Check your SMTP sender email, username and Google App Password. Gmail needs an app password with 2-Step Verification enabled. Enter credentials directly in Supabase, not on this website.</p><a href={AUTH_SETTINGS} target='_blank' rel='noopener noreferrer'>Open email settings <ExternalLink size={14}/></a></div>}
    <div className='ux-divider'>OR</div>
    <button className='ux-demo-btn' type='button' onClick={onDemo}><LayoutDashboard size={16}/> View design preview <ArrowRight size={16}/></button>
    <div className='ux-auth-foot'><ShieldCheck size={15}/> Real process records remain protected by Supabase email authentication. Design preview uses sample data only.</div>
