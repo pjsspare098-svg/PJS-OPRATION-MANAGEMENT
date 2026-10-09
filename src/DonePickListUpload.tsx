@@ -23,13 +23,26 @@ export default function DonePickListUpload({records,authenticated,onClose,onAtta
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const [done,setDone]=useState(false);
+  const [remoteMatch,setRemoteMatch]=useState<any>(null);
+  const [finding,setFinding]=useState(false);
   useEffect(()=>{
     if(!file||!file.type.startsWith('image/')){setPreview('');return}
     const uri=URL.createObjectURL(file);setPreview(uri);
     return()=>URL.revokeObjectURL(uri);
   },[file]);
   const matches=records.filter(r=>just(r.process)===process.trim());
-  const matched=matches.length===1?matches[0]:null;
+  const matched=matches.length===1?matches[0]:remoteMatch&&just(remoteMatch.process)===process.trim()?remoteMatch:null;
+  useEffect(()=>{
+    setRemoteMatch(null);
+    if(!authenticated||process.length<5||process.length>9||matches.length===1){setFinding(false);return}
+    let cancelled=false;
+    setFinding(true);
+    const timer=window.setTimeout(()=>{
+      void cloud.findByProcess(process).then(r=>{if(!cancelled)setRemoteMatch(r)}).catch(e=>{if(!cancelled)setError('Cloud search failed: '+(e?.message||'Please retry.'))}).finally(()=>{if(!cancelled)setFinding(false)});
+    },350);
+    return()=>{cancelled=true;window.clearTimeout(timer)};
+  },[authenticated,process,records]);
+
   const duplicates=matched?.documents?.filter((d:any)=>d.kind==='donePickDoc')||[];
   async function selected(f?:File){
     if(!f)return;
@@ -47,7 +60,7 @@ export default function DonePickListUpload({records,authenticated,onClose,onAtta
   }
   async function confirm(){
     if(!authenticated){setError('Private cloud attachment needs an authenticated login. Use Google or an existing password account to sign in.');return}
-    if(!file||!matched||busy||saving)return;
+    if(!file||!matched||busy||saving||finding)return;
     setSaving(true);setError('');
     try{await onAttach(matched,file,read?.status==='detected'?read.process:'');setDone(true)}
     catch(e:any){setError(e?.message||'Could not attach the photo. Please try again.')}
