@@ -40,6 +40,9 @@ export default function UnifiedLogin({onDemo}:{onDemo:()=>void}){
     setMessage('Supabase has reached its built-in email sending quota. It cannot send another approval email right now. For dependable sign-in, the project administrator must enable custom SMTP once.');
    }else if(cool||e?.status===429){
     setMessage('Supabase is limiting repeated email requests. You can try again later, or configure custom SMTP for reliable delivery.');
+   }else if(/error sending magic link email|smtp|sending confirmation email|mail server|dial tcp|email service/i.test(msg)){
+    setServerLimited(true);
+    setMessage('Approval email could not be sent. Check Supabase SMTP settings: the Host must be the mail server (for Gmail, smtp.gmail.com), NOT the OMS website URL.');
    }else if(/not authorized|email address not authorized/i.test(msg)){
     setServerLimited(true);
     setMessage('The Supabase default sender can only email approved organization members. Configure custom SMTP for your address.');
