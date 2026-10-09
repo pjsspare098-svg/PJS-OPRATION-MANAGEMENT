@@ -3,7 +3,6 @@ import {AlertCircle,CheckCircle2,Upload,X} from 'lucide-react';
 import {supabase} from './independentClient';
 import {cloud} from './cloud';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
-import UnifiedLogin from './UnifiedLogin';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
 import UnifiedShell,{type Section} from './UnifiedShell';
 import UnifiedCorePages from './UnifiedCorePages';
@@ -12,11 +11,10 @@ import UnifiedStagePagesB from './UnifiedStagePagesB';
 import './excel-lr.css';
 import './unified.css';
 import './unified-extra.css';
-import './unified-extra.css';
 
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
- const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
+ const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(true);
  const [page,setPage]=useState<Section>('Control Tower'),[records,setRecords]=useState<any[]>([]);
  const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
@@ -25,8 +23,8 @@ export default function UnifiedApp(){
  useEffect(()=>{
   let active=true;
   if(!supabase){setChecking(false);return}
-  void supabase.auth.getSession().then(({data})=>{if(active){setUser(data.session?.user||null);setChecking(false)}}).catch(()=>{if(active)setChecking(false)});
-  const {data}=supabase.auth.onAuthStateChange((_event,session)=>{if(active){setUser(session?.user||null);setChecking(false)}});
+  void supabase.auth.getSession().then(({data})=>{if(active){setUser(data.session?.user||null);setDemo(!data.session?.user);setChecking(false)}}).catch(()=>{if(active)setChecking(false)});
+  const {data}=supabase.auth.onAuthStateChange((_event,session)=>{if(active){setUser(session?.user||null);setDemo(!session?.user);setChecking(false)}});
   return()=>{active=false;data.subscription.unsubscribe()};
  },[]);
  useEffect(()=>{
@@ -63,7 +61,7 @@ export default function UnifiedApp(){
   const process=String(r.process||'').trim(),party=String(r.party||'').trim(),so=String(r.so||'').trim();
   if(!process||!party||!so)throw Error('Process No., Party Name and SO No. are required.');
   if(records.some(x=>x.process===process&&x.id!==r.id))throw Error('Process No. already exists: '+process);
-  if(demo){saveDemo({...r,process,party,so});setRecords(mockRecords());setDialog(false);setPickFile(null);onNotice('Saved in design preview only. No PDF bytes or cloud data were stored.');return}
+  if(demo){saveDemo({...r,process,party,so});setRecords(mockRecords());setDialog(false);setPickFile(null);onNotice('Saved on this browser only. Uploaded PDF bytes were NOT stored. No cloud data was changed.');return}
   const saved=await ops.save({...r,process,party,so,stage:r.stage||'Universal Process',status:r.status||'Review'},r.id?'Process updated':'Process created');
   const failures:string[]=[];
   for(const [kind,file] of Object.entries(files)){try{await cloud.upload(saved.id,kind,file)}catch(e:any){failures.push(kind+': '+(e?.message||'upload failed'))}}
@@ -73,19 +71,19 @@ export default function UnifiedApp(){
  }
  async function onAttach(r:any,kind:string,file?:File){
   if(!file)return;
-  if(!authenticated){onNotice('Cloud attachment upload is disabled in design preview.');return}
+  if(!authenticated){onNotice('Document uploads require protected cloud storage. Local workspace does not retain file bytes.');return}
   setBusy(true);
   try{await cloud.upload(r.id,kind,file);await ops.audit(r,'Document uploaded',{kind,name:file.name});await refresh();onNotice('Document added to '+r.process)}
   catch(e:any){setError(e?.message||'Could not upload file.')}
   finally{setBusy(false)}
  }
  async function onStage(r:any,stage:string,status?:string){
-  if(demo){saveDemo({...r,stage,status:status||r.status});setRecords(mockRecords());onNotice('Stage updated locally in design preview only.');return}
+  if(demo){saveDemo({...r,stage,status:status||r.status});setRecords(mockRecords());onNotice('Stage updated in this browser only.');return}
   setBusy(true);try{await ops.stage(r,stage,status);await refresh();onNotice('Process '+r.process+' moved to '+stage)}
   catch(e:any){setError(e?.message||'Unable to update stage.')}finally{setBusy(false)}
  }
  async function onQueue(r:any,type:JobType){
-  if(!authenticated){onNotice('Demo mode cannot queue automation. Sign in to use cloud job requests.');return}
+  if(!authenticated){onNotice('Automation jobs require an authenticated cloud account. Local workspace cannot run or queue jobs.');return}
   setBusy(true);try{await ops.queue(r,type,jobs);await refresh();onNotice('Job queued. Python worker not yet connected; no DataDoc, courier or Outlook action has run.')}
   catch(e:any){setError(e?.message||'Unable to queue request.')}finally{setBusy(false)}
  }
@@ -99,9 +97,8 @@ export default function UnifiedApp(){
   const csv='\uFEFF'+keys.map(x=>quote(x[1])).join(',')+'\n'+results.map(r=>keys.map(x=>quote(r[x[0]])).join(',')).join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='PJS_OMS_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
  }
- async function onSignOut(){setDemo(false);if(user&&supabase)await supabase.auth.signOut();setUser(null);setRecords([]);setPage('Control Tower')}
+ async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(true);setUser(null);setRecords(mockRecords());setPage('Control Tower');onNotice('Local workspace opened. Private cloud records are not available without authentication.')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
- if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
  const p={records,results,stats,jobs,events,settings,setSettings,busy,demo,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
