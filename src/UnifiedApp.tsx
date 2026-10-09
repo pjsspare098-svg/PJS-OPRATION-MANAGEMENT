@@ -22,6 +22,7 @@ export default function UnifiedApp(){
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
  const [donePickOpen,setDonePickOpen]=useState(false);
+ const [importIssue,setImportIssue]=useState('');
  const picker=useRef<HTMLInputElement>(null);
  useEffect(()=>{
   let active=true;
@@ -51,14 +52,24 @@ export default function UnifiedApp(){
   catch(e:any){setError('Refresh failed: '+(e?.message||'Please try again.'))}
   finally{setBusy(false)}
  }
- function onNew(){setRecord(blankProcess());setPickFile(null);setDialog(true)}
- function onEdit(r:any){setRecord({...r});setPickFile(null);setDialog(true)}
+ function onNew(){setRecord(blankProcess());setPickFile(null);setImportIssue('');setDialog(true)}
+ function onEdit(r:any){setRecord({...r});setPickFile(null);setImportIssue('');setDialog(true)}
  async function onImportFile(file?:File){
   if(!file)return;
-  setBusy(true);setError('');
-  try{const fields=await cloud.extract(file,'pickDoc');setRecord({...blankProcess(),...fields});onNotice('Pick Slip read. Verify Process No., Party Name and SO No. before saving.')}
-  catch(e:any){setRecord(blankProcess());onNotice('Automatic extraction unavailable: '+(e?.message||'Please enter the three fields manually.'))}
-  finally{setPickFile(file);setDialog(true);setBusy(false)}
+  setBusy(true);setError('');setImportIssue('');
+  try{
+    const fields=await cloud.extract(file,'pickDoc');
+    setRecord({...blankProcess(),...fields});
+    onNotice('Pick Slip identified. Review Process No., Party Name and SO No. before saving.');
+  }catch(e:any){
+    const partial=e?.partial&&typeof e.partial==='object'?e.partial:{};
+    setRecord({...blankProcess(),...partial});
+    const missing=['process','party','so'].filter(key=>!String(partial[key]||'').trim());
+    setImportIssue('Automatic PDF reading could not fill '+(missing.length?missing.map(k=>k==='process'?'Process No.':k==='party'?'Party Name':'SO No.').join(', '):'all fields')+'. '+(e?.message||'Review the PDF and enter the missing values.'));
+    onNotice('Pick Slip needs review; any successfully extracted fields were kept.');
+  }finally{
+    setPickFile(file);setDialog(true);setBusy(false);
+  }
  }
  async function onSave(r:any,files:Record<string,File>){
   const process=String(r.process||'').trim(),party=String(r.party||'').trim(),so=String(r.so||'').trim();
@@ -119,6 +130,6 @@ export default function UnifiedApp(){
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
-  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} demo={demo} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
+  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
  </UnifiedShell>;
 }
