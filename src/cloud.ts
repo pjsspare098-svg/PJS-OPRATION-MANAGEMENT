@@ -1,5 +1,5 @@
 import { supabase, cloudConfigured } from './independentClient';
-import { parsePickSlipRows } from './pickSlipReader';
+import { parsePickSlipRows, PickSlipParseError, type PickSlipFields } from './pickSlipReader';
 import { parseDonePickProcess, type DonePickRead } from './donePickReader';
 import { recognize } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
