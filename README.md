@@ -1,7 +1,7 @@
 # OMS Independent
 
-Migration of the PJS Operations Management System interface into an independently deployable React/Vite project.
+Migrated from the OMS AppDeploy React frontend for independent GitHub + Vercel development.
 
-**Migration status:** not production-ready until independent Supabase authentication, database, and private file storage are configured and tested. No credentials or customer documents belong in this repository.
+The PJS Delivery Control and legacy AppDeploy applications remain unchanged. This project must not contain API secrets or customer documents.
 
-The original PJS Delivery Control and AppDeploy applications are unchanged.
+Cloud authentication and private storage require independent Supabase configuration. Until connected, the site explicitly runs in local migration-preview mode.
