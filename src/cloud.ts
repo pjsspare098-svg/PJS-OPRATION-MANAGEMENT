@@ -70,9 +70,18 @@ export const cloud={
   async list():Promise<any[]>{
     if(!supabase)return demoRecords();
     await identity();
-    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').order('created_at',{ascending:false}).limit(100);
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').order('created_at',{ascending:false}).limit(1000);
     if(error)throw error;
     return (data||[]).map(mapped);
+  },
+  async findByProcess(processNo:string):Promise<any|null>{
+    const searched=processNo.trim();
+    if(!searched)return null;
+    if(!supabase)return demoRecords().find(r=>String(r.process).trim()===searched)||null;
+    const user=await identity();
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').eq('user_id',user.id).eq('process_no',searched).maybeSingle();
+    if(error)throw error;
+    return data?mapped(data):null;
   },
   async save(input:any):Promise<any>{
     const process=String(input.process||'').trim();
@@ -123,13 +132,18 @@ export const cloud={
     return {path};
   },
   async open(id:string,docId:string){
-    if(!supabase)throw Error('Document bytes are not saved in local preview.');
-    const user=await identity();
-    const {data,error}=await supabase.from('oms_documents').select('path').eq('id',docId).eq('process_id',id).eq('user_id',user.id).single();
-    if(error||!data)throw Error('Document not found');
-    const {data:link,error:linkError}=await supabase.storage.from('oms-documents').createSignedUrl(data.path,60);
-    if(linkError||!link?.signedUrl)throw Error('Could not open document');
-    window.open(link.signedUrl,'_blank','noopener,noreferrer');
+    const tab=window.open('about:blank','_blank');
+    if(!tab)throw Error('Your browser blocked the document tab. Allow pop-ups for OMS.');
+    tab.opener=null;
+    try{
+      if(!supabase)throw Error('Document bytes are not saved in local preview.');
+      const user=await identity();
+      const {data,error}=await supabase.from('oms_documents').select('path').eq('id',docId).eq('process_id',id).eq('user_id',user.id).single();
+      if(error||!data)throw Error('Document not found in your private workspace');
+      const {data:link,error:linkError}=await supabase.storage.from('oms-documents').createSignedUrl(data.path,60);
+      if(linkError||!link?.signedUrl)throw Error('Could not open the private document');
+      tab.location.replace(link.signedUrl);
+    }catch(e){tab.close();throw e}
   },
   async readDonePick(file:File):Promise<DonePickRead>{
     validFile(file);
