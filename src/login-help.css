@@ -16,3 +16,7 @@
 .ux-stats.compact:has(.ux-stat:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:1020px){.ux-stats.compact:has(.ux-stat:nth-child(4)){grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:470px){.ux-stats.compact:has(.ux-stat:nth-child(4)){grid-template-columns:1fr}}
+
+.ux-import-warning{display:flex;align-items:flex-start;gap:10px;background:#fff6e8;border:1px solid #f8daa5;color:#9a651f;border-radius:10px;padding:13px 15px;margin-top:13px;font-size:11px;line-height:1.65}
+.ux-import-warning svg{flex-shrink:0;margin-top:1px}
+.ux-field input[aria-invalid="true"]{border-color:#d97777;background:#fff8f8}
