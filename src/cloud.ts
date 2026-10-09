@@ -8,7 +8,7 @@ pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
 const LOCAL_KEY='oms-independent-local-preview-v1';
 function demoRecords():any[]{try{return JSON.parse(localStorage.getItem(LOCAL_KEY)||'[]')}catch{return []}}
 function storeDemo(records:any[]){localStorage.setItem(LOCAL_KEY,JSON.stringify(records))}
-function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png'].includes(file.type))throw Error('Use PDF, JPG or PNG')}
+function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png'].includes(file.type)&&!(/\.eml$/i.test(file.name)&&(file.type===''||file.type==='message/rfc822'||file.type==='application/octet-stream')))throw Error('Use PDF, JPG, PNG or Outlook .eml')}
 async function identity(){if(!supabase)throw Error('Independent cloud backend is not configured');const {data,error}=await supabase.auth.getUser();if(error||!data.user)throw Error('Sign in before accessing cloud files');return data.user}
 function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
 function headerRows(items:any[]):string[]{
@@ -81,11 +81,13 @@ export const cloud={
   async upload(id:string,kind:string,file:File){
     validFile(file);
     if(!cloudConfigured||!supabase)throw Error('Cloud storage not configured. Original document has not been saved.');
-    if(!['pickDoc','invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(kind))throw Error('Invalid document type');
+    if(!['pickDoc','invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc','proofDoc'].includes(kind))throw Error('Invalid document type');
+    if(kind==='emailDoc'&&!/\.eml$/i.test(file.name))throw Error('Outlook attachments must be .eml');
+    if(kind!=='emailDoc'&&/\.eml$/i.test(file.name))throw Error('Only the Outlook Email field accepts .eml files');
     const user=await identity();
     const name=file.name.slice(0,120).replace(/[^a-zA-Z0-9._-]/g,'_');
     const path=user.id+'/'+id+'/'+crypto.randomUUID()+'-'+name;
-    const {error:storageError}=await supabase.storage.from('oms-documents').upload(path,file,{contentType:file.type,upsert:false});
+    const {error:storageError}=await supabase.storage.from('oms-documents').upload(path,file,{contentType:kind==='emailDoc'?'message/rfc822':file.type,upsert:false});
     if(storageError)throw storageError;
     const {error:dbError}=await supabase.from('oms_documents').insert({process_id:id,user_id:user.id,kind,name,path});
     if(dbError){await supabase.storage.from('oms-documents').remove([path]);throw dbError}
