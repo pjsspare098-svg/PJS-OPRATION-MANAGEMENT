@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "npm run test:done-pick && vite build",
+    "preview": "vite preview",
+    "test:done-pick": "node --experimental-strip-types tests/donePickReader.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
