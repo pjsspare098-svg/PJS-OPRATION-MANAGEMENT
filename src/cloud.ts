@@ -1,5 +1,6 @@
 import { supabase, cloudConfigured } from './independentClient';
 import { parsePickSlipRows } from './pickSlipReader';
+import { parseDonePickProcess, type DonePickRead } from './donePickReader';
 import { recognize } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -8,7 +9,7 @@ pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
 const LOCAL_KEY='oms-independent-local-preview-v1';
 function demoRecords():any[]{try{return JSON.parse(localStorage.getItem(LOCAL_KEY)||'[]')}catch{return []}}
 function storeDemo(records:any[]){localStorage.setItem(LOCAL_KEY,JSON.stringify(records))}
-function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png'].includes(file.type)&&!(/\.eml$/i.test(file.name)&&(file.type===''||file.type==='message/rfc822'||file.type==='application/octet-stream')))throw Error('Use PDF, JPG, PNG or Outlook .eml')}
+function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)&&!(/\.eml$/i.test(file.name)&&(file.type===''||file.type==='message/rfc822'||file.type==='application/octet-stream')))throw Error('Use PDF, JPG, PNG or Outlook .eml')}
 async function identity(){if(!supabase)throw Error('Independent cloud backend is not configured');const {data,error}=await supabase.auth.getUser();if(error||!data.user)throw Error('Sign in before accessing cloud files');return data.user}
 function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
 function headerRows(items:any[]):string[]{
@@ -37,6 +38,28 @@ async function pdfOcr(pdf:any):Promise<string[]>{
   await page.render({canvasContext:ctx,canvas,viewport}).promise;
   const output=await recognize(canvas,'eng');
   return output.data.text.split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+}
+async function ocrDonePhoto(file:File,rotation=0):Promise<string>{
+  let bitmap:ImageBitmap;
+  try{bitmap=await createImageBitmap(file)}catch{const result=await recognize(file,'eng');return result.data.text}
+  try{
+    const turn=Math.abs(rotation)%180===90;
+    const width=turn?bitmap.height:bitmap.width;
+    const height=turn?bitmap.width:bitmap.height;
+    const scale=Math.min(2,2600/Math.max(width,height));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(width*scale));
+    canvas.height=Math.max(1,Math.round(height*scale));
+    const ctx=canvas.getContext('2d');
+    if(!ctx)throw Error('Could not read photo');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.translate(canvas.width/2,canvas.height/2);
+    ctx.rotate(rotation*Math.PI/180);
+    ctx.filter='grayscale(1) contrast(1.5)';
+    ctx.drawImage(bitmap,-bitmap.width*scale/2,-bitmap.height*scale/2,bitmap.width*scale,bitmap.height*scale);
+    const result=await recognize(canvas,'eng');
+    return result.data.text;
+  }finally{bitmap.close()}
 }
 function genericExtract(rows:string[]){
   const t=rows.join(' ');
@@ -78,18 +101,24 @@ export const cloud={
     if(docs?.length){const {error:storageError}=await supabase.storage.from('oms-documents').remove(docs.map(d=>d.path));if(storageError)throw storageError}
     const {error}=await supabase.from('oms_processes').delete().eq('id',id).eq('user_id',user.id);if(error)throw error;
   },
-  async upload(id:string,kind:string,file:File){
+  async upload(id:string,kind:string,file:File,verification?:{verifiedProcessNo?:string;extractedProcessNo?:string}){
     validFile(file);
     if(!cloudConfigured||!supabase)throw Error('Cloud storage not configured. Original document has not been saved.');
-    if(!['pickDoc','invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc','proofDoc'].includes(kind))throw Error('Invalid document type');
+    if(!['pickDoc','invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc','proofDoc','donePickDoc'].includes(kind))throw Error('Invalid document type');
     if(kind==='emailDoc'&&!/\.eml$/i.test(file.name))throw Error('Outlook attachments must be .eml');
     if(kind!=='emailDoc'&&/\.eml$/i.test(file.name))throw Error('Only the Outlook Email field accepts .eml files');
     const user=await identity();
+    if(kind==='donePickDoc'){
+      const confirmed=String(verification?.verifiedProcessNo||'').trim();
+      if(!confirmed)throw Error('Review and confirm the matching Process No. before attaching this photo.');
+      const {data:ownerProcess,error:processError}=await supabase.from('oms_processes').select('process_no').eq('id',id).eq('user_id',user.id).single();
+      if(processError||!ownerProcess||String(ownerProcess.process_no).trim()!==confirmed)throw Error('Process No. does not match the selected cloud record. Photo not attached.');
+    }
     const name=file.name.slice(0,120).replace(/[^a-zA-Z0-9._-]/g,'_');
     const path=user.id+'/'+id+'/'+crypto.randomUUID()+'-'+name;
     const {error:storageError}=await supabase.storage.from('oms-documents').upload(path,file,{contentType:kind==='emailDoc'?'message/rfc822':file.type,upsert:false});
     if(storageError)throw storageError;
-    const {error:dbError}=await supabase.from('oms_documents').insert({process_id:id,user_id:user.id,kind,name,path});
+    const {error:dbError}=await supabase.from('oms_documents').insert({process_id:id,user_id:user.id,kind,name,path,extracted_process_no:kind==='donePickDoc'?verification?.extractedProcessNo||null:null});
     if(dbError){await supabase.storage.from('oms-documents').remove([path]);throw dbError}
     return {path};
   },
@@ -101,6 +130,23 @@ export const cloud={
     const {data:link,error:linkError}=await supabase.storage.from('oms-documents').createSignedUrl(data.path,60);
     if(linkError||!link?.signedUrl)throw Error('Could not open document');
     window.open(link.signedUrl,'_blank','noopener,noreferrer');
+  },
+  async readDonePick(file:File):Promise<DonePickRead>{
+    validFile(file);
+    if(file.type==='application/pdf'){
+      const result=await pdfRows(file);
+      const textRead=parseDonePickProcess(result.rows.join('\n'));
+      if(textRead.status==='detected'||textRead.status==='ambiguous')return textRead;
+      const ocr=await pdfOcr(result.pdf);
+      return parseDonePickProcess(ocr.join('\n'));
+    }
+    if(!file.type.startsWith('image/'))throw Error('Done Pick List must be a photo or PDF.');
+    const first=parseDonePickProcess(await ocrDonePhoto(file));
+    if(first.status!=='missing')return first;
+    // A sideways camera photo may require rotation; never guess from unlabeled digits.
+    const second=parseDonePickProcess(await ocrDonePhoto(file,90));
+    if(second.status!=='missing')return second;
+    return parseDonePickProcess(await ocrDonePhoto(file,270));
   },
   async extract(file:File,kind:string):Promise<any>{
     validFile(file);
