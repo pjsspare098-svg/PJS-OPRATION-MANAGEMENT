@@ -94,6 +94,10 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
    const result=await donePickAlbums.upload(album,files);
    await reload();
    setSelected(album.id);
+   // Show newly saved images immediately without a second click on View Photos.
+   const fresh=await donePickAlbums.list();
+   const latest=fresh.find(a=>a.id===album.id);
+   if(latest)await fetchPreviews(latest);
    closeReview();
    if(result.failures.length){
     setError(result.successes+' photo(s) saved to Process '+process+'. '+result.failures.length+' failed: '+result.failures.slice(0,3).join('; ')+'. Select failed photos again to retry.');
@@ -130,12 +134,15 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
  async function download(photo:AlbumPhoto){
   try{await donePickAlbums.download(photo)}catch(e:any){setError(e.message||'Could not download photo')}
  }
- async function loadPreview(album:PickAlbum){
-  setSelected(album.id===selected?'':album.id);
-  if(selected===album.id)return;
+ async function fetchPreviews(album:PickAlbum){
   const fetched=await Promise.allSettled(album.photos.slice(0,24).map(async photo=>({id:photo.id,url:await donePickAlbums.url(photo)})));
   const links=Object.fromEntries(fetched.filter((x):x is PromiseFulfilledResult<{id:string;url:string}>=>x.status==='fulfilled').map(x=>[x.value.id,x.value.url]));
   setPreviewUrls(previous=>({...previous,...links}));
+ }
+ async function loadPreview(album:PickAlbum){
+  setSelected(album.id===selected?'':album.id);
+  if(selected===album.id)return;
+  await fetchPreviews(album);
  }
  const filtered=useMemo(()=>albums.filter(album=>album.process_no.includes(search.trim())),[albums,search]);
  return <>
