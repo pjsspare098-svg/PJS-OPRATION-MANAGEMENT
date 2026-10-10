@@ -1,6 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,AlertTriangle,Trash2} from 'lucide-react';
 import {cloud} from './cloud';
+import {displayField} from './documentFields';
+import {mergeDocumentScans,safeUpdates,type Candidate,type ScannedDocument} from './documentMerge';
 export const blankProcess=()=>({process:'',party:'',so:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',clientEmail:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
 const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Dispatch & invoice (optional for Email)',fields:[['sales','Sales Person'],['ready','Ready for Dispatch','date'],['invoice','Invoice No.'],['invoiceDate','Invoice Date','date'],['amount','Invoice Amount (₹)','number'],['credit','Credit / Non-Credit','credit'],['po','PO No.'],['poDate','PO Date','date'],['payment','Payment Terms']]},
@@ -18,27 +20,57 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  const [expanded,setExpanded]=useState(Boolean(record?.id));
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [scanBusy,setScanBusy]=useState(''),[scanInfo,setScanInfo]=useState('');
+ const [scanProgress,setScanProgress]=useState('');
+ const [scanCandidates,setScanCandidates]=useState<Candidate[]>([]);
+ const [scanFailures,setScanFailures]=useState<string[]>([]);
  const [mailSuggestions,setMailSuggestions]=useState<string[]>([]);
+ const extractable=['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc'];
+ function presentScans(scans:ScannedDocument[],failures:string[]){
+  const review=mergeDocumentScans(scans);
+  const {changes,skipped}=safeUpdates(draft,review);
+  setDraft((current:any)=>({...current,...safeUpdates(current,review).changes}));
+  setScanCandidates(review.candidates);
+  setScanFailures(failures);
+  setMailSuggestions(review.emails);
+  setExpanded(true);
+  const count=Object.keys(changes).length;
+  const warnings=[...review.conflicts,...skipped,...failures];
+  const head=review.candidates.length?review.candidates.length+' suggested field values read; '+count+' empty field(s) filled.':'No labelled values found in the selected documents.';
+  setScanInfo(head+(warnings.length?' '+warnings.length+' item(s) need review below.':'')+' No values are permanently saved until you click Save process & documents.');
+ }
  async function scan(kind:string,file?:File,doc?:any){
   if(!file&&!doc)return;
-  setScanBusy(kind);setScanInfo('');setError('');
+  setScanBusy(kind);setScanInfo('');setScanFailures([]);setScanCandidates([]);setError('');
   try{
    const parsed=doc?await cloud.inspectStored(draft.id,doc.id,kind):await cloud.inspectAttachment(file!,kind);
-   const conflicts:string[]=[];
-   const updates:any={...draft};
-   for(const [key,value] of Object.entries(parsed.fields)){
-    if(!value)continue;
-    if(String(updates[key]||'').trim()&&String(updates[key]).trim()!==String(value)){
-     conflicts.push(key+' differs from saved form; check PDF.');continue;
-    }
-    updates[key]=value;
+   presentScans([{name:file?.name||doc?.name||'Document',kind,fields:parsed.fields,emails:parsed.emails}],[]);
+  }catch(e:any){
+   setScanInfo('Could not extract '+(file?.name||doc?.name||'document')+'.');
+   setScanFailures([String(e?.message||'PDF extraction failed.')]);
+  }finally{setScanBusy('')}
+ }
+ async function scanAll(){
+  const selections:{kind:string;name:string;file?:File;doc?:any}[]=[];
+  for(const kind of extractable){
+   for(const document of (draft.documents||[]).filter((d:any)=>d.kind===kind)){
+    selections.push({kind,name:document.name||kind,doc:document});
    }
-   setDraft(updates);
-   setMailSuggestions(parsed.emails||[]);
-   setExpanded(true);
-   setScanInfo((parsed.notes||[]).join(' ')+(conflicts.length?' '+conflicts.join(' '):'')+' The original documents are not changed.');
-  }catch(e:any){setScanInfo('Could not read '+(file?.name||doc?.name||'document')+': '+(e?.message||'Extraction unavailable')+'. Check original manually.')}
-  finally{setScanBusy('')}
+   if(files[kind])selections.push({kind,name:files[kind].name,file:files[kind]});
+  }
+  if(!selections.length){setScanInfo('No Invoice, E-Invoice, E-Way Bill, LR/Docket or Outlook Email documents available to extract.');return}
+  setScanBusy('all');setScanInfo('');setScanFailures([]);setScanCandidates([]);setError('');
+  const scans:ScannedDocument[]=[],failures:string[]=[];
+  try{
+   for(let i=0;i<selections.length;i++){
+    const item=selections[i];
+    setScanProgress('Reading document '+(i+1)+' of '+selections.length+': '+item.name);
+    try{
+     const parsed=item.file?await cloud.inspectAttachment(item.file,item.kind):await cloud.inspectStored(draft.id,item.doc.id,item.kind);
+     scans.push({kind:item.kind,name:item.name,fields:parsed.fields,emails:parsed.emails});
+    }catch(e:any){failures.push(item.name+': '+(e?.message||'Could not read document'))}
+   }
+   presentScans(scans,failures);
+  }finally{setScanProgress('');setScanBusy('')}
  }
  const previewSelected=(file:File)=>{
   const url=URL.createObjectURL(file);
@@ -90,7 +122,29 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
  <section className='ux-drawer-section'>
   <div className='ux-section-title'><b><FileText size={15}/></b><strong>Private attachments — open, download or extract details</strong></div>
+  <div className='ux-extraction-controls'>
+   <button type='button' className='ux-extract-all' disabled={demo||busy||Boolean(scanBusy)||!draft.id} onClick={()=>void scanAll()}>
+    <FileText size={17}/>{scanBusy==='all'?'Reading saved documents…':'Extract All Documents'}
+   </button>
+   <small>Reads saved invoice, E-Invoice, LR/Docket and Outlook files together. It fills only empty fields and flags different values for your review.</small>
+  </div>
+  {scanProgress&&<p className='ux-extraction-progress' role='status'>{scanProgress}</p>}
   {scanInfo&&<div className='ux-import-warning' role='status'><FileText size={17}/><span>{scanInfo}</span></div>}
+  {scanCandidates.length>0&&<div className='ux-field-review'>
+   <div className='ux-field-review-title'><strong>Extracted document values</strong><button type='button' onClick={()=>{setExpanded(true);scrollRef.current?.scrollTo({top:0,behavior:'smooth'})}}>Review fields in form</button></div>
+   {scanCandidates.map((item,i)=>{
+    const current=String(draft[item.key]||'').trim();
+    const applied=current===item.value;
+    const conflict=item.kind==='conflict';
+    return <div className='ux-extracted-row' key={item.key+'-'+item.value+'-'+i}>
+     <span><strong>{item.label}</strong><small title={item.source}>{item.source}</small></span>
+     <code>{item.value}</code>
+     {applied?<span className='ux-extracted-ok'>In form</span>:<button type='button' className='ux-extracted-apply' disabled={Boolean(scanBusy)||busy} onClick={()=>{setDraft((p:any)=>({...p,[item.key]:item.value}));setExpanded(true)}}>{conflict?'Use this value':'Use value'}</button>}
+    </div>;
+   })}
+   <small>Fields marked “Use value” require your confirmation before replacing an existing value. OCR/PDF extraction can be incorrect.</small>
+  </div>}
+  {scanFailures.length>0&&<div className='ux-extraction-failures' role='alert'><strong>Files requiring attention</strong>{scanFailures.map((x,i)=><p key={i}>{x}</p>)}</div>}
   {mailSuggestions.length>0&&<div className='ux-email-suggestions'>
    <strong>Choose the customer's email address from the uploaded conversation:</strong>
    <div>{mailSuggestions.map(address=><button key={address} type='button' onClick={()=>{setDraft((v:any)=>({...v,clientEmail:address}));setScanInfo('Selected client email '+address+'. Confirm before saving.')}}>{address}</button>)}</div>
