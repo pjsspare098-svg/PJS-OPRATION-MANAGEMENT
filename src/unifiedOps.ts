@@ -20,6 +20,30 @@ async function currentUser(){if(!supabase)throw Error('Sign in is required');con
 export const ops={
   async listRecords(){return await cloud.list()},
   async listJobs():Promise<Job[]>{await currentUser();const {data,error}=await supabase!.from('oms_jobs').select('*').order('created_at',{ascending:false}).limit(150);if(error)throw error;return data||[]},
+  async listExceptions():Promise<any[]>{
+    await currentUser();
+    const {data,error}=await supabase!.from('oms_exceptions').select('*').order('created_at',{ascending:false}).limit(250);
+    if(error)throw error;return data||[];
+  },
+  async reportException(r:any,category:string,description:string){
+    const u=await currentUser();
+    const {data,error}=await supabase!.from('oms_exceptions').insert({
+      process_id:r.id,created_by:u.id,category,description:description.trim(),status:'open'
+    }).select().single();
+    if(error)throw error;
+    await ops.audit(r,'Exception reported',{exceptionId:data.id,category});
+    return data;
+  },
+  async resolveException(item:any,r:any,resolution:string){
+    await currentUser();
+    if(resolution.trim().length<8)throw Error('Enter at least 8 characters describing the resolution');
+    const {data,error}=await supabase!.from('oms_exceptions').update({
+      status:'resolved',resolution:resolution.trim()
+    }).eq('id',item.id).select().single();
+    if(error)throw error;
+    await ops.audit(r,'Exception resolved',{exceptionId:item.id,category:item.category,resolution:resolution.trim()});
+    return data;
+  },
   async listEvents():Promise<AuditEvent[]>{await currentUser();const {data,error}=await supabase!.from('oms_events').select('*').order('created_at',{ascending:false}).limit(160);if(error)throw error;return data||[]},
   async preferences():Promise<Preferences>{const u=await currentUser();const {data,error}=await supabase!.from('oms_preferences').select('*').eq('user_id',u.id).maybeSingle();if(error)throw error;return data?{ebill_threshold:Number(data.ebill_threshold),retrack_days:data.retrack_days,reminder_days:data.reminder_days}:defaults},
   async updatePreferences(p:Preferences){const u=await currentUser();const {error}=await supabase!.from('oms_preferences').upsert({user_id:u.id,ebill_threshold:p.ebill_threshold,retrack_days:p.retrack_days,reminder_days:p.reminder_days,updated_at:new Date().toISOString()});if(error)throw error},
