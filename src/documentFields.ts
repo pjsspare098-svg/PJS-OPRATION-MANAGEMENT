@@ -71,7 +71,7 @@ const lrPatterns=[
  /\b(?:L\.?\s*R\.?(?:\s*\/\s*Docket)?|Docket|Lorry\s*Receipt|Consignment(?:\s*Note)?|AWB|Tracking)\s*(?:No\.?|Num(?:ber)?\.?|#|ID|:)\s*[:.#-]?\s*([A-Z0-9][A-Z0-9/._-]{0,39})\b/gi
 ];
 const ewayPatterns=[
- /\b(?:E[\s-]*Way\s*Bill|EWB)\s*(?:No\.?|Number|#|:)\s*[:.#-]?\s*(\d[\d\s-]{9,19})\b/gi
+ /\b(?:E[\s-]*Way\s*Bill|EWB)\s*(?:No\.?|Number|#)?\s*[:.#-]?\s*(\d{10,15})\b/gi
 ];
 const irnPatterns=[
  /\b(?:IRN|Invoice\s*Reference\s*Number)\s*[:.#-]?\s*([a-f0-9]{64})\b/gi,
