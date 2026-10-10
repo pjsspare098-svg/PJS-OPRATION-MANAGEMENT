@@ -44,3 +44,16 @@
 .dpa-danger{display:inline-flex;gap:7px;align-items:center;border:1px solid #bb4f62;background:#ca5264;color:white;font-size:11px;font-weight:900;padding:11px 15px;border-radius:8px;cursor:pointer}
 .dpa-danger:disabled{opacity:.42;cursor:not-allowed}
 @media(max-width:700px){.dpa-add-form{flex-wrap:wrap}.dpa-review-dialog>header{padding:16px}.dpa-review-dialog>header h2{font-size:17px}.dpa-review-list{padding:11px}.dpa-review-item{flex-direction:column}.dpa-review-item>img{width:100%;height:175px;flex:auto}.dpa-review-dialog>footer{padding:12px}.dpa-review-dialog>footer button{flex:1}.dpa-review-dialog>footer>span{width:100%}}
+
+/* Continuous-camera batch confirmation: a destination input and compact photo strip. */
+.dpa-destination-label{display:grid;gap:8px;margin-bottom:6px;color:#375c7c;font-weight:850}
+.dpa-destination-label input{font-size:17px;letter-spacing:.4px;padding:13px 15px;border-radius:10px;border:1px solid #b9d1f0;width:100%;font-weight:800}
+.dpa-destination-label input:focus{outline:2px solid #729cf6;outline-offset:1px}
+.dpa-review-target{font-size:11px;color:#3c7191;background:#eff6ff;border:1px solid #d8e6fa;padding:10px 12px;border-radius:8px;line-height:1.5}
+.dpa-review-thumbnails{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:9px;padding:10px 0}
+.dpa-review-tile{position:relative;aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#e7eef9;border:1px solid #d5e1f1}
+.dpa-review-tile img{height:100%;width:100%;object-fit:cover;display:block}
+.dpa-review-tile span{position:absolute;bottom:5px;right:5px;background:#203f5fce;color:white;border-radius:6px;padding:3px 6px;font-size:10px;font-weight:900}
+.dpa-confirm-all{border-radius:10px;border:1px solid #cedbf0;background:#f5f9ff;padding:14px;color:#3b5878;line-height:1.6;font-weight:650}
+.dpa-confirm-all input{accent-color:#4672f3}
+@media(max-width:700px){.dpa-review-thumbnails{grid-template-columns:repeat(auto-fill,minmax(69px,1fr))}.dpa-review-list{padding:13px}.dpa-review-dialog{max-height:94dvh}}
