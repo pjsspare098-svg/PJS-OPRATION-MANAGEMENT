@@ -8,6 +8,7 @@ assert.equal(invoice.fields.so,'26271016');
 assert.equal(parseDocumentFields('E-Invoice No. 15498447774','einvoiceDoc').fields.einvoice,'15498447774');
 const ewayDebug=parseDocumentFields('E-Way Bill No. 123456789012','ebillDoc');
 console.log('E-Way Bill parser result:',JSON.stringify(ewayDebug.fields));
+console.log('E-Way Bill regex debug:',JSON.stringify([...('E-Way Bill No. 123456789012').matchAll(/\b(?:E[\s-]*Way\s*Bill|EWB)\s*(?:No\.?|Number|#)?\s*[:.#-]?\s*(\d{10,15})\b/gi)].map(m=>m[1])));
 assert.equal(parseDocumentFields('E-Way Bill No. 123456789012','ebillDoc').fields.ebill,'123456789012');
 assert.equal(parseDocumentFields('LR / Docket No: LR-12345','lrDoc').fields.lr,'LR-12345');
 assert.equal(parseDocumentFields('Docket No: 946','lrDoc').fields.lr,'946');
