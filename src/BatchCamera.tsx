@@ -71,7 +71,8 @@ export default function BatchCamera({onDone,onClose}:{onDone:(files:File[])=>voi
    const next=files.map(file=>({id:crypto.randomUUID(),file,url:URL.createObjectURL(file)}));
    shotsRef.current=[...shotsRef.current,...next];
    setShots(shotsRef.current);setHelp('');
-   setSelected(next[next.length-1]?.id||'');
+   // Captured shots only appear in the miniature filmstrip; keep the live view uninterrupted.
+   setSelected('');
   }catch(e:any){setHelp(e?.message||'Photo is too large or unsupported.')}
  }
  async function shutter(){
