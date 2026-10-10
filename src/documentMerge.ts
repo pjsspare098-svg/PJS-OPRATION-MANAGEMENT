@@ -1,4 +1,4 @@
-import {type DocumentFields,displayField} from './documentFields';
+import {type DocumentFields,displayField} from './documentFields.ts';
 
 export type ScannedDocument={name:string;kind:string;fields:DocumentFields;emails:string[]};
 export type Candidate={key:keyof DocumentFields;label:string;value:string;source:string;kind:string};
