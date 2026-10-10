@@ -60,6 +60,7 @@ export default function UnifiedApp(){
   try{
     const fields=await cloud.extract(file,'pickDoc');
     setRecord({...blankProcess(),...fields});
+    setImportIssue(fields._reviewRecommended?('This '+(fields._readMethod==='ocr_photo'?'photo':'scanned PDF')+' required OCR'+(typeof fields._ocrConfidence==='number'?', text confidence '+Math.round(fields._ocrConfidence)+'%':'')+'. Verify all three values against the original before saving.'):'');
     onNotice('Pick Slip identified. Review Process No., Party Name and SO No. before saving.');
   }catch(e:any){
     const partial=e?.partial&&typeof e.partial==='object'?e.partial:{};
