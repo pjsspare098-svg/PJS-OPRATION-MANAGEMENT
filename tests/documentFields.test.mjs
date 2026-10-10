@@ -40,3 +40,44 @@ assert.equal(parseDocumentFields('Invoice No: DATE Invoice Date: 10-Oct-2026','i
 
 console.log('PASS: 11 document field and email header extraction cases');
 console.log('PASS: additional invoice layouts, IRN, EWB and safe labelled-value cases');
+
+
+// Purchase-order fields belong to the Invoice PDF, not to SO/LR references.
+const orderInvoice=parseDocumentFields(
+ 'TAX INVOICE\nInvoice No.: 2627/946\nInvoice Date: 08-Oct-2026\n'
+ +'Purchase Order No.: PO-2026-00946\nPurchase Order Date: 03-Sep-2026\n'
+ +'Payment Terms: Net 30 Days\nGrand Total: 6431.00',
+ 'invoiceDoc'
+);
+assert.equal(orderInvoice.fields.po,'PO-2026-00946');
+assert.equal(orderInvoice.fields.poDate,'2026-09-03');
+assert.equal(orderInvoice.fields.payment,'Net 30 Days');
+assert.equal(orderInvoice.fields.invoice,'2627/946');
+assert.equal(orderInvoice.fields.amount,'6431.00');
+const multilinePO=parseDocumentFields(
+ 'Buyer\'s Order No.\n2026/12345\nBuyer\'s Order Date\n08/10/2026\nTerms of Payment:\n100% Advance\nInvoice No. 946',
+ 'invoiceDoc'
+);
+assert.equal(multilinePO.fields.po,'2026/12345');
+assert.equal(multilinePO.fields.poDate,'2026-10-08');
+assert.equal(multilinePO.fields.payment,'100% Advance');
+const dottedPO=parseDocumentFields(
+ 'P.O. No: CUSTOMER/00123 P.O. Date: 14-Oct-2026 Payment Terms: Credit 45 Days Invoice No 2627/946',
+ 'invoiceDoc'
+);
+assert.equal(dottedPO.fields.po,'CUSTOMER/00123');
+assert.equal(dottedPO.fields.poDate,'2026-10-14');
+assert.equal(dottedPO.fields.payment,'Credit 45 Days');
+const missingPO=parseDocumentFields(
+ 'Sales Order No. 26271016 Invoice No. 2627/946 Invoice Date 08-Oct-2026',
+ 'invoiceDoc'
+);
+assert.equal(missingPO.fields.po,undefined);
+assert.equal(missingPO.fields.poDate,undefined);
+assert.equal(missingPO.fields.payment,undefined);
+const noPayment=parseDocumentFields('Terms of Payment:\nInvoice No. 2627/946','invoiceDoc');
+assert.equal(noPayment.fields.payment,undefined);
+const otherDoc=parseDocumentFields('PO No. PO-9999 PO Date: 10-Oct-2026 Payment Terms: Net 30 Days','lrDoc');
+assert.equal(otherDoc.fields.po,undefined);
+assert.equal(otherDoc.fields.payment,undefined);
+console.log('PASS: PO No., PO Date, Payment Terms, multiline invoices and missing-field safeguards');
