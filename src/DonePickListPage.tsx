@@ -62,7 +62,7 @@ export default function DonePickListPage({records,authenticated,onLegacyOCR}:{re
  }
  const filtered=useMemo(()=>albums.filter(album=>album.process_no.includes(search.trim())),[albums,search]);
  return <>
-  <Heading eyebrow='DONE PICK LIST · PHOTO RECORDS' title='Done Pick List' description='Create an entry using only a Process No., then store multiple Done Pick List photos under it. Open or download any photo later.' actions={<><Button onClick={()=>void reload()}><RefreshCw size={16}/> Refresh</Button><Button variant='primary' onClick={()=>setAdding(!adding)}><Plus size={16}/> Add Process No.</Button></>}/>
+  <Heading eyebrow='DONE PICK LIST · PHOTO RECORDS' title='Done Pick List' description='Create an entry using only a Process No., then store multiple Done Pick List photos under it. Open or download any photo later.' actions={<><Button onClick={onLegacyOCR}><Camera size={16}/> OCR-match existing process</Button><Button onClick={()=>void reload()}><RefreshCw size={16}/> Refresh</Button><Button variant='primary' onClick={()=>setAdding(!adding)}><Plus size={16}/> Add Process No.</Button></>}/>
   <div className='dpa-status'><ShieldCheck size={17}/>{authenticated?'Photos are saved in private Supabase storage and grouped by the Process No. you enter.':'Sign in to your cloud workspace to create entries and upload photos. Local preview does not retain file bytes.'}</div>
   {error&&<div className='dpa-message error' role='alert'><AlertCircle size={16}/>{error}</div>}
   {notice&&<div className='dpa-message success' role='status'><CheckCircle2 size={16}/>{notice}</div>}
