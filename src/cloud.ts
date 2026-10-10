@@ -11,7 +11,7 @@ function demoRecords():any[]{try{return JSON.parse(localStorage.getItem(LOCAL_KE
 function storeDemo(records:any[]){localStorage.setItem(LOCAL_KEY,JSON.stringify(records))}
 function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)&&!(/\.eml$/i.test(file.name)&&(file.type===''||file.type==='message/rfc822'||file.type==='application/octet-stream')))throw Error('Use PDF, JPG, PNG or Outlook .eml')}
 async function identity(){if(!supabase)throw Error('Independent cloud backend is not configured');const {data,error}=await supabase.auth.getUser();if(error||!data.user)throw Error('Sign in before accessing cloud files');return data.user}
-function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
+function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,owner_id:r.user_id,team_id:r.team_id||null,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
 function headerRows(items:any[]):string[]{
   const words=items.filter(i=>typeof i.str==='string'&&i.str.trim()&&Array.isArray(i.transform)).map(i=>({x:Number(i.transform[4]),y:Number(i.transform[5]),str:String(i.str).trim()})).sort((a,b)=>b.y-a.y||a.x-b.x);
   const rows:{y:number;parts:typeof words}[]=[];
@@ -78,10 +78,11 @@ export const cloud={
     const searched=processNo.trim();
     if(!searched)return null;
     if(!supabase)return demoRecords().find(r=>String(r.process).trim()===searched)||null;
-    const user=await identity();
-    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').eq('user_id',user.id).eq('process_no',searched).maybeSingle();
+    await identity();
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').eq('process_no',searched).limit(2);
     if(error)throw error;
-    return data?mapped(data):null;
+    if((data||[]).length>1)throw Error('More than one accessible process uses this Process No. Select the correct workspace first.');
+    return data?.[0]?mapped(data[0]):null;
   },
   async save(input:any):Promise<any>{
     const process=String(input.process||'').trim();
@@ -94,17 +95,19 @@ export const cloud={
       storeDemo(rows);return r;
     }
     const user=await identity();
-    const body:any={process_no:process,party_name:String(input.party||'').trim(),sales_order_no:String(input.so||'').trim(),data:{...input,id:undefined,documents:undefined,docs:undefined,process:undefined,party:undefined,so:undefined}};
+    const body:any={process_no:process,party_name:String(input.party||'').trim(),sales_order_no:String(input.so||'').trim(),data:{...input,id:undefined,owner_id:undefined,team_id:undefined,documents:undefined,docs:undefined,process:undefined,party:undefined,so:undefined}};
     if(input.id){
-      const {data,error}=await supabase.from('oms_processes').update(body).eq('id',input.id).eq('user_id',user.id).select().single();
+      const {data,error}=await supabase.from('oms_processes').update(body).eq('id',input.id).select().single();
       if(error)throw error;return {...input,...mapped(data)};
     }
-    const {data,error}=await supabase.from('oms_processes').insert({...body,user_id:user.id}).select().single();
+    const {data,error}=await supabase.from('oms_processes').insert({...body,user_id:user.id,team_id:input.team_id||null}).select().single();
     if(error)throw error;return mapped(data);
   },
   async remove(id:string){
     if(!supabase){storeDemo(demoRecords().filter(r=>r.id!==id));return}
     const user=await identity();
+    const {data:target,error:targetError}=await supabase.from('oms_processes').select('team_id,user_id').eq('id',id).single();
+    if(targetError||!target||target.team_id||target.user_id!==user.id)throw Error('Shared or non-owned records cannot be deleted here.');
     const {data:docs,error:listError}=await supabase.from('oms_documents').select('path').eq('process_id',id).eq('user_id',user.id);
     if(listError)throw listError;
     if(docs?.length){const {error:storageError}=await supabase.storage.from('oms-documents').remove(docs.map(d=>d.path));if(storageError)throw storageError}
@@ -120,7 +123,7 @@ export const cloud={
     if(kind==='donePickDoc'){
       const confirmed=String(verification?.verifiedProcessNo||'').trim();
       if(!confirmed)throw Error('Review and confirm the matching Process No. before attaching this photo.');
-      const {data:ownerProcess,error:processError}=await supabase.from('oms_processes').select('process_no').eq('id',id).eq('user_id',user.id).single();
+      const {data:ownerProcess,error:processError}=await supabase.from('oms_processes').select('process_no').eq('id',id).single();
       if(processError||!ownerProcess||String(ownerProcess.process_no).trim()!==confirmed)throw Error('Process No. does not match the selected cloud record. Photo not attached.');
     }
     const name=file.name.slice(0,120).replace(/[^a-zA-Z0-9._-]/g,'_');
@@ -137,8 +140,8 @@ export const cloud={
     tab.opener=null;
     try{
       if(!supabase)throw Error('Document bytes are not saved in local preview.');
-      const user=await identity();
-      const {data,error}=await supabase.from('oms_documents').select('path').eq('id',docId).eq('process_id',id).eq('user_id',user.id).single();
+      await identity();
+      const {data,error}=await supabase.from('oms_documents').select('path').eq('id',docId).eq('process_id',id).single();
       if(error||!data)throw Error('Document not found in your private workspace');
       const {data:link,error:linkError}=await supabase.storage.from('oms-documents').createSignedUrl(data.path,60);
       if(linkError||!link?.signedUrl)throw Error('Could not open the private document');
