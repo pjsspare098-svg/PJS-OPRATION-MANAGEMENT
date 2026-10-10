@@ -1,4 +1,6 @@
 import {supabase} from './independentClient';
+import {validateAlbumProcess,validateAlbumPhoto} from './donePickAlbumRules';
+export {validateAlbumProcess} from './donePickAlbumRules';
 
 export type AlbumPhoto={id:string;album_id:string;name:string;path:string;content_type:string;size_bytes:number;created_at:string};
 export type PickAlbum={id:string;process_no:string;user_id:string;created_at:string;photos:AlbumPhoto[]};
@@ -9,16 +11,7 @@ async function authenticated(){
  if(error||!data.user)throw Error('Your session expired. Sign in again.');
  return data.user;
 }
-export function validateAlbumProcess(raw:string){
- const value=raw.trim();
- if(!/^[0-9]{5,9}$/.test(value)||/^0+$/.test(value))throw Error('Enter a valid 5–9 digit Process No.');
- return value;
-}
-export function validatePhoto(file:File){
- const allowed=['image/jpeg','image/png','image/webp'];
- if(!allowed.includes(file.type))throw Error('Upload JPG, PNG or WebP photos only.');
- if(file.size===0||file.size>5242880)throw Error('Each photo must be between 1 byte and 5 MB.');
-}
+export function validatePhoto(file:File){validateAlbumPhoto(file)}
 export const donePickAlbums={
  async list():Promise<PickAlbum[]>{
   const user=await authenticated();
