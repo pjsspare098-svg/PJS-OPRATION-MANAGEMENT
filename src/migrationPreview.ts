@@ -50,7 +50,7 @@ export function previewMigration(text:string,existing:string[]=[]){
     const get=(key:string)=>String(indices[key]===-1?'':cells[indices[key]]||'').trim();
     const process=get('process'),party=get('party'),so=get('so');
     let reason='';
-    if(!/^\d{5,9}$/.test(process))reason='Invalid Process No.';
+    if(!/^\d{5,9}$/.test(process)||/^0+$/.test(process))reason='Invalid Process No.';
     else if(!party)reason='Missing Party Name';
     else if(!/^\d{6,12}$/.test(so))reason='Invalid SO No.';
     else if(before.has(process))reason='Already exists in this workspace';
