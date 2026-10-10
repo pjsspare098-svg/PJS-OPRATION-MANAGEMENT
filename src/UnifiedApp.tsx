@@ -86,7 +86,7 @@ export default function UnifiedApp(){
   if(!process||!party||!so)throw Error('Process No., Party Name and SO No. are required.');
   if(records.some(x=>x.process===process&&x.id!==r.id))throw Error('Process No. already exists: '+process);
   if(demo){saveDemo({...r,process,party,so});setRecords(mockRecords());setDialog(false);setPickFile(null);onNotice('Saved on this browser only. Uploaded PDF bytes were NOT stored. No cloud data was changed.');return}
-  const saved=await ops.save({...r,process,party,so,team_id:r.id?r.team_id:(r.team_id||activeTeam||null),stage:r.stage||'Universal Process',status:r.status||'Review'},r.id?'Process updated':'Process created');
+  const saved=await ops.save({...r,process,party,so,team_id:r.id?r.team_id:(r.team_id||activeTeam||null),stage:r.stage||'Universal Process',status:r.status||'Review'},r.id&&r.stage==='Email to Client'?'Moved to Email to Client':r.id?'Process updated':'Process created');
   const failures:{kind:string;message:string}[]=[];
   for(const [kind,file] of Object.entries(files)){
     try{await cloud.upload(saved.id,kind,file)}
@@ -98,7 +98,8 @@ export default function UnifiedApp(){
     return {saved,failed:failures.map(f=>f.kind),details:failures.map(f=>f.kind+': '+f.message).join('; ')};
   }
   setDialog(false);setPickFile(null);
-  onNotice('Process '+process+' and '+Object.keys(files).length+' attachment(s) saved successfully.');
+  if(r.stage==='Email to Client')onGoto('Email to Client');
+  onNotice('Process '+process+(r.stage==='Email to Client'?' moved to Email to Client.':' saved.')+' '+Object.keys(files).length+' attachment(s) saved successfully.');
  }
  async function onAttach(r:any,kind:string,file?:File){
   if(!file)return;
