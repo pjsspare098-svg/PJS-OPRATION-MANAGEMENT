@@ -39,9 +39,9 @@ async function pdfOcr(pdf:any):Promise<string[]>{
   const output=await recognize(canvas,'eng');
   return output.data.text.split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
 }
-async function ocrDonePhoto(file:File,rotation=0):Promise<string>{
+async function ocrDonePhoto(file:File,rotation=0):Promise<{text:string;confidence:number}>{
   let bitmap:ImageBitmap;
-  try{bitmap=await createImageBitmap(file)}catch{const result=await recognize(file,'eng');return result.data.text}
+  try{bitmap=await createImageBitmap(file)}catch{const result=await recognize(file,'eng');return {text:result.data.text,confidence:Number(result.data.confidence)}}
   try{
     const turn=Math.abs(rotation)%180===90;
     const width=turn?bitmap.height:bitmap.width;
@@ -58,7 +58,7 @@ async function ocrDonePhoto(file:File,rotation=0):Promise<string>{
     ctx.filter='grayscale(1) contrast(1.5)';
     ctx.drawImage(bitmap,-bitmap.width*scale/2,-bitmap.height*scale/2,bitmap.width*scale,bitmap.height*scale);
     const result=await recognize(canvas,'eng');
-    return result.data.text;
+    return {text:result.data.text,confidence:Number(result.data.confidence)};
   }finally{bitmap.close()}
 }
 function genericExtract(rows:string[]){
@@ -155,12 +155,15 @@ export const cloud={
       return parseDonePickProcess(ocr.join('\n'));
     }
     if(!file.type.startsWith('image/'))throw Error('Done Pick List must be a photo or PDF.');
-    const first=parseDonePickProcess(await ocrDonePhoto(file));
-    if(first.status!=='missing')return first;
-    // A sideways camera photo may require rotation; never guess from unlabeled digits.
-    const second=parseDonePickProcess(await ocrDonePhoto(file,90));
-    if(second.status!=='missing')return second;
-    return parseDonePickProcess(await ocrDonePhoto(file,270));
+    let bestConfidence=0;
+    for(const rotation of [0,90,270]){
+      const ocr=await ocrDonePhoto(file,rotation);
+      bestConfidence=Math.max(bestConfidence,ocr.confidence||0);
+      const result=parseDonePickProcess(ocr.text);
+      if(result.status==='ambiguous')return {...result,confidence:ocr.confidence,rotation};
+      if(result.status==='detected')return {...result,confidence:ocr.confidence,rotation};
+    }
+    return {...parseDonePickProcess(''),confidence:bestConfidence};
   },
   async extract(file:File,kind:string):Promise<any>{
     validFile(file);
