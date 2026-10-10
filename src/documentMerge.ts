@@ -5,7 +5,7 @@ export type Candidate={key:keyof DocumentFields;label:string;value:string;source
 export type ScanReview={candidates:Candidate[];conflicts:string[];emails:string[]};
 
 const fieldsByKind:Record<string,(keyof DocumentFields)[]>={
- invoiceDoc:['invoice','invoiceDate','amount','so','ebill'],
+ invoiceDoc:['invoice','invoiceDate','amount','po','poDate','payment','so','ebill'],
  einvoiceDoc:['einvoice','invoice','invoiceDate','so','ebill'],
  ebillDoc:['ebill','invoice','so'],
  lrDoc:['lr','so'],
