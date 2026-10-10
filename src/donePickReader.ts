@@ -3,7 +3,7 @@
  * Never guesses from filenames, Sales Order numbers, LR numbers, or unlabeled digits.
  * The UI must still require a human confirmation before a private attachment is saved.
  */
-export type DonePickRead={process:string; candidates:string[]; status:'detected'|'missing'|'ambiguous'};
+export type DonePickRead={process:string; candidates:string[]; status:'detected'|'missing'|'ambiguous';confidence?:number;rotation?:number};
 const normalizeDigits=(s:string):string=>s.replace(/[oO]/g,'0').replace(/[iIlL|]/g,'1').replace(/[sS]/g,'5').replace(/[bB]/g,'8');
 export function parseDonePickProcess(raw:string):DonePickRead{
   const text=raw.replace(/\u00a0/g,' ').replace(/[\t ]+/g,' ').replace(/\r/g,'\n').replace(/\n+/g,'\n');
