@@ -4,7 +4,7 @@ const asText=(value:any)=>{
  return /^[\t\r\n ]*[=+\-@]/.test(s)?"'"+s:s;
 };
 const headers=['LR / Docket','Match Status','Process No.','Party Name','SO No.','Transporter','Invoice No.','Process Stage','Source Document'];
-export async function downloadLRWorkbook(entries:LRMatch[],records:any[],sourceName:string){
+export async function buildLRWorkbook(entries:LRMatch[],records:any[],sourceName:string){
  const ExcelJS=(await import('exceljs')).default;
  const workbook=new ExcelJS.Workbook();
  workbook.creator='PJS Operations';
@@ -61,6 +61,10 @@ export async function downloadLRWorkbook(entries:LRMatch[],records:any[],sourceN
   const status=String(c.value||'');
   c.font={bold:true,color:{argb:status==='MATCHED'?'FF168054':status==='AMBIGUOUS'?'FFBB6622':'FFC34A52'}};
  });
+ return workbook;
+}
+export async function downloadLRWorkbook(entries:LRMatch[],records:any[],sourceName:string){
+ const workbook=await buildLRWorkbook(entries,records,sourceName);
  const buffer=await workbook.xlsx.writeBuffer();
  const blob=new Blob([buffer as BlobPart],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
  const url=URL.createObjectURL(blob);
