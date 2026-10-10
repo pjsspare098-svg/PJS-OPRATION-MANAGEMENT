@@ -20,7 +20,7 @@ const includes=(value:any,query:string)=>String(value??'').toLowerCase().include
 export default function UnifiedApp(){
  const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
  const [page,setPage]=useState<Section>('Control Tower'),[records,setRecords]=useState<any[]>([]);
- const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
+ const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[exceptions,setExceptions]=useState<any[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
  const [donePickOpen,setDonePickOpen]=useState(false);
@@ -36,10 +36,10 @@ export default function UnifiedApp(){
  },[]);
  useEffect(()=>{
   let active=true;
-  if(demo){setRecords(mockRecords());setJobs([]);setEvents([]);return}
-  if(!user){setRecords([]);setJobs([]);setEvents([]);return}
+  if(demo){setRecords(mockRecords());setJobs([]);setEvents([]);setExceptions([]);return}
+  if(!user){setRecords([]);setJobs([]);setEvents([]);setExceptions([]);return}
   setBusy(true);
-  void Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences()]).then(([r,j,e,s])=>{if(active){setRecords(r);setJobs(j);setEvents(e);setSettings(s);setError('')}}).catch(e=>{if(active)setError('Unable to load cloud workspace: '+(e?.message||'Try Refresh.'))}).finally(()=>{if(active)setBusy(false)});
+  void Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences(),ops.listExceptions()]).then(([r,j,e,s,x])=>{if(active){setRecords(r);setJobs(j);setEvents(e);setSettings(s);setExceptions(x);setError('')}}).catch(e=>{if(active)setError('Unable to load cloud workspace: '+(e?.message||'Try Refresh.'))}).finally(()=>{if(active)setBusy(false)});
   return()=>{active=false};
  },[user?.id,demo]);
  useEffect(()=>{
@@ -49,7 +49,7 @@ export default function UnifiedApp(){
    return()=>{alive=false};
  },[user?.id]);
  const results=useMemo(()=>records.filter(r=>[r.process,r.party,r.so,r.invoice,r.transporter,r.lr,r.stage,r.status].some(v=>includes(v,search))),[records,search]);
- const stats=useMemo(()=>({total:records.length,complete:records.filter(r=>String(r.stage||'').toLowerCase()==='complete').length,pending:records.filter(r=>missingDocs(r).length>0).length,exceptions:records.filter(isException).length}),[records]);
+ const stats=useMemo(()=>({total:records.length,complete:records.filter(r=>String(r.stage||'').toLowerCase()==='complete').length,pending:records.filter(r=>missingDocs(r).length>0).length,exceptions:new Set([...records.filter(isException).map(r=>r.id),...exceptions.filter(x=>x.status!=='resolved').map(x=>x.process_id)]).size}),[records,exceptions]);
  const authenticated=Boolean(user&&!demo);
  function onNotice(v:string){setNotice(v);window.setTimeout(()=>setNotice(''),7500)}
  function onGoto(v:Section){setPage(v);setSearch('')}
@@ -57,7 +57,7 @@ export default function UnifiedApp(){
   if(demo){setRecords(mockRecords());return}
   if(!authenticated)return;
   setBusy(true);
-  try{const [r,j,e,s]=await Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences()]);setRecords(r);setJobs(j);setEvents(e);setSettings(s);setError('')}
+  try{const [r,j,e,s,x]=await Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences(),ops.listExceptions()]);setRecords(r);setJobs(j);setEvents(e);setSettings(s);setExceptions(x);setError('')}
   catch(e:any){setError('Refresh failed: '+(e?.message||'Please try again.'))}
   finally{setBusy(false)}
  }
@@ -112,12 +112,27 @@ export default function UnifiedApp(){
  }
  async function onStage(r:any,stage:string,status?:string){
   if(stage==='Complete'){
+    if(exceptions.some(x=>x.process_id===r.id&&x.status!=='resolved')){setError('Resolve all open Check List cases for Process '+r.process+' before closing.');return}
     const result=canCloseProcess(r,jobs);
     if(!result.ready){setError('Cannot close Process '+r.process+': '+result.missing.join(', '));return}
   }
+  if(stage==='Dispatch Tracking'&&exceptions.some(x=>x.process_id===r.id&&x.status!=='resolved')){setError('Resolve open Check List cases before returning this process to tracking.');return}
   if(demo){saveDemo({...r,stage,status:status||r.status});setRecords(mockRecords());onNotice('Stage updated in this browser only.');return}
   setBusy(true);try{await ops.stage(r,stage,status);await refresh();onNotice('Process '+r.process+' moved to '+stage)}
   catch(e:any){setError(e?.message||'Unable to update stage.')}finally{setBusy(false)}
+ }
+ async function onReportException(r:any,category:string,description:string){
+  if(!authenticated)throw Error('Cloud login is required for exception tracking.');
+  await ops.reportException(r,category,description);
+  await ops.stage({...r,exceptionReason:description},'Check List','Exception');
+  await refresh();onNotice('Exception recorded for Process '+r.process+'.');
+ }
+ async function onResolveException(item:any,r:any,resolution:string){
+  if(!authenticated)throw Error('Cloud login is required.');
+  await ops.resolveException(item,r,resolution);
+  const remaining=exceptions.filter(x=>x.process_id===r.id&&x.id!==item.id&&x.status!=='resolved');
+  if(!remaining.length){await ops.save({...r,exceptionReason:''},'Exception reason cleared after resolution');}
+  await refresh();onNotice('Resolution saved. Process stage is unchanged until you explicitly move it.');
  }
  async function onQueue(r:any,type:JobType){
   if(!authenticated){onNotice('Automation jobs require an authenticated cloud account. Local workspace cannot run or queue jobs.');return}
@@ -137,7 +152,7 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,results,stats,jobs,events,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>setDonePickOpen(true),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
+ const p={records,results,stats,jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>setDonePickOpen(true),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
