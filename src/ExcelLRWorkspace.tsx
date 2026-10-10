@@ -1,39 +1,59 @@
-import {useState} from 'react';
-import {Upload,FileSpreadsheet,Search,FileText,Clock3,AlertCircle,ExternalLink} from 'lucide-react';
+import {useMemo,useState} from 'react';
+import {Upload,FileSpreadsheet,Search,FileText,Clock3,AlertCircle,ExternalLink,CheckCircle2} from 'lucide-react';
 import {cloud} from './cloud';
-export default function ExcelLRWorkspace({records}:{records:any[]}) {
-  const [file,setFile]=useState<File|null>(null);
-  const [message,setMessage]=useState('Waiting for PDF upload');
-  const [busy,setBusy]=useState(false);
-  const [lr,setLr]=useState('');
-  const [matches,setMatches]=useState<any[]>([]);
-  const [history,setHistory]=useState<{action:string,status:string,detail:string}[]>([]);
-  function add(action:string,detail:string,status='Info'){setMessage(detail);setHistory(v=>[{action,status,detail},...v].slice(0,12))}
-  async function find(){
-    if(!file){add('Find LR','Upload a courier PDF first.');return}
-    setBusy(true);add('Find LR','Reading LR from courier bill...','Running');
-    try {
-      const fields=await cloud.extract(file,'lrDoc');
-      const value=String(fields.lr||'').trim();
-      setLr(value);
-      if(!value){add('Find LR','No LR number detected. Check the PDF or search manually.');return}
-      const found=records.filter(r=>String(r.lr||'').replace(/\W/g,'').toLowerCase()===value.replace(/\W/g,'').toLowerCase());
-      setMatches(found);
-      add('Find LR',found.length?'Matched LR '+value+' to '+found.length+' process(es).':'LR '+value+' extracted but no matching process found.',found.length?'Matched':'Review');
-    }catch(e:any){add('Find LR','Extraction failed: '+(e?.message||'Retry'))}
-    finally{setBusy(false)}
-  }
-  return <section className='el-workspace'>
-    <div className='el-card'><div className='el-title'><h2>Courier Bill & LR Processing</h2><p>Read TCI / VExpress bills and match LR against cloud Data Store.</p></div>
-      <div className='el-actions'><label className='el-upload'><Upload size={19}/>Upload PDF<input type='file' accept='.pdf' onChange={e=>{const f=e.target.files?.[0]||null;setFile(f);setMatches([]);setLr('');if(f)add('PDF selected',f.name,'Selected')}}/></label>
-        <button onClick={()=>add('Generate Excel','Your approved Excel template is needed before output mapping can be completed.')}><FileSpreadsheet size={19}/>Generate Excel</button>
-        <button disabled={busy} onClick={find}><Search size={19}/>{busy?'Reading...':'Find LR'}</button></div>
-      {file&&<div className='el-file'><FileText size={17}/><div><b>{file.name}</b><small>{(file.size/1024).toFixed(1)} KB · Selected locally for extraction</small></div></div>}
-    </div>
-    <div className='el-card el-status'><div className='el-title'><h2>Processing Status</h2><p>Extraction and matching results.</p></div>
-      <div className='el-state'><Clock3 size={22}/><div><b>{message}</b><span>{lr?'Extracted LR: '+lr:'No LR extracted yet'}</span></div><strong>{busy?'Reading':'Ready'}</strong></div>
-      {matches.map(r=><div className='el-event' key={r.id}><b>{r.process}</b><span>{r.party||'—'} · {r.lr}</span>{(r.documents||[]).filter((d:any)=>d.kind==='lrDoc').map((d:any)=><button key={d.id} onClick={()=>cloud.open(r.id,d.id)}><ExternalLink size={14}/>Open LR</button>)}</div>)}
-      <div className='el-history'><h3>Activity</h3>{history.length?history.map((h,i)=><div className='el-event' key={i}><AlertCircle size={16}/><b>{h.action}</b><span>{h.detail}</span><em>{h.status}</em></div>):<p>No activity yet.</p>}</div>
-    </div>
-  </section>
+import {extractLRs,matchLRs} from './lrReader';
+import {downloadLRWorkbook} from './excelReport';
+
+export default function ExcelLRWorkspace({records}:{records:any[]}){
+ const [file,setFile]=useState<File|null>(null);
+ const [manual,setManual]=useState('');
+ const [candidates,setCandidates]=useState<string[]>([]);
+ const [message,setMessage]=useState('Choose a courier PDF, or enter known LR numbers.');
+ const [busy,setBusy]=useState(false);
+ const [history,setHistory]=useState<{action:string;detail:string;status:string}[]>([]);
+ const all=useMemo(()=>[...new Set([...candidates,...manual.split(/[,\n;]+/).map(x=>x.trim()).filter(Boolean)])],[candidates,manual]);
+ const matches=useMemo(()=>matchLRs(all,records),[all,records]);
+ const matched=matches.filter(x=>x.status==='matched').length;
+ const unresolved=matches.filter(x=>x.status!=='matched').length;
+ function log(action:string,detail:string,status='Info'){setMessage(detail);setHistory(x=>[{action,detail,status},...x].slice(0,14))}
+ async function scan(){
+  if(!file){log('Read LR','Upload courier PDF first, or enter LR numbers manually.','Review');return}
+  setBusy(true);log('Extract LR','Reading courier document. No processes are updated automatically.','Running');
+  try{
+   const result=await cloud.extractLRs(file);
+   setCandidates(result.candidates);
+   log('Extract LR',result.candidates.length?result.candidates.length+' distinct LR numbers found ('+result.method+'). Verify all matches.':'No labelled LR found. Add numbers manually or improve the PDF scan.',result.candidates.length?'Review':'Missing');
+  }catch(e:any){log('Read LR',e?.message||'OCR failed. Try a clearer PDF.','Failed')}
+  finally{setBusy(false)}
+ }
+ async function exportExcel(){
+  setBusy(true);
+  try{await downloadLRWorkbook(matches,records,file?.name||'Manual LR list');log('Generate Excel','Downloaded PJS LR Review workbook with Summary, LR Review and Process Register.','Complete')}
+  catch(e:any){log('Generate Excel','Excel generation failed: '+(e?.message||'Please try again.'),'Failed')}
+  finally{setBusy(false)}
+ }
+ return <section className='el-workspace'>
+  <div className='el-card'>
+   <div className='el-title'><h2>Courier Bill & LR Finder</h2><p>Review LR numbers and export a working Excel report. This does not submit anything to carriers.</p></div>
+   <div className='el-actions'>
+    <label className='el-upload'><Upload size={19}/> Upload Courier PDF<input type='file' accept='.pdf,.png,.jpg,.jpeg' onChange={e=>{const f=e.target.files?.[0]||null;setFile(f);setCandidates([]);if(f)log('File selected',f.name,'Selected');e.target.value=''}}/></label>
+    <button disabled={busy||!file} onClick={()=>void scan()}><Search size={19}/>{busy?'Reading…':'Extract LRs'}</button>
+    <button disabled={busy||!matches.length} onClick={()=>void exportExcel()}><FileSpreadsheet size={19}/> Generate Excel</button>
+   </div>
+   {file&&<div className='el-file'><FileText size={17}/><div><b>{file.name}</b><small>{(file.size/1024).toFixed(1)} KB · Local OCR extraction</small></div></div>}
+   <label className='ux-field' style={{display:'block',padding:'16px 18px'}}>Additional LR numbers (one per line, optional)
+    <textarea rows={3} value={manual} onChange={e=>setManual(e.target.value)} placeholder={'LR-12345\nLR-67890'} style={{display:'block',width:'100%',marginTop:8,border:'1px solid #dbe5f2',borderRadius:9,padding:12}}/>
+   </label>
+  </div>
+  <div className='el-card el-status'>
+   <div className='el-title'><h2>Match review</h2><p>{matched} exact match(es) · {unresolved} unmatched/ambiguous. No automatic process reassignment.</p></div>
+   <div className='el-state'><Clock3 size={22}/><div><b>{message}</b><span>{matches.length} LR number(s) under review</span></div><strong>{busy?'Working':'Ready'}</strong></div>
+   {matches.map(x=><div className='el-event' key={x.normalized}>
+    {x.status==='matched'?<CheckCircle2 size={17} color='#198963'/>:<AlertCircle size={17} color='#bc723d'/>}
+    <b>{x.lr}</b><span>{x.status==='matched'?'Process '+x.matches[0].process+' · '+x.matches[0].party:x.status==='ambiguous'?'Multiple processes use this LR — review manually':'No matching cloud process'}</span>
+    {x.status==='matched'&&(x.matches[0].documents||[]).filter((d:any)=>d.kind==='lrDoc').map((d:any)=><button key={d.id} onClick={()=>void cloud.open(x.matches[0].id,d.id)}><ExternalLink size={14}/> LR PDF</button>)}
+   </div>)}
+   <div className='el-history'><h3>Recent actions</h3>{history.length?history.map((h,i)=><div className='el-event' key={i}><AlertCircle size={15}/><b>{h.action}</b><span>{h.detail}</span><em>{h.status}</em></div>):<p>No processing started yet.</p>}</div>
+  </div>
+ </section>;
 }
