@@ -166,8 +166,10 @@ export const cloud={
     validFile(file);
     let rows:string[]=[];
     let pdf:any=null;
+    let source:'pdf_text'|'ocr_photo'|'ocr_pdf'='pdf_text';
+    let ocrConfidence:number|null=null;
     if(file.type==='application/pdf'){const result=await pdfRows(file);pdf=result.pdf;rows=result.rows}
-    else {const result=await recognize(file,'eng');rows=result.data.text.split(/\r?\n/).filter(Boolean)}
+    else {const result=await recognize(file,'eng');rows=result.data.text.split(/\r?\n/).filter(Boolean);source='ocr_photo';ocrConfidence=Number(result.data.confidence)}
     if(kind==='pickDoc'){
       const fields:PickSlipFields={process:'',party:'',so:''};
       const merge=(partial:PickSlipFields)=>{
@@ -188,11 +190,11 @@ export const cloud={
         tryRows([items.map(item=>String(item.str||'')).join(' ')]);
       }
       if(pdf&&(!fields.process||!fields.party||!fields.so)){
-        try{tryRows(await pdfOcr(pdf))}catch(e:any){
+        try{const scan=await pdfOcr(pdf);tryRows(scan);source='ocr_pdf'}catch(e:any){
           if(/conflicting/i.test(String(e?.message||'')))throw e;
         }
       }
-      if(fields.process&&fields.party&&fields.so)return fields;
+      if(fields.process&&fields.party&&fields.so)return {...fields,_readMethod:source,_ocrConfidence:ocrConfidence,_reviewRecommended:source!=='pdf_text'||(ocrConfidence!==null&&ocrConfidence<80)};
       const missing=[!fields.process?'Process No.':'',!fields.party?'Party Name':'',!fields.so?'SO No.':''].filter(Boolean).join(', ');
       throw new PickSlipParseError('Could not read '+missing+' from this PDF. Check the missing fields before saving.',fields);
     }
