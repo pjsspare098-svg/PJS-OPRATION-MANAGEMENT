@@ -13,7 +13,7 @@ function demoRecords():any[]{try{return JSON.parse(localStorage.getItem(LOCAL_KE
 function storeDemo(records:any[]){localStorage.setItem(LOCAL_KEY,JSON.stringify(records))}
 function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)&&!(/\.eml$/i.test(file.name)&&(file.type===''||file.type==='message/rfc822'||file.type==='application/octet-stream')))throw Error('Use PDF, JPG, PNG or Outlook .eml')}
 async function identity(){if(!supabase)throw Error('Independent cloud backend is not configured');const {data,error}=await supabase.auth.getUser();if(error||!data.user)throw Error('Sign in before accessing cloud files');return data.user}
-function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,owner_id:r.user_id,team_id:r.team_id||null,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
+function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,owner_id:r.user_id,team_id:r.team_id||null,deleted_at:r.deleted_at||null,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
 function headerRows(items:any[]):string[]{
   const words=items.filter(i=>typeof i.str==='string'&&i.str.trim()&&Array.isArray(i.transform)).map(i=>({x:Number(i.transform[4]),y:Number(i.transform[5]),str:String(i.str).trim()})).sort((a,b)=>b.y-a.y||a.x-b.x);
   const rows:{y:number;parts:typeof words}[]=[];
@@ -72,16 +72,32 @@ export const cloud={
   async list():Promise<any[]>{
     if(!supabase)return demoRecords();
     await identity();
-    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').order('created_at',{ascending:false}).limit(1000);
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').is('deleted_at',null).order('created_at',{ascending:false}).limit(1000);
     if(error)throw error;
     return (data||[]).map(mapped);
+  },
+  async listTrashed():Promise<any[]>{
+    if(!supabase)return [];
+    const user=await identity();
+    const {data,error}=await supabase.from('oms_processes')
+      .select('*,oms_documents(id,kind,name,path,created_at)')
+      .eq('user_id',user.id).not('deleted_at','is',null).order('deleted_at',{ascending:false}).limit(200);
+    if(error)throw error;
+    return (data||[]).map(mapped);
+  },
+  async setTrash(record:any,restore=false):Promise<void>{
+    if(!supabase)throw Error('Deletion requires authenticated cloud storage.');
+    const user=await identity();
+    if(record.owner_id!==user.id||record.team_id)throw Error('Only your personal, individually owned processes can be deleted. Shared team processes cannot be deleted here.');
+    const {error}=await supabase.rpc('oms_set_process_trash',{p_process:record.id,p_number:record.process,p_restore:restore});
+    if(error)throw error;
   },
   async findByProcess(processNo:string):Promise<any|null>{
     const searched=processNo.trim();
     if(!searched)return null;
     if(!supabase)return demoRecords().find(r=>String(r.process).trim()===searched)||null;
     await identity();
-    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').eq('process_no',searched).limit(2);
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').eq('process_no',searched).is('deleted_at',null).limit(2);
     if(error)throw error;
     if((data||[]).length>1)throw Error('More than one accessible process uses this Process No. Select the correct workspace first.');
     return data?.[0]?mapped(data[0]):null;
@@ -99,21 +115,18 @@ export const cloud={
     const user=await identity();
     const body:any={process_no:process,party_name:String(input.party||'').trim(),sales_order_no:String(input.so||'').trim(),data:{...input,id:undefined,owner_id:undefined,team_id:undefined,documents:undefined,docs:undefined,process:undefined,party:undefined,so:undefined}};
     if(input.id){
-      const {data,error}=await supabase.from('oms_processes').update(body).eq('id',input.id).select().single();
+      const {data,error}=await supabase.from('oms_processes').update(body).eq('id',input.id).is('deleted_at',null).select().single();
       if(error)throw error;return {...input,...mapped(data)};
     }
     const {data,error}=await supabase.from('oms_processes').insert({...body,user_id:user.id,team_id:input.team_id||null}).select().single();
     if(error)throw error;return mapped(data);
   },
   async remove(id:string){
-    if(!supabase){storeDemo(demoRecords().filter(r=>r.id!==id));return}
+    if(!supabase)throw Error('Cloud sign-in is required to delete a process.');
     const user=await identity();
-    const {data:target,error:targetError}=await supabase.from('oms_processes').select('team_id,user_id').eq('id',id).single();
-    if(targetError||!target||target.team_id||target.user_id!==user.id)throw Error('Shared or non-owned records cannot be deleted here.');
-    const {data:docs,error:listError}=await supabase.from('oms_documents').select('path').eq('process_id',id).eq('user_id',user.id);
-    if(listError)throw listError;
-    if(docs?.length){const {error:storageError}=await supabase.storage.from('oms-documents').remove(docs.map(d=>d.path));if(storageError)throw storageError}
-    const {error}=await supabase.from('oms_processes').delete().eq('id',id).eq('user_id',user.id);if(error)throw error;
+    const {data,error}=await supabase.from('oms_processes').select('id,process_no,team_id,user_id').eq('id',id).single();
+    if(error||!data)throw Error('Process not found.');
+    await cloud.setTrash({id:data.id,process:data.process_no,team_id:data.team_id,owner_id:data.user_id},false);
   },
   async upload(id:string,kind:string,file:File,verification?:{verifiedProcessNo?:string;extractedProcessNo?:string}){
     validFile(file);
