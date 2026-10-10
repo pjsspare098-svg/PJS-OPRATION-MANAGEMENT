@@ -92,15 +92,20 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
     file,verification:'manual_review',ocrProcessNo:null,confidence:null
    }));
    const result=await donePickAlbums.upload(album,files);
-   await reload();
-   setSelected(album.id);
-   // Show newly saved images immediately without a second click on View Photos.
-   const fresh=await donePickAlbums.list();
-   const latest=fresh.find(a=>a.id===album.id);
-   if(latest)await fetchPreviews(latest);
+   // Uploads are already committed. Never ask the user to retry an entire
+   // successful batch just because refreshing the gallery happens to fail.
    closeReview();
+   setSelected(album.id);
+   try{
+    const fresh=await donePickAlbums.list();
+    setAlbums(fresh);
+    const latest=fresh.find(a=>a.id===album.id);
+    if(latest)await fetchPreviews(latest);
+   }catch(e:any){
+    setError('Photos were saved, but the gallery could not refresh. Tap Refresh; do not upload the same batch again. '+String(e?.message||''));
+   }
    if(result.failures.length){
-    setError(result.successes+' photo(s) saved to Process '+process+'. '+result.failures.length+' failed: '+result.failures.slice(0,3).join('; ')+'. Select failed photos again to retry.');
+    setError(result.successes+' photo(s) saved to Process '+process+'. '+result.failures.length+' failed: '+result.failures.slice(0,3).join('; ')+'. Only select failed photos again to retry.');
    }else{
     setNotice(result.successes+' photo(s) saved to Process '+process+'.');
    }
