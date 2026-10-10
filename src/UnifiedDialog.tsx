@@ -1,4 +1,4 @@
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,AlertTriangle,Trash2} from 'lucide-react';
 import {cloud} from './cloud';
 export const blankProcess=()=>({process:'',party:'',so:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',clientEmail:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
@@ -14,6 +14,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  const [sourcePending,setSourcePending]=useState(Boolean(sourceFile));
  const [deleteOpen,setDeleteOpen]=useState(false);
  const [deleteInput,setDeleteInput]=useState('');
+ useEffect(()=>{if(deleteOpen)scrollRef.current?.scrollTo({top:scrollRef.current.scrollHeight,behavior:'smooth'})},[deleteOpen]);
  const [expanded,setExpanded]=useState(Boolean(record?.id));
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [scanBusy,setScanBusy]=useState(''),[scanInfo,setScanInfo]=useState('');
@@ -135,6 +136,6 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  </div>}
  {demo&&<div className='ux-preview-warning'>No-login local mode: only process fields are saved on this browser. Original PDFs and other document files are not stored.</div>}
  {error&&<div className='ux-auth-error' role='alert'>{error}</div>}
- </div><footer className='ux-drawer-footer'>{canDelete&&<button className='ux-master-delete-button' disabled={busy} onClick={()=>{setDeleteOpen(true);setDeleteInput('');scrollRef.current?.scrollTo({top:scrollRef.current.scrollHeight,behavior:'smooth'})}}><Trash2 size={15}/> Delete Process</button>}<button className='ux-secondary' onClick={onClose}>Cancel</button>{Boolean(draft.id)&&draft.stage!=='Email to Client'&&<button className='ux-secondary ux-email-move' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit(true)}>Save &amp; Move to Email</button>}<button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
+ </div><footer className='ux-drawer-footer'>{canDelete&&<button className='ux-master-delete-button' disabled={busy} onClick={()=>{setDeleteOpen(true);setDeleteInput('')}}><Trash2 size={15}/> Delete Process</button>}<button className='ux-secondary' onClick={onClose}>Cancel</button>{Boolean(draft.id)&&draft.stage!=='Email to Client'&&<button className='ux-secondary ux-email-move' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit(true)}>Save &amp; Move to Email</button>}<button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
  </section></div>
 }
