@@ -162,7 +162,7 @@ export default function DonePickListPage({records,authenticated,onLegacyOCR}:{re
  const filtered=useMemo(()=>albums.filter(album=>album.process_no.includes(search.trim())),[albums,search]);
  const eligible=review?.items.filter(verified).length||0;
  return <>
-  <Heading eyebrow='DONE PICK LIST · PHOTO RECORDS' title='Done Pick List' description='Type a Process No. or read it from a photo. Every uploaded photo is checked against the selected Process No. before saving.' actions={<><Button onClick={onLegacyOCR}><Camera size={16}/> OCR-match master process</Button><Button onClick={()=>void reload()}><RefreshCw size={16}/> Refresh</Button><Button variant='primary' onClick={()=>setAdding(!adding)}><Plus size={16}/> Add Process No.</Button></>}/>
+  <Heading eyebrow='DONE PICK LIST · PHOTO RECORDS' title='Done Pick List' description='Type a Process No. or read it from a photo. Every uploaded photo is checked against the selected Process No. before saving.' actions={<><Button onClick={onLegacyOCR}><Camera size={16}/> Legacy master-process OCR</Button><Button onClick={()=>void reload()}><RefreshCw size={16}/> Refresh</Button><Button variant='primary' onClick={()=>setAdding(!adding)}><Plus size={16}/> Add Process No.</Button></>}/>
   <div className='dpa-status'><ShieldCheck size={17}/>{authenticated?'Every photo is OCR checked; a detected wrong Process No. is blocked. If OCR cannot read it, manual verification is required.':'Sign in to cloud to create private entries and store photos. Local preview cannot retain photos.'}</div>
   {error&&<div className='dpa-message error' role='alert'><AlertCircle size={16}/>{error}</div>}
   {notice&&<div className='dpa-message success' role='status'><CheckCircle2 size={16}/>{notice}</div>}
@@ -181,6 +181,9 @@ export default function DonePickListPage({records,authenticated,onLegacyOCR}:{re
       <div className='dpa-actions'>
        <label className={'ux-button primary dpa-upload '+(scanning||uploading||busy?'disabled':'')}><Upload size={15}/>{scanning===album.id?'OCR reading…':uploading===album.id?'Saving…':'Add photos'}
         <input type='file' accept='image/jpeg,image/png,image/webp' multiple disabled={!authenticated||Boolean(scanning)||Boolean(uploading)||busy} onChange={e=>{const files=e.target.files;void scanPhotos(album,files);e.target.value=''}}/>
+       </label>
+       <label className={'ux-button secondary dpa-upload '+(scanning||uploading||busy?'disabled':'')}><Camera size={15}/> Take photo
+        <input type='file' accept='image/*' capture='environment' disabled={!authenticated||Boolean(scanning)||Boolean(uploading)||busy} onChange={e=>{const files=e.target.files;void scanPhotos(album,files);e.target.value=''}}/>
        </label>
        <Button onClick={()=>void loadPreview(album)}>{selected===album.id?'Hide photos':'View photos'} ({album.photos.length})</Button>
        <button type='button' className='dpa-delete-btn' disabled={busy||Boolean(uploading)||Boolean(scanning)} onClick={()=>{setDeleteTarget(album);setDeleteConfirm('')}}><Trash2 size={14}/> Delete Process</button>
