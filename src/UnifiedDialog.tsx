@@ -71,9 +71,42 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,onC
  {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}</div></section>
  <button className='ux-expand-button' onClick={()=>setExpanded(!expanded)}><Settings2 size={17}/>{expanded?'Hide additional fields':'Add invoice, carrier and dispatch details'}<ChevronDown size={17}/></button>
  {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
- <section className='ux-drawer-section'><div className='ux-section-title'><b><FileText size={15}/></b><strong>Private attachments</strong></div><div className='ux-upload-grid'>{documentKinds.map(([kind,label])=><label className='ux-upload' key={kind}><Upload size={17}/><strong>{label}</strong><small>{files[kind]?.name||(kind==='pickDoc'&&sourcePending&&sourceFile?.name)||draft.documents?.filter((d:any)=>d.kind===kind).map((d:any)=>d.name).join(', ')||'Choose file'}</small><input type='file' accept={kind==='emailDoc'?'.eml,message/rfc822':'.pdf,.png,.jpg,.jpeg'} onChange={e=>choose(kind,e.target.files?.[0])}/></label>)}</div>{Boolean(draft.id)&&<div className='ux-done-attachments'><b>Done Pick List photos</b>{(draft.documents||[]).filter((d:any)=>d.kind==='donePickDoc').length?(draft.documents||[]).filter((d:any)=>d.kind==='donePickDoc').map((d:any)=><button key={d.id} disabled={demo} onClick={()=>{void cloud.open(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not open photo.'))}}><FileCheck2 size={15}/><span>{d.name||'Done Pick List'}</span><ExternalLink size={14}/></button>):<small>Not yet uploaded. Use Data Store → Upload Done Pick List to OCR-match and attach a photo.</small>}</div>}<p className='ux-footnote'>Files up to 5 MB. Done Pick List images are attached only after Process No. matching in Data Store.</p></section>
+ <section className='ux-drawer-section'>
+  <div className='ux-section-title'><b><FileText size={15}/></b><strong>Private attachments — open, download or extract details</strong></div>
+  {scanInfo&&<div className='ux-import-warning' role='status'><FileText size={17}/><span>{scanInfo}</span></div>}
+  {mailSuggestions.length>0&&<div className='ux-email-suggestions'>
+   <strong>Choose the customer's email address from the uploaded conversation:</strong>
+   <div>{mailSuggestions.map(address=><button key={address} type='button' onClick={()=>{setDraft((v:any)=>({...v,clientEmail:address}));setScanInfo('Selected client email '+address+'. Confirm before saving.')}}>{address}</button>)}</div>
+  </div>}
+  <div className='ux-upload-grid'>{documentKinds.map(([kind,label])=>{
+   const existing=(draft.documents||[]).filter((d:any)=>d.kind===kind);
+   const canExtract=['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc'].includes(kind);
+   return <div className='ux-attachment-item' key={kind}>
+    <label className='ux-upload'><Upload size={17}/><strong>{label}</strong>
+     <small>{files[kind]?.name||(kind==='pickDoc'&&sourcePending&&sourceFile?.name)||(existing.length?existing.length+' saved':'Choose file')}</small>
+     <input type='file' disabled={busy||Boolean(scanBusy)} accept={kind==='emailDoc'?'.eml,message/rfc822':'.pdf,.png,.jpg,.jpeg'} onChange={e=>{choose(kind,e.target.files?.[0]);e.target.value=''}}/>
+    </label>
+    {scanBusy===kind&&<small className='ux-scanning'>Reading the document…</small>}
+    {existing.map((d:any)=><div key={d.id} className='ux-saved-file'>
+     <span title={d.name}>{d.name}</span>
+     <div>
+      <button type='button' disabled={demo} onClick={()=>void cloud.open(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not open file.'))}><ExternalLink size={13}/> Open</button>
+      <button type='button' disabled={demo} onClick={()=>void cloud.download(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not download file.'))}>Download</button>
+      {canExtract&&<button type='button' disabled={demo||Boolean(scanBusy)} onClick={()=>void scan(kind,undefined,d)}>Extract</button>}
+     </div>
+    </div>)}
+   </div>;
+  })}</div>
+  {Boolean(draft.id)&&<div className='ux-done-attachments'><b>Previously attached Done Pick List photos</b>{(draft.documents||[]).filter((d:any)=>d.kind==='donePickDoc').length?(draft.documents||[]).filter((d:any)=>d.kind==='donePickDoc').map((d:any)=><div className='ux-saved-file' key={d.id}>
+    <span>{d.name||'Done Pick List'}</span><div>
+     <button type='button' disabled={demo} onClick={()=>void cloud.open(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not open photo.'))}>Open</button>
+     <button type='button' disabled={demo} onClick={()=>void cloud.download(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not download photo.'))}>Download</button>
+    </div>
+   </div>):<small>Not yet uploaded. Open the Done Pick List page to add multiple photos under a Process No.</small>}</div>}
+  <p className='ux-footnote'>Files up to 5 MB. Invoice, E-Invoice and E-Way Bill are optional for moving to Email. They are checked separately for DataDoc Bill Submit.</p>
+ </section>
  {demo&&<div className='ux-preview-warning'>No-login local mode: only process fields are saved on this browser. Original PDFs and other document files are not stored.</div>}
  {error&&<div className='ux-auth-error' role='alert'>{error}</div>}
- </div><footer className='ux-drawer-footer'><button className='ux-secondary' onClick={onClose}>Cancel</button><button className='ux-primary' disabled={busy} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
+ </div><footer className='ux-drawer-footer'><button className='ux-secondary' onClick={onClose}>Cancel</button>{Boolean(draft.id)&&draft.stage!=='Email to Client'&&<button className='ux-secondary ux-email-move' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit(true)}>Save &amp; Move to Email</button>}<button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
  </section></div>
 }
