@@ -3,10 +3,12 @@ import {AlertCircle,Camera,CheckCircle2,Download,ExternalLink,FileImage,FilePlus
 import {Button,Empty,Heading,Panel} from './UnifiedKit';
 import {donePickAlbums,validateAlbumProcess,validatePhoto,type PickAlbum,type AlbumPhoto,type VerifiedAlbumUpload} from './donePickAlbums';
 import {cloud} from './cloud';
+import BatchCamera from './BatchCamera';
 import './done-pick-albums.css';
 
 type PendingPhoto={id:string;file:File;preview:string};
-type Review={album:PickAlbum;items:PendingPhoto[]};
+type Review={processNo:string;items:PendingPhoto[]};
+type CameraSession={album:PickAlbum|null};
 export default function DonePickListPage({records,authenticated}:{records:any[];authenticated:boolean}){
  const [albums,setAlbums]=useState<PickAlbum[]>([]);
  const [trash,setTrash]=useState<PickAlbum[]>([]);
@@ -21,6 +23,7 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
  const [selected,setSelected]=useState('');
  const [previewUrls,setPreviewUrls]=useState<Record<string,string>>({});
  const [review,setReview]=useState<Review|null>(null);
+ const [cameraSession,setCameraSession]=useState<CameraSession|null>(null);
  const [confirmed,setConfirmed]=useState(false);
  const [deleteTarget,setDeleteTarget]=useState<PickAlbum|null>(null);
  const [deleteConfirm,setDeleteConfirm]=useState('');
@@ -54,12 +57,11 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
   }catch(e:any){setError(e.message||'Could not add Process No.')}
   finally{setBusy(false)}
  }
- function choosePhotos(album:PickAlbum,list:FileList|null){
-  if(!list?.length)return;
+ function prepareBatch(files:File[],album:PickAlbum|null){
+  if(!files.length)return;
   setError('');setNotice('');
   try{
-   const files=Array.from(list);
-   if(files.length>25)throw Error('Choose no more than 25 photos at a time.');
+   if(files.length>25)throw Error('Choose no more than 25 photos in one batch.');
    files.forEach(validatePhoto);
    if(review)closeReview();
    const items=files.map(file=>{
@@ -68,14 +70,24 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
     return {id:crypto.randomUUID(),file,preview};
    });
    setConfirmed(false);
-   setReview({album,items});
+   setReview({processNo:album?.process_no||'',items});
   }catch(e:any){setError(e?.message||'Could not select photos.')}
+ }
+ function choosePhotos(album:PickAlbum,list:FileList|null){
+  if(list?.length)prepareBatch(Array.from(list),album);
  }
  async function uploadReviewed(){
   if(!review||!confirmed||busy||uploading)return;
-  const {album,items}=review;
-  setUploading(album.id);setError('');setNotice('');
+  const {items}=review;
+  let process:string;
+  try{process=validateAlbumProcess(review.processNo)}
+  catch(e:any){setError('Enter the correct Process No. for these photos.');return}
+  setUploading(process);setError('');setNotice('');
   try{
+   // Create a standalone album only at the final confirmed upload step.
+   // Existing Process Nos. are reused and their original photos are preserved.
+   let album=albums.find(a=>a.process_no===process);
+   if(!album)album=await donePickAlbums.add(process);
    const files:VerifiedAlbumUpload[]=items.map(({file})=>({
     file,verification:'manual_review',ocrProcessNo:null,confidence:null
    }));
@@ -84,12 +96,13 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
    setSelected(album.id);
    closeReview();
    if(result.failures.length){
-    setError(result.successes+' photo(s) saved to Process '+album.process_no+'. '+result.failures.length+' failed: '+result.failures.slice(0,3).join('; ')+'. Select failed photos again to retry.');
+    setError(result.successes+' photo(s) saved to Process '+process+'. '+result.failures.length+' failed: '+result.failures.slice(0,3).join('; ')+'. Select failed photos again to retry.');
    }else{
-    setNotice(result.successes+' photo(s) saved to Process '+album.process_no+'.');
+    setNotice(result.successes+' photo(s) saved to Process '+process+'.');
    }
-  }catch(e:any){setError(e?.message||'Photo upload failed. Please retry.')}
-  finally{setUploading('')}
+  }catch(e:any){
+   setError(e?.message||'Photo upload failed. You can retry without taking new photos.');
+  }finally{setUploading('')}
  }
  async function archive(){
   if(!deleteTarget||deleteConfirm!==deleteTarget.process_no)return;
@@ -126,8 +139,8 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
  }
  const filtered=useMemo(()=>albums.filter(album=>album.process_no.includes(search.trim())),[albums,search]);
  return <>
-  <Heading eyebrow='DONE PICK LIST · PHOTO RECORDS' title='Done Pick List' description='Enter the Process No. yourself. Save multiple photos under that number without waiting for document scanning.' actions={<><Button onClick={()=>void reload()}><RefreshCw size={16}/> Refresh</Button><Button variant='primary' onClick={()=>setAdding(!adding)}><Plus size={16}/> Add Process No.</Button></>}/>
-  <div className='dpa-status'><ShieldCheck size={17}/>{authenticated?'No automatic photo reading. Choose the correct Process No., select photos, confirm their destination, and save them privately.':'Sign in to cloud to create private entries and store photos. Local preview cannot retain photos.'}</div>
+  <Heading eyebrow='DONE PICK LIST · PHOTO RECORDS' title='Done Pick List' description='Open the camera once, take as many photos as needed, then tap Done and choose the Process No. for the whole batch.' actions={<><Button variant='primary' disabled={!authenticated||Boolean(uploading)} onClick={()=>setCameraSession({album:null})}><Camera size={16}/> Open camera</Button><Button onClick={()=>void reload()}><RefreshCw size={16}/> Refresh</Button><Button variant='primary' onClick={()=>setAdding(!adding)}><Plus size={16}/> Add Process No.</Button></>}/>
+  <div className='dpa-status'><ShieldCheck size={17}/>{authenticated?'Keep taking photos without leaving the camera. Thumbnails appear as you shoot; when done, enter the destination Process No. and upload privately.':'Sign in to cloud to create private entries and store photos. Local preview cannot retain photos.'}</div>
   {error&&<div className='dpa-message error' role='alert'><AlertCircle size={16}/>{error}</div>}
   {notice&&<div className='dpa-message success' role='status'><CheckCircle2 size={16}/>{notice}</div>}
   {adding&&<Panel title='Add a Done Pick List Process No.' subtitle='Type the Process No. printed on the document. No invoice, Party Name, or other details are required.'>
@@ -136,7 +149,7 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
     <Button variant='primary' disabled={!authenticated||busy||processNo.length<5} onClick={()=>void addAlbum()}><FilePlus2 size={16}/> {busy?'Creating…':'Create entry'}</Button>
    </div>
   </Panel>}
-  <Panel title={'Saved Done Pick List entries ('+albums.length+')'} subtitle='One entry per Process No. · multiple photos · open or download later.' actions={<div className='dpa-search'><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder='Search Process No.'/></div>}>
+  <Panel title={'Saved Done Pick List entries ('+albums.length+')'} subtitle='Take a full batch in one camera session. Photos can also be chosen from your gallery, with no OCR delay.' actions={<div className='dpa-search'><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder='Search Process No.'/></div>}>
    {!filtered.length?<Empty icon={Images} title={search?'No matching Process No.':'No Done Pick List entries yet'} help='Click Add Process No. to create an entry, then upload photos.'/>:
     <div className='dpa-albums'>{filtered.map(album=><article key={album.id} className='dpa-album'>
      <div className='dpa-album-bar'>
@@ -145,9 +158,7 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
        <label className={'ux-button primary dpa-upload '+(uploading||busy?'disabled':'')}><Upload size={15}/>{uploading===album.id?'Saving…':'Add photos'}
         <input type='file' accept='image/jpeg,image/png,image/webp' multiple disabled={!authenticated||Boolean(uploading)||busy} onChange={e=>{choosePhotos(album,e.target.files);e.target.value=''}}/>
        </label>
-       <label className={'ux-button secondary dpa-upload '+(uploading||busy?'disabled':'')}><Camera size={15}/> Take photo
-        <input type='file' accept='image/*' capture='environment' disabled={!authenticated||Boolean(uploading)||busy} onChange={e=>{choosePhotos(album,e.target.files);e.target.value=''}}/>
-       </label>
+       <Button disabled={!authenticated||Boolean(uploading)||busy} onClick={()=>setCameraSession({album})}><Camera size={15}/> Take multiple photos</Button>
        <Button onClick={()=>void loadPreview(album)}>{selected===album.id?'Hide photos':'View photos'} ({album.photos.length})</Button>
        <button type='button' className='dpa-delete-btn' disabled={busy||Boolean(uploading)} onClick={()=>{setDeleteTarget(album);setDeleteConfirm('')}}><Trash2 size={14}/> Delete Process</button>
       </div>
@@ -168,20 +179,32 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
   {historical.length>0&&<Panel title={'Previously uploaded Done Pick Lists ('+historical.length+')'} subtitle='Photos attached directly to master processes remain accessible. No existing documents were changed.'>
     <div className='dpa-history'>{historical.map(({record,doc})=><div key={doc.id}><strong>Process {record.process}</strong><span>{doc.name}</span><Button onClick={()=>void cloud.open(record.id,doc.id).catch(e=>setError(e.message||'Could not open photo'))}><ExternalLink size={14}/> Open</Button><Button onClick={()=>void cloud.download(record.id,doc.id).catch(e=>setError(e.message||'Could not download photo'))}><Download size={14}/> Download</Button></div>)}</div>
   </Panel>}
+  {cameraSession&&<BatchCamera onClose={()=>setCameraSession(null)} onDone={files=>{
+   const album=cameraSession.album;
+   setCameraSession(null);
+   prepareBatch(files,album);
+  }}/>}
   {review&&<div className='dpa-screen' role='presentation'>
    <section className='dpa-review-dialog' role='dialog' aria-modal='true' aria-label='Confirm photo destination'>
-    <header><div><span className='ux-kicker dark'>PHOTO UPLOAD</span><h2>Save photos to Process {review.album.process_no}</h2><p>Review the selected photos and confirm the Process No. before uploading.</p></div><button type='button' aria-label='Close review' disabled={Boolean(uploading)} onClick={closeReview}><X size={20}/></button></header>
+    <header><div><span className='ux-kicker dark'>READY TO UPLOAD</span><h2>{review.items.length} Done Pick List photos</h2><p>Your camera batch is ready. Enter the Process No. to attach every photo to that entry.</p></div><button type='button' aria-label='Close review' disabled={Boolean(uploading)} onClick={closeReview}><X size={20}/></button></header>
     <div className='dpa-review-list'>
-     {review.items.map(item=><article key={item.id} className='dpa-review-item'>
-      <img src={item.preview} alt={item.file.name}/>
-      <div className='dpa-review-description'><strong>{item.file.name}</strong><p>{(item.file.size/1024/1024).toFixed(2)} MB · Ready for upload</p></div>
-     </article>)}
+     <label className='ux-field dpa-destination-label'>Which Process No. do these photos belong to?
+      <input value={review.processNo} inputMode='numeric' maxLength={9} placeholder='Enter Process No., e.g. 295845'
+        disabled={Boolean(uploading)} onChange={e=>{setReview(old=>old?{...old,processNo:e.target.value.replace(/[^0-9]/g,'')}:old);setConfirmed(false);setError('')}}/>
+     </label>
+     {review.processNo.length>=5&&<div className='dpa-review-target'>
+       {albums.some(a=>a.process_no===review.processNo)?'Adding photos to your existing Process '+review.processNo:
+        'A new Done Pick List entry will be created for Process '+review.processNo+' when you upload.'}
+     </div>}
+     <div className='dpa-review-thumbnails'>
+      {review.items.map((item,i)=><div key={item.id} className='dpa-review-tile'><img src={item.preview} alt={'Photo '+(i+1)}/><span>{i+1}</span></div>)}
+     </div>
      <label className='dpa-confirm-check dpa-confirm-all'>
-      <input type='checkbox' checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>
-      I confirm all {review.items.length} selected photo(s) belong to Process <strong>{review.album.process_no}</strong>.
+      <input type='checkbox' disabled={Boolean(uploading)||!(/^[0-9]{5,9}$/.test(review.processNo))} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>
+      I confirm all {review.items.length} photos belong to Process <strong>{review.processNo||'—'}</strong>.
      </label>
     </div>
-    <footer><span>{review.items.length} photo(s) selected · No scanning required</span><button type='button' className='ux-secondary' disabled={Boolean(uploading)} onClick={closeReview}>Cancel</button><button type='button' className='ux-primary' disabled={!confirmed||Boolean(uploading)} onClick={()=>void uploadReviewed()}><Upload size={16}/>{uploading?'Saving…':'Upload '+review.items.length+' photos'}</button></footer>
+    <footer><span>{review.items.length} photo(s) ready · No OCR</span><button type='button' className='ux-secondary' disabled={Boolean(uploading)} onClick={closeReview}>Cancel</button><button type='button' className='ux-primary' disabled={!confirmed||Boolean(uploading)||review.processNo.length<5} onClick={()=>void uploadReviewed()}><Upload size={16}/>{uploading?'Uploading…':'Upload '+review.items.length+' photos'}</button></footer>
    </section>
   </div>}
   {deleteTarget&&<div className='dpa-screen' role='presentation'><section className='dpa-confirm-dialog' role='alertdialog' aria-modal='true' aria-label='Delete Process confirmation'>
