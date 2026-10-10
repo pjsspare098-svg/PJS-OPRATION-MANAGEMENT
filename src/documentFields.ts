@@ -61,7 +61,7 @@ export function mailCandidates(text:string):string[]{
 const amountPattern=/\b(?:Grand\s*Total|Net\s*Invoice\s*(?:Amount|Value)|Total\s*Invoice\s*(?:Amount|Value)?|Invoice\s*(?:Amount|Value)|Total\s*Amount(?:\s*Payable)?)\b(?:\s*(?:\(?\s*(?:INR|Rs\.?|₹)\s*\)?))?\s*[:.=-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)(?!\d)/gi;
 const invoicePattern=[
  /\b(?:Tax\s*Invoice|Commercial\s*Invoice|Invoice|Inv\.?)\s*(?:No\.?|Num(?:ber)?\.?|#|:)\s*[:.#-]?\s*([A-Z0-9][A-Z0-9/._-]{0,48})\b/gi,
- /\b(?:Doc(?:ument)?\s*No\.?|Bill\s*No\.?)\s*[:.#-]?\s*([A-Z0-9][A-Z0-9/._-]{0,48})\b/gi
+ /\b(?:Invoice\s*Reference|Inv\.\s*Ref)\s*(?:No\.?|Number|:)\s*[:.#-]?\s*([A-Z0-9][A-Z0-9/._-]{0,48})\b/gi
 ];
 const invoiceDatePattern=/\b(?:Invoice|Inv\.?)\s*(?:Date|Dt\.?)\s*[:.=-]?\s*((?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4}|\d{1,2}[-/. ]+[A-Z]{3,9}[-/. ]+\d{2,4}))\b/gi;
 const soPatterns=[
@@ -91,7 +91,7 @@ function tokenize(t:string,kind:string):DocumentFields{
   const irn=getToken(t,irnPatterns,6,64);if(irn)fields.einvoice=irn;
  }
  if(kind==='ebillDoc'||kind==='invoiceDoc'||kind==='einvoiceDoc'){
-  const rawEway=[...t.matchAll(ewayPatterns)].map(m=>m[1].replace(/[\s-]/g,'')).find(x=>/^\d{10,15}$/.test(x));
+  const rawEway=[...t.matchAll(ewayPatterns[0])].map(m=>m[1].replace(/[\s-]/g,'')).find(x=>/^\d{10,15}$/.test(x));
   if(rawEway)fields.ebill=rawEway;
  }
  if(kind==='lrDoc'){
