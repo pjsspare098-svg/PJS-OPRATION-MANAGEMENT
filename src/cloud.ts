@@ -174,11 +174,16 @@ export const cloud={
       const {pdf,rows}=await pdfRows(file);
       text=rows.join('\n');
       let result=parseDocumentFields(text,kind);
-      if(Object.keys(result.fields).length===0){
+      const expected=kind==='invoiceDoc'?'invoice':kind==='einvoiceDoc'?'einvoice':kind==='ebillDoc'?'ebill':kind==='lrDoc'?'lr':'';
+      if(expected&&!result.fields[expected as keyof typeof result.fields]){
         const recognized=await pdfOcr(pdf);
         text=recognized.join('\n');
-        result=parseDocumentFields(text,kind);
-        result.notes.unshift('Scanned page with OCR; verify the values against the original.');
+        const fallback=parseDocumentFields(text,kind);
+        result={
+          fields:{...fallback.fields,...result.fields},
+          emails:fallback.emails,
+          notes:['Scanned page with OCR; verify the values against the original.',...result.notes,...fallback.notes]
+        };
       }
       return result;
     }
