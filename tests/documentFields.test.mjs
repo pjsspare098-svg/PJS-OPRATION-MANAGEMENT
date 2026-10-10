@@ -6,6 +6,8 @@ assert.equal(invoice.fields.invoiceDate,'2026-10-10');
 assert.equal(invoice.fields.amount,'75000');
 assert.equal(invoice.fields.so,'26271016');
 assert.equal(parseDocumentFields('E-Invoice No. 15498447774','einvoiceDoc').fields.einvoice,'15498447774');
+const ewayDebug=parseDocumentFields('E-Way Bill No. 123456789012','ebillDoc');
+console.log('E-Way Bill parser result:',JSON.stringify(ewayDebug.fields));
 assert.equal(parseDocumentFields('E-Way Bill No. 123456789012','ebillDoc').fields.ebill,'123456789012');
 assert.equal(parseDocumentFields('LR / Docket No: LR-12345','lrDoc').fields.lr,'LR-12345');
 assert.equal(parseDocumentFields('Docket No: 946','lrDoc').fields.lr,'946');
