@@ -2,13 +2,13 @@
 // The parser only proposes values backed by an explicit label in the PDF/email.
 export type DocumentFields={
  invoice?:string; invoiceDate?:string; amount?:string; einvoice?:string; ebill?:string;
- lr?:string; so?:string; transporter?:string; clientEmail?:string;
+ lr?:string; so?:string; po?:string; poDate?:string; payment?:string; transporter?:string; clientEmail?:string;
 };
 export type ScanResult={fields:DocumentFields; emails:string[];notes:string[]};
 export const displayField:Record<keyof DocumentFields,string>={
  invoice:'Invoice No.',invoiceDate:'Invoice Date',amount:'Invoice Amount',
  einvoice:'E-Invoice / IRN',ebill:'E-Way Bill No.',lr:'LR / Docket No.',
- so:'Sales Order No.',transporter:'Transporter',clientEmail:'Client Email'
+ so:'Sales Order No.',po:'PO No.',poDate:'PO Date',payment:'Payment Terms',transporter:'Transporter',clientEmail:'Client Email'
 };
 export const expectedDocumentFields:Record<string,(keyof DocumentFields)[]>={
  invoiceDoc:['invoice','invoiceDate','amount'],
@@ -70,6 +70,44 @@ const soPatterns=[
 const lrPatterns=[
  /\b(?:L\.?\s*R\.?(?:\s*\/\s*Docket)?|Docket|Lorry\s*Receipt|Consignment(?:\s*Note)?|AWB|Tracking)\s*(?:No\.?|Num(?:ber)?\.?|#|ID|:)\s*[:.#-]?\s*([A-Z0-9][A-Z0-9/._-]{0,39})\b/gi
 ];
+// PO fields are distinct from Sales Order and Invoice references.
+const poPatterns=[
+ /\b(?:Customer(?:'s)?\s*(?:P\.?\s*O\.?|Purchase\s*Order)|Purchase\s*Order|Buyer(?:'s)?\s*Order|P\.?\s*O\.?)\s*(?:Number|Num\.?|No\.?|#|:)\s*[:.#=-]?\s*([A-Z0-9][A-Z0-9/._-]{1,49})\b/gi
+];
+const poDatePattern=/\b(?:Customer(?:'s)?\s*(?:P\.?\s*O\.?|Purchase\s*Order)|Purchase\s*Order|Buyer(?:'s)?\s*Order|P\.?\s*O\.?)\s*(?:Date|Dt\.?|Dated)\s*[:.=-]?\s*((?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}[\s/.-]+[A-Z]{3,9}[\s/.-]+\d{2,4}))\b/gi;
+const poNumberAndDatePattern=/\b(?:Purchase\s*Order|P\.?\s*O\.?|Buyer(?:'s)?\s*Order)\s*(?:No\.?|Number|#)\s*[:.=-]?\s*[A-Z0-9/._-]+\s*(?:,|&|and)?\s*(?:Date|Dt\.?|Dated)\s*[:.=-]?\s*((?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}[\s/.-]+[A-Z]{3,9}[\s/.-]+\d{2,4}))\b/gi;
+const paymentLabel=/\b(?:Terms\s*(?:of|for)\s*Payment|Payment\s*Terms|Credit\s*Terms|Payment\s*Conditions?|Terms\s*of\s*Credit)\b\s*[:.=-]?\s*/i;
+const otherHeading=/\b(?:Invoice\s*(?:No|Number|Date|Amount|Value)|Purchase\s*Order|P\.?\s*O\.?\s*(?:No|Number|Date)|Buyer'?s?\s*Order|Sales\s*Order|GSTIN|Grand\s*Total|Taxable\s*Value|Bank\s*(?:Name|Details)|E[\s-]*Way\s*Bill|IRN|Dispatch\s*Date|Place\s*of\s*Supply|Transporter|Total\s*Amount|Customer\s*(?:Name|Address)|Bill\s*To|Ship\s*To)\b/i;
+function paymentTermsFromText(input:string):string{
+ const rows=input.split(/\n+/).map(row=>tidy(row)).filter(Boolean);
+ const acceptable=(raw:string)=>{
+  let t=tidy(raw).replace(/^[:.\-–=\s]+/,'');
+  const stop=otherHeading.exec(t);
+  if(stop)t=t.slice(0,stop.index).trim();
+  t=t.replace(/[;|,:\s]+$/,'').trim();
+  if(!t||t.length>95||t.length<3||otherHeading.test(t))return '';
+  if(/^(?:no|number|date|amount|term|terms|details|days?|value)$/i.test(t))return '';
+  return t;
+ };
+ for(let i=0;i<rows.length;i++){
+  const m=paymentLabel.exec(rows[i]);
+  if(!m)continue;
+  const rest=rows[i].slice(m.index+m[0].length).trim();
+  if(rest){
+   const term=acceptable(rest);
+   if(term)return term;
+  }else if(i+1<rows.length){
+   const term=acceptable(rows[i+1]);
+   if(term)return term;
+  }
+ }
+ const compact=tidy(input).replace(/\n/g,' ');
+ const label=paymentLabel.exec(compact);
+ if(!label)return '';
+ const next=compact.slice(label.index+label[0].length);
+ const known=next.match(/^\s*((?:(?:NET|CREDIT)\s*)?\d{1,3}\s*DAYS?(?:\s*(?:FROM|AFTER)\s*(?:INVOICE|DELIVERY))?|(?:\d{1,3}\s*%\s*)?(?:ADVANCE|PREPAID|IMMEDIATE(?:LY)?|CASH\s*ON\s*DELIVERY|ON\s*DELIVERY|COD|AGAINST\s*DELIVERY))\b/i);
+ return known?acceptable(known[1]):'';
+}
 const ewayPatterns=[
  /\b(?:E[\s-]*Way\s*Bill|EWB)\s*(?:No\.?|Number|#)?\s*[:.#-]?\s*(\d{10,15})\b/gi
 ];
@@ -97,6 +135,12 @@ function tokenize(t:string,kind:string):DocumentFields{
   const rawEway=[...t.matchAll(ewayPatterns[0])].map(m=>m[1].replace(/[\s-]/g,'')).find(x=>/^\d{10,15}$/.test(x));
   if(rawEway)fields.ebill=rawEway;
  }
+ if(kind==='invoiceDoc'){
+  const po=getToken(t,poPatterns,2,50);if(po)fields.po=po;
+  const poDate=[...t.matchAll(poDatePattern),...t.matchAll(poNumberAndDatePattern)]
+    .map(m=>dateISO(m[1])).find(Boolean);
+  if(poDate)fields.poDate=poDate;
+ }
  if(kind==='lrDoc'){
   const lr=getToken(t,lrPatterns,2,40);if(lr)fields.lr=lr;
  }
@@ -110,6 +154,10 @@ export function parseDocumentFields(input:string,kind:string):ScanResult{
  const original=tidy(String(input||'').slice(0,TEXT_LIMIT));
  const flat=original.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
  const fields=tokenize(flat,kind);
+ if(kind==='invoiceDoc'){
+  const payment=paymentTermsFromText(original);
+  if(payment)fields.payment=payment;
+ }
  const expected=expectedDocumentFields[kind]||[];
  const found=Object.keys(fields) as (keyof DocumentFields)[];
  const missing=expected.filter(key=>!fields[key]);
