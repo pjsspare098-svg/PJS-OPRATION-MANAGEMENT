@@ -4,6 +4,7 @@ import {supabase} from './independentClient';
 import {cloud} from './cloud';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
 import {teamsApi} from './teamOps';
+import {canCloseProcess} from './businessRules';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
 import UnifiedLogin from './UnifiedLogin';
 import DonePickListUpload from './DonePickListUpload';
@@ -110,13 +111,17 @@ export default function UnifiedApp(){
   onNotice('Done Pick List photo saved under Process '+process+'.'+(auditWarning?' Audit entry could not be recorded.':''));
  }
  async function onStage(r:any,stage:string,status?:string){
+  if(stage==='Complete'){
+    const result=canCloseProcess(r,jobs);
+    if(!result.ready){setError('Cannot close Process '+r.process+': '+result.missing.join(', '));return}
+  }
   if(demo){saveDemo({...r,stage,status:status||r.status});setRecords(mockRecords());onNotice('Stage updated in this browser only.');return}
   setBusy(true);try{await ops.stage(r,stage,status);await refresh();onNotice('Process '+r.process+' moved to '+stage)}
   catch(e:any){setError(e?.message||'Unable to update stage.')}finally{setBusy(false)}
  }
  async function onQueue(r:any,type:JobType){
   if(!authenticated){onNotice('Automation jobs require an authenticated cloud account. Local workspace cannot run or queue jobs.');return}
-  setBusy(true);try{await ops.queue(r,type,jobs);await refresh();onNotice('Job queued. Python worker not yet connected; no DataDoc, courier or Outlook action has run.')}
+  setBusy(true);try{await ops.queue(r,type,jobs,settings);await refresh();onNotice('Job queued. Python worker not yet connected; no DataDoc, courier or Outlook action has run.')}
   catch(e:any){setError(e?.message||'Unable to queue request.')}finally{setBusy(false)}
  }
  function onDraftEmail(r:any){
