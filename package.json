@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test:pick-slip && npm run test:done-pick && npm run test:migration && npm run test:business && npm run test:lr && npm run test:excel && vite build",
+    "build": "npm run test:pick-slip && npm run test:done-pick && npm run test:migration && npm run test:business && npm run test:lr && npm run test:excel && npm run test:document-fields && vite build",
     "preview": "vite preview",
     "test:done-pick": "node --experimental-strip-types tests/donePickReader.test.mjs",
     "test:pick-slip": "node --experimental-strip-types tests/pickSlipReader.test.mjs",
     "test:migration": "node --experimental-strip-types tests/migrationPreview.test.mjs",
     "test:business": "node --experimental-strip-types tests/businessRules.test.mjs",
     "test:lr": "node --experimental-strip-types tests/lrReader.test.mjs",
-    "test:excel": "node --experimental-strip-types tests/excelReport.test.mjs"
+    "test:excel": "node --experimental-strip-types tests/excelReport.test.mjs",
+    "test:document-fields": "node --experimental-strip-types tests/documentFields.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
