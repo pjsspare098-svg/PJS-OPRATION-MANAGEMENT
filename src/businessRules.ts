@@ -19,3 +19,39 @@ export function checkBill(r:any,threshold=50000):Rules{
  if(!files.has('donePickDoc'))warnings.push('Done Pick List not yet attached');
  return {ready:!missing.length,missing,warnings};
 }
+
+export type RuleJob='bill_submit'|'datadoc_submit'|'tracking'|'delivery_proof_submit'|'email_reply';
+export function checkJob(r:any,type:RuleJob,prefs:RulePrefs={ebill_threshold:50000,retrack_days:3,reminder_days:10},jobs:any[]=[]):Rules{
+ if(type==='bill_submit')return checkBill(r,prefs.ebill_threshold);
+ const files=kinds(r),missing:string[]=[],warnings:string[]=[];
+ if(!text(r.process))missing.push('Process No.');
+ if(!text(r.party))missing.push('Party Name');
+ if(type==='tracking'){
+  if(!text(r.transporter))missing.push('Transporter');
+  if(!text(r.lr))missing.push('LR / Docket No.');
+  if(!files.has('lrDoc'))warnings.push('LR document not attached');
+ }
+ if(type==='datadoc_submit'){
+  if(!jobs.some(j=>j.process_id===r.id&&j.job_type==='bill_submit'&&j.status==='completed'))missing.push('Completed DataDoc Bill Submit');
+  if(!files.has('emailDoc'))missing.push('Original client email (.eml)');
+ }
+ if(type==='email_reply'){
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text(r.clientEmail)))missing.push('Valid client email');
+  if(!files.has('emailDoc'))missing.push('Outlook email conversation');
+  if(!text(r.invoice))missing.push('Invoice No.');
+ }
+ if(type==='delivery_proof_submit'){
+  if(!/delivered|delivery proof/i.test([r.status,r.stage].join(' ')))missing.push('Confirmed delivery');
+  if(!files.has('proofDoc'))missing.push('Delivery Proof attachment');
+  if(!text(r.transporter)||!text(r.lr))missing.push('Transporter and LR / Docket No.');
+ }
+ return {ready:!missing.length,missing,warnings};
+}
+export function canCloseProcess(r:any,jobs:any[]):Rules{
+ const missing:string[]=[];
+ if(!/delivered|delivery proof/i.test([r.status,r.stage].join(' ')))missing.push('Confirmed delivery');
+ if(!kinds(r).has('proofDoc'))missing.push('Delivery Proof attachment');
+ if(!jobs.some(j=>j.process_id===r.id&&j.job_type==='delivery_proof_submit'&&j.status==='completed'))missing.push('Confirmed DataDoc delivery-proof submission');
+ if(text(r.exceptionReason))missing.push('Unresolved exception');
+ return {ready:!missing.length,missing,warnings:[]};
+}
