@@ -1,6 +1,7 @@
 import { supabase, cloudConfigured } from './independentClient';
 import { parsePickSlipRows, PickSlipParseError, type PickSlipFields } from './pickSlipReader';
 import { parseDonePickProcess, type DonePickRead } from './donePickReader';
+import {extractLRs} from './lrReader';
 import { recognize } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -167,6 +168,18 @@ export const cloud={
       if(result.status==='detected')return {...result,confidence:ocr.confidence,rotation};
     }
     return {...parseDonePickProcess(''),confidence:bestConfidence};
+  },
+  async extractLRs(file:File):Promise<{candidates:string[];method:'pdf_text'|'ocr_pdf'|'ocr_image'}>{
+    validFile(file);
+    if(file.type==='application/pdf'){
+      const {pdf,rows}=await pdfRows(file);
+      const candidates=extractLRs(rows.join('\n'));
+      if(candidates.length)return {candidates,method:'pdf_text'};
+      const ocr=await pdfOcr(pdf);
+      return {candidates:extractLRs(ocr.join('\n')),method:'ocr_pdf'};
+    }
+    const recognized=await recognize(file,'eng');
+    return {candidates:extractLRs(recognized.data.text),method:'ocr_image'};
   },
   async extract(file:File,kind:string):Promise<any>{
     validFile(file);
