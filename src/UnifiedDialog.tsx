@@ -3,7 +3,7 @@ import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,Al
 import {cloud} from './cloud';
 export const blankProcess=()=>({process:'',party:'',so:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',clientEmail:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
 const sections:{label:string;fields:[string,string,string?][]}[]=[
- {label:'Dispatch & invoice',fields:[['sales','Sales Person'],['ready','Ready for Dispatch','date'],['invoice','Invoice No.'],['invoiceDate','Invoice Date','date'],['amount','Invoice Amount (₹)','number'],['credit','Credit / Non-Credit','credit'],['po','PO No.'],['poDate','PO Date','date'],['payment','Payment Terms']]},
+ {label:'Dispatch & invoice (optional for Email)',fields:[['sales','Sales Person'],['ready','Ready for Dispatch','date'],['invoice','Invoice No.'],['invoiceDate','Invoice Date','date'],['amount','Invoice Amount (₹)','number'],['credit','Credit / Non-Credit','credit'],['po','PO No.'],['poDate','PO Date','date'],['payment','Payment Terms']]},
  {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Weight'],['transporter','Transporter'],['lr','LR / Docket No.'],['clientEmail','Client Email'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
 ];
 export const documentKinds:[string,string][]= [['pickDoc','Pick Slip'],['invoiceDoc','Invoice'],['einvoiceDoc','E-Invoice'],['ebillDoc','E-Way Bill'],['lrDoc','LR / Docket'],['emailDoc','Outlook Email (.eml)'],['proofDoc','Delivery Proof']];
@@ -14,8 +14,35 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,onC
  const [sourcePending,setSourcePending]=useState(Boolean(sourceFile));
  const [expanded,setExpanded]=useState(Boolean(record?.id));
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const choose=(kind:string,file?:File)=>{if(file)setFiles(x=>({...x,[kind]:file}))};
- async function submit(){
+ const [scanBusy,setScanBusy]=useState(''),[scanInfo,setScanInfo]=useState('');
+ const [mailSuggestions,setMailSuggestions]=useState<string[]>([]);
+ async function scan(kind:string,file?:File,doc?:any){
+  if(!file&&!doc)return;
+  setScanBusy(kind);setScanInfo('');setError('');
+  try{
+   const parsed=doc?await cloud.inspectStored(draft.id,doc.id,kind):await cloud.inspectAttachment(file!,kind);
+   const conflicts:string[]=[];
+   const updates:any={...draft};
+   for(const [key,value] of Object.entries(parsed.fields)){
+    if(!value)continue;
+    if(String(updates[key]||'').trim()&&String(updates[key]).trim()!==String(value)){
+     conflicts.push(key+' differs from saved form; check PDF.');continue;
+    }
+    updates[key]=value;
+   }
+   setDraft(updates);
+   setMailSuggestions(parsed.emails||[]);
+   setExpanded(true);
+   setScanInfo((parsed.notes||[]).join(' ')+(conflicts.length?' '+conflicts.join(' '):'')+' The original documents are not changed.');
+  }catch(e:any){setScanInfo('Could not read '+(file?.name||doc?.name||'document')+': '+(e?.message||'Extraction unavailable')+'. Check original manually.')}
+  finally{setScanBusy('')}
+ }
+ const choose=(kind:string,file?:File)=>{
+  if(!file)return;
+  setFiles(old=>({...old,[kind]:file}));
+  if(['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc'].includes(kind))void scan(kind,file);
+ };
+ async function submit(moveToEmail=false){
   if(!draft.process?.trim()||!draft.party?.trim()||!draft.so?.trim()){
     const missing=[!draft.process?.trim()?'Process No.':'',!draft.party?.trim()?'Party Name':'',!draft.so?.trim()?'SO No.':''].filter(Boolean).join(', ');
     setError('Please complete '+missing+' above before saving.');
@@ -23,9 +50,10 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,onC
   }
   setBusy(true);setError('');
   try{
-    const result=await onSave(draft,sourcePending&&sourceFile?{...files,pickDoc:sourceFile}:files);
+    const payload=moveToEmail?{...draft,stage:'Email to Client',status:'Ready for Email'}:draft;
+    const result=await onSave(payload,sourcePending&&sourceFile?{...files,pickDoc:sourceFile}:files);
     if(result&&result.failed.length){
-      setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,documents:result.saved.documents||old.documents}));
+      setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,stage:moveToEmail?'Email to Client':old.stage,status:moveToEmail?'Ready for Email':old.status,documents:result.saved.documents||old.documents}));
       setFiles(old=>Object.fromEntries(Object.entries(old).filter(([kind])=>result.failed.includes(kind))));
       setSourcePending(result.failed.includes('pickDoc'));
       setError('Process saved, but these documents still need uploading: '+result.details+'. Click Save again to retry only failed files.');
