@@ -1,9 +1,11 @@
 import {Activity,AlertTriangle,ArrowRight,CheckCircle2,ChevronRight,Clock3,Cloud,Database,Download,FileCheck2,FileClock,FileText,FileUp,Inbox,PackageCheck,Plus,RefreshCw,ShieldCheck,Sparkles,Truck,Upload} from 'lucide-react';
 import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone,steps} from './UnifiedKit';
 import {missingDocs,readyForBill} from './unifiedOps';
+import {useState} from 'react';
 
 export default function UnifiedCorePages({page,p}:{page:string;p:any}){
- const {records,results,stats,onEdit,onImport,onDonePick,onNew,onExport,onGoto,onStage,search,setSearch,jobs,demo,busy}=p;
+ const {records,trashedProcesses=[],onRestoreProcess,results,stats,onEdit,onImport,onDonePick,onNew,onExport,onGoto,onStage,search,setSearch,jobs,demo,busy}=p;
+ const [showDeleted,setShowDeleted]=useState(false);
  if(page==='Control Tower'){
   const pending=(jobs||[]).filter((j:any)=>['queued','running'].includes(j.status));
   return <>
@@ -18,6 +20,13 @@ export default function UnifiedCorePages({page,p}:{page:string;p:any}){
   <Heading eyebrow='DOCUMENT MANAGEMENT' title='Data Store' description={demo?'Upload a Pick Slip to read its fields; process details stay on this browser and original PDFs are NOT saved.':'Upload and verify a Pick Slip to create a process. Keep all related documents under that Process No.'} actions={<><Button onClick={onNew}><Plus size={16}/> Manual process</Button><Button variant='primary' onClick={onImport}><FileUp size={17}/> Upload Pick Slip</Button><Button onClick={onDonePick}><FileCheck2 size={16}/> Upload Done Pick List</Button></>}/>
   <div className='ux-stats compact'><Stat label='Total processes' value={stats.total} note='Independent OMS' icon={Database}/><Stat label='Stored Pick Slips' value={records.filter((r:any)=>(r.documents||[]).some((d:any)=>d.kind==='pickDoc')).length} note={demo?'PDF not saved here':'Original PDF retained'} icon={FileCheck2} tone='green'/><Stat label='Done Pick Lists' value={records.filter((r:any)=>(r.documents||[]).some((d:any)=>d.kind==='donePickDoc')).length} note={demo?'Available after cloud login':'Matched photo attached'} icon={FileCheck2} tone='purple'/><Stat label='Ready for email stage' value={records.filter((r:any)=>r.stage==='Email to Client').length} note='Invoice files not required' icon={FileCheck2} tone='green'/></div>
   <Panel title='Process documents' subtitle='Each process is identified by Process No., Party Name and SO No.' actions={<span className='ux-caption'>{results.length} RECORDS</span>}><SearchBar value={search} onChange={setSearch} count={results.length}/><RecordsTable records={results} onEdit={onEdit}/></Panel>
+  {!demo&&<section className='ux-master-trash-list'>
+   <button type='button' onClick={()=>setShowDeleted(!showDeleted)}><FileClock size={16}/> {showDeleted?'Hide Deleted Processes':'Deleted Processes (Trash)'} <small>{trashedProcesses.length} recoverable</small></button>
+   {showDeleted&&<div>{trashedProcesses.length?trashedProcesses.map((r:any)=><div key={r.id}>
+    <span><strong>Process {r.process}</strong><small>{r.party||'Unknown party'} · {(r.documents||[]).length} document(s) preserved</small></span>
+    <Button disabled={busy} onClick={()=>void onRestoreProcess(r)}><RefreshCw size={14}/> Restore</Button>
+   </div>):<p>No deleted personal processes.</p>}</div>}
+  </section>}
  </>;
  if(page==='Universal Process')return <>
   <Heading eyebrow='STAGE 02 · MASTER PROCESS' title='Universal Process' description='Maintain the Process No. and documents. Invoice details are optional for moving to Email to Client.' actions={<><Button onClick={onExport}><Download size={16}/> Export CSV</Button><Button variant='primary' onClick={onImport}><FileUp size={16}/> Upload Pick Slip</Button><Button onClick={onDonePick}><FileCheck2 size={16}/> Done Pick List</Button></>}/>
