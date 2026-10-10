@@ -2,6 +2,7 @@ import { supabase, cloudConfigured } from './independentClient';
 import { parsePickSlipRows, PickSlipParseError, type PickSlipFields } from './pickSlipReader';
 import { parseDonePickProcess, type DonePickRead } from './donePickReader';
 import {extractLRs} from './lrReader';
+import {parseDocumentFields,type ScanResult} from './documentFields';
 import { recognize } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -161,6 +162,45 @@ export const cloud={
     anchor.href=url;anchor.download=String(data.name||'document').replace(/[/\\:*?"<>|]/g,'_');
     document.body.appendChild(anchor);anchor.click();anchor.remove();
     window.setTimeout(()=>URL.revokeObjectURL(url),20000);
+  },
+  async inspectAttachment(file:File,kind:string):Promise<ScanResult>{
+    validFile(file);
+    if(kind==='emailDoc'){
+      const result=parseDocumentFields(await file.text(),kind);
+      return result;
+    }
+    let text='';
+    if(file.type==='application/pdf'){
+      const {pdf,rows}=await pdfRows(file);
+      text=rows.join('\n');
+      let result=parseDocumentFields(text,kind);
+      if(Object.keys(result.fields).length===0){
+        const recognized=await pdfOcr(pdf);
+        text=recognized.join('\n');
+        result=parseDocumentFields(text,kind);
+        result.notes.unshift('Scanned page with OCR; verify the values against the original.');
+      }
+      return result;
+    }
+    if(file.type.startsWith('image/')){
+      const scan=await recognize(file,'eng');
+      const result=parseDocumentFields(scan.data.text,kind);
+      result.notes.unshift('Photo OCR confidence '+Math.round(scan.data.confidence)+'%. Review carefully.');
+      return result;
+    }
+    throw Error('Supported documents: PDF, photo or Outlook .eml.');
+  },
+  async inspectStored(id:string,docId:string,kind:string):Promise<ScanResult>{
+    if(!supabase)throw Error('Cloud storage not configured');
+    await identity();
+    const {data:doc,error}=await supabase.from('oms_documents').select('path,name,kind').eq('id',docId).eq('process_id',id).single();
+    if(error||!doc)throw Error('Document not found or no permission');
+    if(doc.kind!==kind)throw Error('Incorrect document type');
+    const {data:file,error:downloadError}=await supabase.storage.from('oms-documents').download(doc.path);
+    if(downloadError||!file)throw Error(downloadError?.message||'Could not read this stored document');
+    const ext=String(doc.name||'').toLowerCase();
+    const mime=kind==='emailDoc'?'message/rfc822':ext.endsWith('.pdf')?'application/pdf':file.type||'application/pdf';
+    return cloud.inspectAttachment(new File([file],doc.name||'document',{type:mime}),kind);
   },
   async readDonePick(file:File):Promise<DonePickRead>{
     validFile(file);
