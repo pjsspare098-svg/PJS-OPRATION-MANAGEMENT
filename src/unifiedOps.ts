@@ -1,5 +1,6 @@
 import { supabase } from './independentClient';
 import { cloud } from './cloud';
+import {checkBill,checkJob,type RulePrefs} from './businessRules';
 
 export type JobType='bill_submit'|'datadoc_submit'|'tracking'|'delivery_proof_submit'|'email_reply';
 export type Job={id:string;process_id:string;process_no:string;job_type:JobType;status:string;progress:number;error_message:string|null;created_at:string;updated_at:string;payload:any;result:any};
@@ -10,7 +11,7 @@ const DEMO_KEY='oms-unified-local-v1';
 function demoData(){try{return JSON.parse(localStorage.getItem(DEMO_KEY)||'{}')}catch{return {}}}
 export function showDate(value:any){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
 export function missingDocs(r:any){const kinds=new Set((r.documents||[]).map((d:any)=>d.kind));const warnings:string[]=[];if(!kinds.has('pickDoc'))warnings.push('Pick Slip');if(!r.so)warnings.push('SO No.');if(!r.party)warnings.push('Party Name');if(!r.invoice)warnings.push('Invoice No.');if(!kinds.has('invoiceDoc'))warnings.push('Invoice PDF');if(!kinds.has('einvoiceDoc')&&!kinds.has('ebillDoc'))warnings.push('E-Invoice or E-Bill');return warnings}
-export function readyForBill(r:any){const kinds=new Set((r.documents||[]).map((d:any)=>d.kind));return Boolean(r.invoice&&r.credit&&kinds.has('invoiceDoc')&&(kinds.has('einvoiceDoc')||kinds.has('ebillDoc')))}
+export function readyForBill(r:any,threshold=50000){return checkBill(r,threshold).ready}
 export function stageName(r:any){return r.stage||'Universal Process'}
 export function isException(r:any){return /check list|exception|rto|delay|return|error|failed/i.test([r.stage,r.status,r.trackingStatus,r.exceptionReason].join(' '))}
 export function mockRecords():any[]{const saved=demoData();return Array.isArray(saved.records)?saved.records:[];}
@@ -25,13 +26,12 @@ export const ops={
   async audit(r:any,action:string,details:any={}){const u=await currentUser();const {error}=await supabase!.from('oms_events').insert({user_id:u.id,process_id:r.id||null,process_no:r.process||'',action,details});if(error)throw error},
   async save(r:any,action='Process saved'){const result=await cloud.save(r);await ops.audit(result,action,{stage:result.stage||'Universal Process'});return result},
   async stage(r:any,stage:string,status?:string){const saved=await cloud.save({...r,stage,status:status||r.status||'Pending'});await ops.audit(saved,'Moved to '+stage,{previousStage:r.stage||'Universal Process',newStage:stage});return saved},
-  async queue(r:any,type:JobType,existing:Job[]){
+  async queue(r:any,type:JobType,existing:Job[],prefs:RulePrefs=defaults){
     const u=await currentUser();
     if(!r.id||!r.process)throw Error('Save this process first.');
     if(existing.some(j=>j.process_id===r.id&&j.job_type===type&&['queued','running'].includes(j.status)))throw Error('A '+type.replaceAll('_',' ')+' job is already queued for '+r.process);
-    if(type==='bill_submit'&&!readyForBill(r))throw Error('DataDoc Bill requires Invoice No., Credit Type, Invoice PDF and E-Invoice or E-Bill PDF.');
-    if(type==='tracking'&&(!r.transporter||!r.lr))throw Error('Enter the transporter and LR / Docket No. in Universal Process first.');
-    if(type==='delivery_proof_submit'&&!/delivered|delivery proof/i.test([r.status,r.stage].join(' ')))throw Error('Mark delivery as confirmed before queuing delivery proof.');
+    const verification=checkJob(r,type,prefs,existing);
+    if(!verification.ready)throw Error('Cannot queue '+type.replaceAll('_',' ')+'. Missing: '+verification.missing.join(', '));
     const {data,error}=await supabase!.from('oms_jobs').insert({user_id:u.id,process_id:r.id,process_no:r.process,job_type:type,status:'queued',progress:0,payload:{process:r.process,so:r.so||'',transporter:r.transporter||'',tracking_id:r.lr||'',stage:r.stage||'Universal Process'}}).select().single();
     if(error)throw error;
     await ops.audit(r,'Job queued · '+type,{jobId:data.id,worker:'awaiting office worker'});
