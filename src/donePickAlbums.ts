@@ -2,8 +2,9 @@ import {supabase} from './independentClient';
 import {validateAlbumProcess,validateAlbumPhoto} from './donePickAlbumRules';
 export {validateAlbumProcess} from './donePickAlbumRules';
 
-export type AlbumPhoto={id:string;album_id:string;name:string;path:string;content_type:string;size_bytes:number;created_at:string};
-export type PickAlbum={id:string;process_no:string;user_id:string;created_at:string;photos:AlbumPhoto[]};
+export type AlbumPhoto={id:string;album_id:string;name:string;path:string;content_type:string;size_bytes:number;created_at:string;ocr_process_no?:string|null;ocr_confidence?:number|null;verification_method?:'ocr_match'|'manual_review'|'legacy'};
+export type PickAlbum={id:string;process_no:string;user_id:string;created_at:string;deleted_at?:string|null;photos:AlbumPhoto[]};
+export type VerifiedAlbumUpload={file:File;verification:'ocr_match'|'manual_review';ocrProcessNo:string|null;confidence:number|null};
 const bucket='oms-done-pick-photos';
 async function authenticated(){
  if(!supabase)throw Error('Sign in to private cloud to manage Done Pick List photos.');
@@ -13,15 +14,16 @@ async function authenticated(){
 }
 export function validatePhoto(file:File){validateAlbumPhoto(file)}
 export const donePickAlbums={
- async list():Promise<PickAlbum[]>{
+ async list(trashed=false):Promise<PickAlbum[]>{
   const user=await authenticated();
-  const {data:albums,error}=await supabase!.from('oms_done_pick_albums').select('id,process_no,user_id,created_at')
-   .eq('user_id',user.id).order('created_at',{ascending:false});
+  let query=supabase!.from('oms_done_pick_albums').select('id,process_no,user_id,created_at,deleted_at').eq('user_id',user.id);
+  query=trashed?query.not('deleted_at','is',null):query.is('deleted_at',null);
+  const {data:albums,error}=await query.order('created_at',{ascending:false});
   if(error)throw error;
   if(!albums?.length)return [];
   const ids=albums.map(a=>a.id);
   const {data:photos,error:photoError}=await supabase!.from('oms_done_pick_photos')
-   .select('id,album_id,name,path,content_type,size_bytes,created_at').in('album_id',ids)
+   .select('id,album_id,name,path,content_type,size_bytes,created_at,ocr_process_no,ocr_confidence,verification_method').in('album_id',ids)
    .order('created_at',{ascending:false});
   if(photoError)throw photoError;
   return albums.map(a=>({...a,photos:(photos||[]).filter(p=>p.album_id===a.id)}));
@@ -30,21 +32,33 @@ export const donePickAlbums={
   const user=await authenticated();
   const process=validateAlbumProcess(processNo);
   const {data,error}=await supabase!.from('oms_done_pick_albums').insert({process_no:process,user_id:user.id})
-   .select('id,process_no,user_id,created_at').single();
+   .select('id,process_no,user_id,created_at,deleted_at').single();
   if(error){
-   if(error.code==='23505')throw Error('Process '+process+' already has a Done Pick List entry. Use its Add Photos button instead.');
+   if(error.code==='23505')throw Error('Process '+process+' already has an entry (possibly in Trash). Open the existing entry or Restore it instead.');
    throw error;
   }
   return {...data,photos:[]};
  },
- async upload(album:PickAlbum,files:File[]):Promise<{successes:number;failures:string[]}>{
+ async setTrash(album:PickAlbum,restore=false):Promise<void>{
+  const user=await authenticated();
+  if(album.user_id!==user.id)throw Error('You cannot delete or restore another user’s process.');
+  const {error}=await supabase!.rpc('oms_set_done_pick_trash',{p_album:album.id,p_process:album.process_no,p_restore:restore});
+  if(error)throw error;
+ },
+ async upload(album:PickAlbum,files:VerifiedAlbumUpload[]):Promise<{successes:number;failures:string[]}>{
   const user=await authenticated();
   if(album.user_id!==user.id)throw Error('You cannot upload to another user’s album.');
   if(!files.length)throw Error('Select one or more photos.');
   if(files.length>25)throw Error('Upload no more than 25 photos at a time.');
-  for(const file of files)validatePhoto(file);
+  if(album.deleted_at)throw Error('Restore this Process No. before uploading photos.');
+  for(const item of files){
+   validatePhoto(item.file);
+   if(item.verification==='ocr_match'&&item.ocrProcessNo!==album.process_no)throw Error('Detected Process No. does not match '+album.process_no+'.');
+   if(item.verification==='manual_review'&&item.ocrProcessNo!==null)throw Error('A conflicting Process No. cannot be manually overridden.');
+  }
   let successes=0;const failures:string[]=[];
-  for(const file of files){
+  for(const item of files){
+   const file=item.file;
    const safe=file.name.slice(0,90).replace(/[^A-Za-z0-9_.-]/g,'_');
    const path=user.id+'/'+album.id+'/'+crypto.randomUUID()+'-'+safe;
    try{
@@ -52,7 +66,8 @@ export const donePickAlbums={
     if(storeError)throw storeError;
     const {error:rowError}=await supabase!.from('oms_done_pick_photos').insert({
      album_id:album.id,user_id:user.id,name:file.name.slice(0,150),path,
-     content_type:file.type,size_bytes:file.size
+     content_type:file.type,size_bytes:file.size,ocr_process_no:item.ocrProcessNo,
+     ocr_confidence:Number.isFinite(item.confidence)?item.confidence:null,verification_method:item.verification
     });
     if(rowError){
      await supabase!.storage.from(bucket).remove([path]).catch(()=>{});
