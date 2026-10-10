@@ -24,3 +24,23 @@ assert.ok(conflict.candidates.every(x=>x.kind==='conflict'));
 assert.equal(safeUpdates({invoice:''},conflict).changes.invoice,undefined,'Conflicting numbers may not be filled');
 assert.equal(safeUpdates({invoice:'945'},reviewed).changes.invoice,undefined,'Existing number may not be silently replaced');
 console.log('PASS: cross-PDF extraction merge, conflicts and no-overwrite guarantees');
+
+const purchaseOrderDocs=[
+ {kind:'invoiceDoc',name:'Tax_Invoice.pdf',fields:{invoice:'2627/946',po:'PO-12345',poDate:'2026-10-04',payment:'Net 30 Days'},emails:[]},
+ {kind:'lrDoc',name:'LR.pdf',fields:{lr:'LR-45678',po:'WRONG-PO',payment:'COD'},emails:[]}
+];
+const purchaseReview=mergeDocumentScans(purchaseOrderDocs);
+assert.equal(purchaseReview.candidates.find(x=>x.key==='po')?.source,'Tax_Invoice.pdf');
+assert.equal(purchaseReview.candidates.find(x=>x.key==='poDate')?.value,'2026-10-04');
+assert.equal(purchaseReview.candidates.find(x=>x.key==='payment')?.value,'Net 30 Days');
+assert.deepEqual(
+ Object.fromEntries(Object.entries(safeUpdates({po:'',poDate:'',payment:''},purchaseReview).changes).filter(([k])=>['po','poDate','payment'].includes(k))),
+ {po:'PO-12345',poDate:'2026-10-04',payment:'Net 30 Days'}
+);
+assert.equal(safeUpdates({po:'MY-EXISTING-PO'},purchaseReview).changes.po,undefined);
+const alternateTerms=mergeDocumentScans([
+ {kind:'invoiceDoc',name:'Invoice A.pdf',fields:{payment:'Net 30 Days'},emails:[]},
+ {kind:'invoiceDoc',name:'Invoice B.pdf',fields:{payment:'Advance'},emails:[]}
+]);
+assert.equal(safeUpdates({payment:''},alternateTerms).changes.payment,undefined);
+console.log('PASS: Invoice PO and payment data merged safely, existing values and conflicts preserved');
