@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {parseDocumentFields,mailCandidates} from '../src/documentFields.ts';
+const invoice=parseDocumentFields('Tax Invoice No. 946 Invoice Date 10/10/2026 Invoice Amount ₹ 75,000 Sales Order No. 26271016','invoiceDoc');
+assert.equal(invoice.fields.invoice,'946');
+assert.equal(invoice.fields.invoiceDate,'2026-10-10');
+assert.equal(invoice.fields.amount,'75000');
+assert.equal(invoice.fields.so,'26271016');
+assert.equal(parseDocumentFields('E-Invoice No. 15498447774','einvoiceDoc').fields.einvoice,'15498447774');
+assert.equal(parseDocumentFields('E-Way Bill No. 123456789012','ebillDoc').fields.ebill,'123456789012');
+assert.equal(parseDocumentFields('LR / Docket No: LR-12345','lrDoc').fields.lr,'LR-12345');
+assert.equal(parseDocumentFields('Docket No: 946','lrDoc').fields.lr,'946');
+const eml='From: "Customer Team" <customer@example.org>\r\nTo: PJS Office <office@example.in>\r\nCc: audit@example.net\r\nSubject: Dispatch\r\n\r\nHello';
+assert.deepEqual(mailCandidates(eml),['customer@example.org','office@example.in','audit@example.net']);
+assert.equal(parseDocumentFields(eml,'emailDoc').emails.length,3);
+assert.equal(parseDocumentFields('random lines with 928347261 shipping updates','lrDoc').fields.lr,undefined);
+console.log('PASS: 11 document field and email header extraction cases');
