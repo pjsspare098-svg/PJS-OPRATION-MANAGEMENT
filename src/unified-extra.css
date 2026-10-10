@@ -21,3 +21,16 @@
 @media(max-width:640px){.ux-drawer-footer{flex-wrap:wrap}.ux-email-move{width:100%}}
 
 .ux-preview-selected{justify-self:start;border:1px solid #cfdfef;background:#eef5ff;color:#2e629e;padding:6px 9px;font-size:10px;font-weight:800;border-radius:7px;display:inline-flex;gap:7px;align-items:center;cursor:pointer}.ux-preview-selected:hover{background:#e0edff}
+
+.ux-master-delete-button{margin-right:auto;border:1px solid #f2c4ca;background:#fff5f6;border-radius:9px;padding:10px 12px;color:#b34e5b;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.ux-master-delete{margin:20px 0 3px;padding:18px;border:1px solid #f0c0cb;background:#fff9fa;border-radius:11px}
+.ux-master-delete>div:first-child{display:flex;align-items:center;gap:8px;color:#ae4658;font-size:13px}
+.ux-master-delete p{color:#845e69;font-size:11px;line-height:1.75}
+.ux-master-delete label{max-width:440px}.ux-master-delete-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px}
+.ux-master-delete-confirm{display:flex;align-items:center;gap:7px;background:#c34d61;color:white;border:0;border-radius:8px;padding:10px 13px;font-weight:800;font-size:11px;cursor:pointer}.ux-master-delete-confirm:disabled{opacity:.45;cursor:not-allowed}
+.ux-master-trash-list{margin:0 0 20px;background:white;border:1px solid #e4eaf4;border-radius:12px;overflow:hidden}
+.ux-master-trash-list>button{display:flex;align-items:center;gap:9px;background:transparent;border:0;padding:16px 19px;width:100%;text-align:left;font-size:12px;font-weight:850;color:#5c7491;cursor:pointer}
+.ux-master-trash-list>button>small{font-size:10px;color:#96a7bc;margin-left:auto}
+.ux-master-trash-list>div{padding:0 19px 14px}.ux-master-trash-list>div>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid #edf1f7}
+.ux-master-trash-list>div>div>span{display:grid;gap:4px}.ux-master-trash-list strong{font-size:12px;color:#355679}.ux-master-trash-list>div>div>span>small,.ux-master-trash-list>div>p{font-size:11px;color:#8c9db5}
+@media(max-width:690px){.ux-master-delete-button{width:100%;justify-content:center}.ux-master-delete-actions{flex-wrap:wrap}.ux-master-delete-actions button{flex:1}}
