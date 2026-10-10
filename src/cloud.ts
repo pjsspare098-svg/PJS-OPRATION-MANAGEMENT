@@ -2,7 +2,7 @@ import { supabase, cloudConfigured } from './independentClient';
 import { parsePickSlipRows, PickSlipParseError, type PickSlipFields } from './pickSlipReader';
 import { parseDonePickProcess, type DonePickRead } from './donePickReader';
 import {extractLRs} from './lrReader';
-import {parseDocumentFields,type ScanResult} from './documentFields';
+import {parseDocumentFields,expectedDocumentFields,type ScanResult} from './documentFields';
 import { recognize } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -23,12 +23,16 @@ function headerRows(items:any[]):string[]{
 async function pdfRows(file:File){
   const pdf=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
   const rows:string[]=[];
+  const rawRows:string[]=[];
   for(let i=1;i<=Math.min(pdf.numPages,6);i++){
     const page=await pdf.getPage(i);
     const contents=await page.getTextContent();
     rows.push(...headerRows(contents.items as any[]));
+    // Some billing PDFs have meaningful reading order that differs from their
+    // visual column coordinates. Keep both views instead of flattening only one.
+    rawRows.push((contents.items as any[]).map(item=>String(item.str||'')).join(' '));
   }
-  return {pdf,rows};
+  return {pdf,rows,rawRows};
 }
 async function pdfOcr(pdf:any):Promise<string[]>{
   const page=await pdf.getPage(1);
@@ -178,27 +182,59 @@ export const cloud={
   },
   async inspectAttachment(file:File,kind:string):Promise<ScanResult>{
     validFile(file);
-    if(kind==='emailDoc'){
-      const result=parseDocumentFields(await file.text(),kind);
-      return result;
-    }
-    let text='';
+    if(kind==='emailDoc')return parseDocumentFields(await file.text(),kind);
     if(file.type==='application/pdf'){
-      const {pdf,rows}=await pdfRows(file);
-      text=rows.join('\n');
-      let result=parseDocumentFields(text,kind);
-      const expected=kind==='invoiceDoc'?'invoice':kind==='einvoiceDoc'?'einvoice':kind==='ebillDoc'?'ebill':kind==='lrDoc'?'lr':'';
-      if(expected&&!result.fields[expected as keyof typeof result.fields]){
-        const recognized=await pdfOcr(pdf);
-        text=recognized.join('\n');
-        const fallback=parseDocumentFields(text,kind);
-        result={
-          fields:{...fallback.fields,...result.fields},
-          emails:fallback.emails,
-          notes:['Scanned page with OCR; verify the values against the original.',...result.notes,...fallback.notes]
-        };
+      const {pdf,rows,rawRows}=await pdfRows(file);
+      const visual=parseDocumentFields(rows.join('\n'),kind);
+      const logical=parseDocumentFields(rawRows.join('\n'),kind);
+      // Prefer the visual reading order; use the PDF's native reading order to
+      // fill genuinely missing fields. If values differ, keep the first value
+      // and warn the user to inspect the original.
+      const fields={...logical.fields,...visual.fields};
+      const discrepancies=Object.keys(logical.fields).filter(k=>{
+        const x=logical.fields[k as keyof typeof logical.fields];
+        const y=visual.fields[k as keyof typeof visual.fields];
+        return Boolean(x&&y&&x!==y);
+      });
+      let usedOCR=false;
+      const expected=expectedDocumentFields[kind]||[];
+      if(expected.some(key=>!fields[key])){
+        try{
+          // For PDFs with only embedded scans, read up to two page images.
+          // This runs only when the expected labelled field is still missing.
+          const scans:string[]=[];
+          for(let p=1;p<=Math.min(pdf.numPages,2);p++){
+            const page=await pdf.getPage(p);
+            const base=page.getViewport({scale:1});
+            const viewport=page.getViewport({scale:Math.min(2,2000/base.width)});
+            const canvas=document.createElement('canvas');
+            canvas.width=Math.max(1,Math.round(viewport.width));
+            canvas.height=Math.max(1,Math.round(viewport.height));
+            const ctx=canvas.getContext('2d');
+            if(!ctx)throw Error('Could not render scanned PDF');
+            await page.render({canvasContext:ctx,canvas,viewport}).promise;
+            const output=await recognize(canvas,'eng');
+            scans.push(output.data.text);
+            const ocrFields=parseDocumentFields(scans.join('\n'),kind).fields;
+            for(const [key,value] of Object.entries(ocrFields))if(value&&!fields[key as keyof typeof fields])fields[key as keyof typeof fields]=value;
+            usedOCR=true;
+            if(expected.every(key=>Boolean(fields[key])))break;
+          }
+        }catch(e:any){
+          // Do not lose valid digitally extracted values because OCR failed.
+          discrepancies.push('OCR fallback unavailable: '+String(e?.message||'unknown error'));
+        }
       }
-      return result;
+      const found=Object.keys(fields);
+      const missing=expected.filter(key=>!fields[key]);
+      const notes=[
+        found.length?'Extracted '+found.join(', ')+'.':'No reliable labelled values found.',
+        missing.length?'Still missing: '+missing.join(', ')+'.':'',
+        discrepancies.length?'PDF text ordering needs review: '+discrepancies.join('; ')+'.':'',
+        usedOCR?'Scanned PDF page(s) with OCR fallback.':'Read embedded PDF text.',
+        'Verify all values against the original PDF before saving.'
+      ].filter(Boolean);
+      return {fields,emails:[],notes};
     }
     if(file.type.startsWith('image/')){
       const scan=await recognize(file,'eng');
