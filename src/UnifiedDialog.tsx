@@ -37,6 +37,12 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,onC
   }catch(e:any){setScanInfo('Could not read '+(file?.name||doc?.name||'document')+': '+(e?.message||'Extraction unavailable')+'. Check original manually.')}
   finally{setScanBusy('')}
  }
+ const previewSelected=(file:File)=>{
+  const url=URL.createObjectURL(file);
+  const tab=window.open(url,'_blank','noopener,noreferrer');
+  if(!tab)setError('Your browser blocked the file preview. Allow pop-ups for OMS.');
+  window.setTimeout(()=>URL.revokeObjectURL(url),45000);
+ };
  const choose=(kind:string,file?:File)=>{
   if(!file)return;
   setFiles(old=>({...old,[kind]:file}));
@@ -86,6 +92,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,onC
      <small>{files[kind]?.name||(kind==='pickDoc'&&sourcePending&&sourceFile?.name)||(existing.length?existing.length+' saved':'Choose file')}</small>
      <input type='file' disabled={busy||Boolean(scanBusy)} accept={kind==='emailDoc'?'.eml,message/rfc822':'.pdf,.png,.jpg,.jpeg'} onChange={e=>{choose(kind,e.target.files?.[0]);e.target.value=''}}/>
     </label>
+    {files[kind]&&<button className='ux-preview-selected' type='button' onClick={()=>previewSelected(files[kind])}><ExternalLink size={14}/> Preview selected file (before save)</button>}
     {scanBusy===kind&&<small className='ux-scanning'>Reading the document…</small>}
     {existing.map((d:any)=><div key={d.id} className='ux-saved-file'>
      <span title={d.name}>{d.name}</span>
