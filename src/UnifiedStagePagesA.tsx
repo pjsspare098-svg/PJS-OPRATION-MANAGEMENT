@@ -1,9 +1,10 @@
 import {Activity,AlertCircle,AlertTriangle,ArrowRight,ClipboardCheck,FileCheck2,FileUp,Mail,PackageCheck,RefreshCw,Search,Truck,Upload} from 'lucide-react';
 import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone} from './UnifiedKit';
 import {readyForBill} from './unifiedOps';
+import {checkBill,checkJob} from './businessRules';
 import {useState} from 'react';
 export default function UnifiedStagePagesA({page,p}:{page:string;p:any}){
- const {results,records,jobs,onEdit,onGoto,onStage,onQueue,onAttach,onDraftEmail,search,setSearch,busy}=p;
+ const {results,records,jobs,onEdit,onGoto,onStage,onQueue,onAttach,onDraftEmail,search,setSearch,busy,settings}=p;
  const [tab,setTab]=useState<'Bill Submit'|'Emails'|'Delivery Proof'>('Bill Submit');
  const [status,setStatus]=useState('All');
  if(page==='DataDoc'){
@@ -12,8 +13,8 @@ export default function UnifiedStagePagesA({page,p}:{page:string;p:any}){
   const deliveryRows=results.filter((r:any)=>/delivery proof|delivered/i.test((r.stage||'')+' '+(r.status||'')));
   const list=tab==='Bill Submit'?billRows:tab==='Emails'?emailRows:deliveryRows;
   return <><Heading eyebrow='STAGE 03 · DOCUMENT SUBMISSION' title='DataDoc Control' description='Initial bill submission, client email and delivery proof are three separate transactions. The office worker must confirm success.'/><div className='ux-tabs'>{(['Bill Submit','Emails','Delivery Proof'] as const).map((t,i)=><button key={t} className={tab===t?'selected':''} onClick={()=>setTab(t)}>{i===0?<FileCheck2 size={17}/>:i===1?<Mail size={17}/>:<PackageCheck size={17}/>} {t} <b>{(i===0?billRows:i===1?emailRows:deliveryRows).length}</b></button>)}</div>
-   <Panel title={tab==='Bill Submit'?'DataDoc Bill Submit':tab==='Emails'?'DataDoc Email Submit':'DataDoc Tracking Proof'} subtitle='Invoice PDF plus E-Invoice or E-Way Bill PDF is required for Bill Submit.' actions={<span className='ux-offline'><Activity size={14}/> OFFICE WORKER OFFLINE</span>}>
-   <RecordsTable records={list} onEdit={onEdit} renderAction={(r:any)=><>{tab==='Bill Submit'?<><Button onClick={()=>onEdit(r)}>Validate</Button><Button variant='primary' disabled={!readyForBill(r)||busy} onClick={()=>onQueue(r,'bill_submit')}>Queue bill</Button></>:<Button variant='primary' disabled={busy} onClick={()=>onQueue(r,tab==='Emails'?'datadoc_submit':'delivery_proof_submit')}>Queue request</Button>}</>}/></Panel></>;
+   <Panel title={tab==='Bill Submit'?'DataDoc Bill Submit':tab==='Emails'?'DataDoc Email Submit':'DataDoc Tracking Proof'} subtitle={'Readiness is checked against stored attachments and rules. E-Way Bill threshold ₹'+settings.ebill_threshold+'. Queued requests do NOT mean submissions succeeded.'} actions={<span className='ux-offline'><Activity size={14}/> OFFICE WORKER OFFLINE</span>}>
+   <RecordsTable records={list} onEdit={onEdit} renderAction={(r:any)=>{const type=tab==='Bill Submit'?'bill_submit':tab==='Emails'?'datadoc_submit':'delivery_proof_submit';const rule=checkJob(r,type,settings,jobs);return <><span title={rule.missing.join('\n')} className={'ux-readiness-chip '+(rule.ready?'ready':'missing')}>{rule.ready?'Ready':'Missing '+rule.missing.length}</span><Button onClick={()=>onEdit(r)}>Review</Button><Button variant='primary' disabled={!rule.ready||busy} onClick={()=>onQueue(r,type)}>{tab==='Bill Submit'?'Queue bill':'Queue request'}</Button>{!rule.ready&&<small style={{color:'#ad6c42',maxWidth:270,whiteSpace:'normal'}}>{rule.missing.slice(0,3).join(', ')}{rule.missing.length>3?'…':''}</small>}</>}}/></Panel></>;
  }
  if(page==='Email to Client'){
   const rows=results.filter((r:any)=>/email|datadoc/i.test(r.stage||'')||Boolean(r.invoice));
