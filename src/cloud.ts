@@ -149,6 +149,19 @@ export const cloud={
       tab.location.replace(link.signedUrl);
     }catch(e){tab.close();throw e}
   },
+  async download(id:string,docId:string){
+    if(!supabase)throw Error('Cloud login required for private downloads.');
+    await identity();
+    const {data,error}=await supabase.from('oms_documents').select('path,name').eq('id',docId).eq('process_id',id).single();
+    if(error||!data)throw Error('Document not found or access denied.');
+    const {data:file,fileError}=await (async()=>{const result=await supabase.storage.from('oms-documents').download(data.path);return {data:result.data,fileError:result.error}})();
+    if(fileError||!file)throw Error(fileError?.message||'Private download failed.');
+    const url=URL.createObjectURL(file);
+    const anchor=document.createElement('a');
+    anchor.href=url;anchor.download=String(data.name||'document').replace(/[/\\:*?"<>|]/g,'_');
+    document.body.appendChild(anchor);anchor.click();anchor.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),20000);
+  },
   async readDonePick(file:File):Promise<DonePickRead>{
     validFile(file);
     if(file.type==='application/pdf'){
