@@ -19,7 +19,7 @@ import './unified-extra.css';
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
  const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
- const [page,setPage]=useState<Section>('Control Tower'),[records,setRecords]=useState<any[]>([]);
+ const [page,setPage]=useState<Section>('Control Tower'),[records,setRecords]=useState<any[]>([]),[trashedProcesses,setTrashedProcesses]=useState<any[]>([]);
  const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[exceptions,setExceptions]=useState<any[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
@@ -36,10 +36,10 @@ export default function UnifiedApp(){
  },[]);
  useEffect(()=>{
   let active=true;
-  if(demo){setRecords(mockRecords());setJobs([]);setEvents([]);setExceptions([]);return}
-  if(!user){setRecords([]);setJobs([]);setEvents([]);setExceptions([]);return}
+  if(demo){setRecords(mockRecords());setTrashedProcesses([]);setJobs([]);setEvents([]);setExceptions([]);return}
+  if(!user){setRecords([]);setTrashedProcesses([]);setJobs([]);setEvents([]);setExceptions([]);return}
   setBusy(true);
-  void Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences(),ops.listExceptions()]).then(([r,j,e,s,x])=>{if(active){setRecords(r);setJobs(j);setEvents(e);setSettings(s);setExceptions(x);setError('')}}).catch(e=>{if(active)setError('Unable to load cloud workspace: '+(e?.message||'Try Refresh.'))}).finally(()=>{if(active)setBusy(false)});
+  void Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences(),ops.listExceptions(),cloud.listTrashed()]).then(([r,j,e,s,x,trash])=>{if(active){setRecords(r);setTrashedProcesses(trash);setJobs(j);setEvents(e);setSettings(s);setExceptions(x);setError('')}}).catch(e=>{if(active)setError('Unable to load cloud workspace: '+(e?.message||'Try Refresh.'))}).finally(()=>{if(active)setBusy(false)});
   return()=>{active=false};
  },[user?.id,demo]);
  useEffect(()=>{
@@ -57,7 +57,7 @@ export default function UnifiedApp(){
   if(demo){setRecords(mockRecords());return}
   if(!authenticated)return;
   setBusy(true);
-  try{const [r,j,e,s,x]=await Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences(),ops.listExceptions()]);setRecords(r);setJobs(j);setEvents(e);setSettings(s);setExceptions(x);setError('')}
+  try{const [r,j,e,s,x,trash]=await Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences(),ops.listExceptions(),cloud.listTrashed()]);setRecords(r);setTrashedProcesses(trash);setJobs(j);setEvents(e);setSettings(s);setExceptions(x);setError('')}
   catch(e:any){setError('Refresh failed: '+(e?.message||'Please try again.'))}
   finally{setBusy(false)}
  }
@@ -100,6 +100,20 @@ export default function UnifiedApp(){
   setDialog(false);setPickFile(null);
   if(r.stage==='Email to Client')onGoto('Email to Client');
   onNotice('Process '+process+(r.stage==='Email to Client'?' moved to Email to Client.':' saved.')+' '+Object.keys(files).length+' attachment(s) saved successfully.');
+ }
+ async function onDeleteProcess(r:any){
+  if(!authenticated)throw Error('Sign in before deleting a process.');
+  await cloud.setTrash(r);
+  setDialog(false);setPickFile(null);
+  await refresh();
+  onNotice('Process '+r.process+' moved to Deleted Processes. Documents are preserved; restore it from Data Store.');
+ }
+ async function onRestoreProcess(r:any){
+  if(!authenticated)return;
+  setBusy(true);
+  try{await cloud.setTrash(r,true);await refresh();onNotice('Process '+r.process+' restored with its documents.')}
+  catch(e:any){setError(e?.message||'Unable to restore process')}
+  finally{setBusy(false)}
  }
  async function onAttach(r:any,kind:string,file?:File){
   if(!file)return;
@@ -160,13 +174,13 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
+ const p={records,trashedProcesses,onRestoreProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
-  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
+  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} onDelete={onDeleteProcess} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
  </UnifiedShell>;
 }
