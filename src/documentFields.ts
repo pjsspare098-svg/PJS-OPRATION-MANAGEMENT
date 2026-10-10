@@ -88,7 +88,10 @@ function tokenize(t:string,kind:string):DocumentFields{
  const amounts=[...t.matchAll(amountPattern)].map(m=>m[1].replace(/[,\s]/g,'')).filter(x=>/^\d+(?:\.\d{1,2})?$/.test(x)&&Number(x)>0);
  if(amounts.length)fields.amount=amounts[0];
  if(kind==='einvoiceDoc'){
-  const irn=getToken(t,irnPatterns,6,64);if(irn)fields.einvoice=irn;
+  // A valid 64-character hexadecimal IRN does not necessarily contain a digit.
+  const irn=[...t.matchAll(irnPatterns[0])].map(m=>m[1]).find(v=>/^[a-f0-9]{64}$/i.test(v));
+  const ack=getToken(t,[irnPatterns[1]],6,64);
+  if(irn||ack)fields.einvoice=irn||ack;
  }
  if(kind==='ebillDoc'||kind==='invoiceDoc'||kind==='einvoiceDoc'){
   const rawEway=[...t.matchAll(ewayPatterns[0])].map(m=>m[1].replace(/[\s-]/g,'')).find(x=>/^\d{10,15}$/.test(x));
