@@ -3,6 +3,7 @@ import {AlertCircle,CheckCircle2,Upload,X} from 'lucide-react';
 import {supabase} from './independentClient';
 import {cloud} from './cloud';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
+import {teamsApi} from './teamOps';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
 import UnifiedLogin from './UnifiedLogin';
 import DonePickListUpload from './DonePickListUpload';
@@ -22,6 +23,7 @@ export default function UnifiedApp(){
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
  const [donePickOpen,setDonePickOpen]=useState(false);
+ const [activeTeam,setActiveTeam]=useState('');
  const [importIssue,setImportIssue]=useState('');
  const picker=useRef<HTMLInputElement>(null);
  useEffect(()=>{
@@ -39,6 +41,12 @@ export default function UnifiedApp(){
   void Promise.all([ops.listRecords(),ops.listJobs(),ops.listEvents(),ops.preferences()]).then(([r,j,e,s])=>{if(active){setRecords(r);setJobs(j);setEvents(e);setSettings(s);setError('')}}).catch(e=>{if(active)setError('Unable to load cloud workspace: '+(e?.message||'Try Refresh.'))}).finally(()=>{if(active)setBusy(false)});
   return()=>{active=false};
  },[user?.id,demo]);
+ useEffect(()=>{
+   if(!user){setActiveTeam('');return}
+   let alive=true;
+   void teamsApi.list().then(t=>{if(alive&&t.length===1&&t[0].role!=='viewer')setActiveTeam(t[0].team_id)}).catch(()=>{});
+   return()=>{alive=false};
+ },[user?.id]);
  const results=useMemo(()=>records.filter(r=>[r.process,r.party,r.so,r.invoice,r.transporter,r.lr,r.stage,r.status].some(v=>includes(v,search))),[records,search]);
  const stats=useMemo(()=>({total:records.length,complete:records.filter(r=>String(r.stage||'').toLowerCase()==='complete').length,pending:records.filter(r=>missingDocs(r).length>0).length,exceptions:records.filter(isException).length}),[records]);
  const authenticated=Boolean(user&&!demo);
@@ -52,19 +60,19 @@ export default function UnifiedApp(){
   catch(e:any){setError('Refresh failed: '+(e?.message||'Please try again.'))}
   finally{setBusy(false)}
  }
- function onNew(){setRecord(blankProcess());setPickFile(null);setImportIssue('');setDialog(true)}
+ function onNew(){setRecord({...blankProcess(),team_id:activeTeam||null});setPickFile(null);setImportIssue('');setDialog(true)}
  function onEdit(r:any){setRecord({...r});setPickFile(null);setImportIssue('');setDialog(true)}
  async function onImportFile(file?:File){
   if(!file)return;
   setBusy(true);setError('');setImportIssue('');
   try{
     const fields=await cloud.extract(file,'pickDoc');
-    setRecord({...blankProcess(),...fields});
+    setRecord({...blankProcess(),team_id:activeTeam||null,...fields});
     setImportIssue(fields._reviewRecommended?('This '+(fields._readMethod==='ocr_photo'?'photo':'scanned PDF')+' required OCR'+(typeof fields._ocrConfidence==='number'?', text confidence '+Math.round(fields._ocrConfidence)+'%':'')+'. Verify all three values against the original before saving.'):'');
     onNotice('Pick Slip identified. Review Process No., Party Name and SO No. before saving.');
   }catch(e:any){
     const partial=e?.partial&&typeof e.partial==='object'?e.partial:{};
-    setRecord({...blankProcess(),...partial});
+    setRecord({...blankProcess(),team_id:activeTeam||null,...partial});
     const missing=['process','party','so'].filter(key=>!String(partial[key]||'').trim());
     setImportIssue('Automatic PDF reading could not fill '+(missing.length?missing.map(k=>k==='process'?'Process No.':k==='party'?'Party Name':'SO No.').join(', '):'all fields')+'. '+(e?.message||'Review the PDF and enter the missing values.'));
     onNotice('Pick Slip needs review; any successfully extracted fields were kept.');
@@ -77,7 +85,7 @@ export default function UnifiedApp(){
   if(!process||!party||!so)throw Error('Process No., Party Name and SO No. are required.');
   if(records.some(x=>x.process===process&&x.id!==r.id))throw Error('Process No. already exists: '+process);
   if(demo){saveDemo({...r,process,party,so});setRecords(mockRecords());setDialog(false);setPickFile(null);onNotice('Saved on this browser only. Uploaded PDF bytes were NOT stored. No cloud data was changed.');return}
-  const saved=await ops.save({...r,process,party,so,stage:r.stage||'Universal Process',status:r.status||'Review'},r.id?'Process updated':'Process created');
+  const saved=await ops.save({...r,process,party,so,team_id:r.id?r.team_id:(r.team_id||activeTeam||null),stage:r.stage||'Universal Process',status:r.status||'Review'},r.id?'Process updated':'Process created');
   const failures:string[]=[];
   for(const [kind,file] of Object.entries(files)){try{await cloud.upload(saved.id,kind,file)}catch(e:any){failures.push(kind+': '+(e?.message||'upload failed'))}}
   await refresh();setDialog(false);setPickFile(null);
@@ -121,10 +129,10 @@ export default function UnifiedApp(){
   const csv='\uFEFF'+keys.map(x=>quote(x[1])).join(',')+'\n'+results.map(r=>keys.map(x=>quote(r[x[0]])).join(',')).join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='PJS_OMS_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
  }
- async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setPage('Control Tower');setError('')}
+ async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,results,stats,jobs,events,settings,setSettings,busy,demo,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>setDonePickOpen(true),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
+ const p={records,results,stats,jobs,events,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>setDonePickOpen(true),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
