@@ -24,13 +24,13 @@ export function parseDocumentFields(input:string,kind:string):ScanResult{
  const text=normalized.replace(/\n/g,' ').replace(/ +/g,' ');
  const fields:DocumentFields={},notes:string[]=[];
  const field=(re:RegExp)=>clean(text.match(re)?.[1]||'');
- const invoice=field(/\b(?:Tax\s+Invoice|Invoice)\s*(?:Number|Num\.?|No\.?|#)\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9/-]{2,39})\b/i);
+ const invoice=field(/\b(?:Tax\s+Invoice|Invoice|Inv\.?)\s*(?:Number|Num\.?|No\.?|#)\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9/-]{2,39})\b/i);
  const invDate=field(/\bInvoice\s*Date\s*[:#.-]?\s*(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})\b/i);
  const so=field(/\b(?:Sales\s*Order|SO)\s*(?:Number|No\.?|#)\s*[:#.-]?\s*(\d{6,12})\b/i);
  const amount=field(/\b(?:Grand\s*Total|Invoice\s*(?:Amount|Value)|Total\s*Invoice\s*Value)\s*(?:INR|Rs\.?|₹)?\s*[:#-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)\b/i);
  const einvoice=field(/\b(?:E-?\s*Invoice\s*(?:No\.?|Number)|Ack(?:nowledg(?:e)?ment)?\s*(?:No\.?|Number))\s*[:#.\-]?\s*([A-Z0-9/-]{8,65})\b/i);
  const ebill=field(/\b(?:E-?\s*Way\s*Bill|EWB)\s*(?:No\.?|Number|#)?\s*[:#.\-]?\s*(\d{10,15})\b/i);
- const lr=field(/\b(?:L\.?\s*R\.?|Docket|Consignment|Lorry\s*Receipt|AWB)\s*(?:No\.?|Number|#|ID)?\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9/-]{2,29})\b/i);
+ const lr=field(/\b(?:L\.?\s*R\.?\s*(?:/\s*Docket)?|Docket|Consignment|Lorry\s*Receipt|AWB)\s*(?:No\.?|Number|#|ID)?\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9/-]{2,29})\b/i);
  if(['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(kind)){
   if(invoice)fields.invoice=invoice;
   if(invDate){const v=dateISO(invDate);if(v)fields.invoiceDate=v}
