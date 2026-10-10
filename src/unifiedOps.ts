@@ -10,7 +10,7 @@ export const defaults:Preferences={ebill_threshold:50000,retrack_days:3,reminder
 const DEMO_KEY='oms-unified-local-v1';
 function demoData(){try{return JSON.parse(localStorage.getItem(DEMO_KEY)||'{}')}catch{return {}}}
 export function showDate(value:any){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
-export function missingDocs(r:any){const kinds=new Set((r.documents||[]).map((d:any)=>d.kind));const warnings:string[]=[];if(!kinds.has('pickDoc'))warnings.push('Pick Slip');if(!r.so)warnings.push('SO No.');if(!r.party)warnings.push('Party Name');if(!r.invoice)warnings.push('Invoice No.');if(!kinds.has('invoiceDoc'))warnings.push('Invoice PDF');if(!kinds.has('einvoiceDoc')&&!kinds.has('ebillDoc'))warnings.push('E-Invoice or E-Bill');return warnings}
+export function missingDocs(r:any){const kinds=new Set((r.documents||[]).map((d:any)=>d.kind));const warnings:string[]=[];if(!kinds.has('pickDoc'))warnings.push('Pick Slip');if(!r.so)warnings.push('SO No.');if(!r.party)warnings.push('Party Name');return warnings}
 export function readyForBill(r:any,threshold=50000){return checkBill(r,threshold).ready}
 export function stageName(r:any){return r.stage||'Universal Process'}
 export function isException(r:any){return /check list|exception|rto|delay|return|error|failed/i.test([r.stage,r.status,r.trackingStatus,r.exceptionReason].join(' '))}
