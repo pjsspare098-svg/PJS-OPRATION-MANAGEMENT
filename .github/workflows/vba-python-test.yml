@@ -9,6 +9,8 @@ on:
       - 'worker/outlook_reply_agent.py'
       - 'worker/test_*agent.py'
       - 'worker/test_outlook_mailbox_bridge.py'
+      - 'worker/oms_dispatch_bridge.py'
+      - 'worker/test_oms_dispatch_bridge.py'
       - '.github/workflows/vba-python-test.yml'
   push:
     branches: [main]
@@ -35,7 +37,7 @@ jobs:
         run: python -m pip install 'selenium>=4.35,<5'
       - name: Syntax-check all new adapters
         working-directory: worker
-        run: python -m py_compile carriers.py tracking_agent.py datadoc_email_agent.py outlook_reply_agent.py outlook_mailbox_bridge.py
+        run: python -m py_compile carriers.py tracking_agent.py datadoc_email_agent.py outlook_reply_agent.py outlook_mailbox_bridge.py oms_dispatch_bridge.py
       - name: Test carrier status, batch control, DataDoc proof and Reply All mailbox matching
         working-directory: worker
-        run: python -m unittest -v test_tracking_agent.py test_datadoc_email_agent.py test_outlook_reply_agent.py test_outlook_mailbox_bridge.py
+        run: python -m unittest -v test_tracking_agent.py test_datadoc_email_agent.py test_outlook_reply_agent.py test_outlook_mailbox_bridge.py test_oms_dispatch_bridge.py
