@@ -1,3 +1,4 @@
+import {filterStage} from './workflowStages';
 import {useCallback,useEffect,useState} from 'react';
 import {AlertTriangle,CheckCircle2,ClipboardCheck,Download,FileText,Mail,RefreshCw,ShieldCheck,Upload,XCircle} from 'lucide-react';
 import {Button,Empty,Heading} from './UnifiedKit';
@@ -31,7 +32,7 @@ export default function EmailToClientWorkflow({p}:{p:any}){
  const lastSeen=worker?.last_seen_at?Date.parse(worker.last_seen_at):0;
  const connected=Boolean(lastSeen&&Date.now()-lastSeen<90000);
  const online=Boolean(connected&&['ready','idle','busy'].includes(worker?.status||''));
- const rows=results.filter((r:any)=>/email|datadoc/i.test(r.stage||'')||Boolean(r.invoice));
+ const rows=filterStage(results,'Email to Client');
  const toggle=(id:string)=>setExpanded(items=>items.includes(id)?items.filter(x=>x!==id):[...items,id]);
  return <div className='ux-email-workflow'>
   <Heading eyebrow='STAGE 04 · CLIENT COMMUNICATION' title='Email to Client'

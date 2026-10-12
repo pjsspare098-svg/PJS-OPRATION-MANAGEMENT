@@ -10,7 +10,7 @@ const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Box Weight (Kgs)'],['transporter','Courier / Transporter'],['lr','Doc No. / LR / Docket No.'],['courierDate','Courier Date','date'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
 ];
 export const documentKinds:[string,string][]= [['pickDoc','Pick Slip'],['invoiceDoc','Invoice'],['einvoiceDoc','E-Invoice'],['ebillDoc','E-Way Bill'],['lrDoc','LR / Docket'],['emailDoc','Outlook Email (.eml)'],['proofDoc','Delivery Proof']];
-export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,onDelete,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;onDelete:(r:any)=>Promise<void>;onClose:()=>void;onSave:(data:any,files:Record<string,File>)=>Promise<void|{saved:any;failed:string[];details:string}>}){
+export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],onDelete,onCancelEmailJob,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];onDelete:(r:any)=>Promise<void>;onCancelEmailJob?:(job:any)=>Promise<void>;onClose:()=>void;onSave:(data:any,files:Record<string,File>)=>Promise<void|{saved:any;failed:string[];details:string}>}){
  const scrollRef=useRef<HTMLDivElement>(null);
  const [draft,setDraft]=useState<any>({...blankProcess(),...record});
  const [files,setFiles]=useState<Record<string,File>>({});
@@ -110,6 +110,10 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   finally{setBusy(false)}
  }
  const canDelete=Boolean(!demo&&draft.id&&draft.owner_id===userId&&!draft.team_id);
+ const deletionBlockers=(jobs||[]).filter((job:any)=>job.process_id===draft.id&&['queued','running'].includes(job.status));
+ const cancellableOutlook=deletionBlockers.find((job:any)=>job.job_type==='email_reply'&&job.status==='queued');
+ const deleteReason=demo?'Sign in to delete cloud processes.':draft.team_id?'Shared team processes cannot be deleted here; ask a team administrator.':draft.id&&draft.owner_id!==userId?'Only the process owner can delete this record.':'';
+
  return <div className='ux-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><section className='ux-drawer' role='dialog' aria-modal='true' aria-label='Process editor'>
  <header className='ux-drawer-header'><div><div className='ux-kicker dark'>UNIVERSAL PROCESS</div><h2>{draft?.id?'Edit process '+draft.process:'Create new process'}</h2><p>One verified master record for the complete dispatch journey.</p></div><button className='ux-icon-button' aria-label='Close editor' onClick={onClose}><X size={20}/></button></header>
  <div className='ux-drawer-scroll' ref={scrollRef}>
@@ -186,17 +190,25 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  </section>
  {deleteOpen&&canDelete&&<div className='ux-master-delete' role='alertdialog' aria-label='Confirm Delete Process'>
   <div><Trash2 size={20}/><strong>Delete Process {draft.process}?</strong></div>
-  <p>This removes the personal master process from active lists, but keeps all saved PDFs, photos, and process history in Trash. It does not delete a Done Pick List album. Shared team records cannot be deleted here.</p>
+  <p>This moves your personal master process into Trash and preserves attached files and history. This action does not send an email or cancel any automation automatically.</p>
+  {deletionBlockers.length>0&&<div className='ux-delete-blockers' role='alert'>
+    <strong>Cannot delete while automation is waiting or running.</strong>
+    {deletionBlockers.map((job:any)=><div key={job.id}>Process job: {job.job_type.replace(/_/g,' ')} — {job.status}</div>)}
+    {cancellableOutlook&&onCancelEmailJob&&<button type='button' className='ux-secondary' disabled={busy} onClick={()=>void onCancelEmailJob(cancellableOutlook)}>
+      Cancel waiting Outlook draft request
+    </button>}
+    <small>Only queued Outlook drafts can be canceled here. Running or other automation jobs must be safely resolved first, then refresh.</small>
+  </div>}
   <label className='ux-field'>Type Process No. {draft.process} to confirm
    <input value={deleteInput} onChange={e=>setDeleteInput(e.target.value.trim())} placeholder='Exact Process No.' autoComplete='off'/>
   </label>
   <div className='ux-master-delete-actions'>
    <button type='button' className='ux-secondary' onClick={()=>{setDeleteOpen(false);setDeleteInput('')}} disabled={busy}>Cancel</button>
-   <button type='button' className='ux-master-delete-confirm' onClick={()=>void deleteProcess()} disabled={busy||deleteInput!==String(draft.process||'')}><Trash2 size={15}/>{busy?'Moving…':'Confirm Delete Process'}</button>
+   <button type='button' className='ux-master-delete-confirm' onClick={()=>void deleteProcess()} disabled={busy||deletionBlockers.length>0||deleteInput!==String(draft.process||'')}><Trash2 size={15}/>{busy?'Moving…':'Confirm Delete Process'}</button>
   </div>
  </div>}
  {demo&&<div className='ux-preview-warning'>No-login local mode: only process fields are saved on this browser. Original PDFs and other document files are not stored.</div>}
  {error&&<div className='ux-auth-error' role='alert'>{error}</div>}
- </div><footer className='ux-drawer-footer'>{canDelete&&<button className='ux-master-delete-button' disabled={busy} onClick={()=>{setDeleteOpen(true);setDeleteInput('')}}><Trash2 size={15}/> Delete Process</button>}<button className='ux-secondary' onClick={onClose}>Cancel</button>{Boolean(draft.id)&&draft.stage!=='Email to Client'&&<button className='ux-secondary ux-email-move' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit(true)}>Save &amp; Move to Email</button>}<button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
+ </div><footer className='ux-drawer-footer'>{Boolean(draft.id)&&!canDelete&&<span className='ux-deletion-unavailable'>{deleteReason||'Deletion unavailable for this record.'}</span>}{canDelete&&<button className='ux-master-delete-button' disabled={busy} onClick={()=>{setDeleteOpen(true);setDeleteInput('')}}><Trash2 size={15}/> Delete Process</button>}<button className='ux-secondary' onClick={onClose}>Cancel</button>{Boolean(draft.id)&&draft.stage!=='Email to Client'&&<button className='ux-secondary ux-email-move' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit(true)}>Save &amp; Move to Email</button>}<button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
  </section></div>
 }

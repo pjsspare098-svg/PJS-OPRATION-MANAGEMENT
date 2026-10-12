@@ -81,3 +81,17 @@ Safe tests: from \ `worker\` run
 Requires Python 3.12+. No Outlook installation or secrets are needed for
 the mock tests. Actual Outlook COM automation will require Windows desktop
 Outlook and the appropriate approved Python dependencies.
+
+
+## Start both office workers together (DataDoc + Outlook drafts)
+
+After installing dependencies and configuring the **existing** local `.env` (do not overwrite a working configuration), on the authorized Windows PC open the worker folder and double-click `START_OFFICE_WORKERS.bat`. This opens two independent Python processes using the current Windows account:
+
+- `independent_worker.py` handles approved DataDoc `bill_submit` jobs.
+- `outlook_draft_worker.py` handles approved, versioned Outlook **Reply All drafts only**, with **no automatic Send**.
+
+The launcher never turns on `PJS_ENABLE_LIVE_DATADOC` or `PJS_ENABLE_OUTLOOK_DRAFT`. When set to 0 the worker reports **Paused** after connecting, and external execution remains off. Turn a live flag on only after its individual supervised acceptance test has succeeded. A failed connection appears in the local logs; the browser cannot force the Windows process online.
+
+Refresh **Control Tower → System readiness** to see real Supabase heartbeats for both workers. It will show **Offline** if a heartbeat was not received recently, **Paused** if a worker is configured but execution is disabled, or **Online/Busy** when its actual heartbeat reports it. The Carrier Tracking adapter still requires a separate authenticated queue integration and is not an always-online worker.
+
+If configured DataDoc and Outlook both require automatic startup after Windows login, use the existing `install_autostart.ps1` for DataDoc, and configure the Outlook draft worker separately using a per-user interactive desktop task after a supervised test. Do not run Outlook under SYSTEM. Keep all keys in `worker/.env` locally.
