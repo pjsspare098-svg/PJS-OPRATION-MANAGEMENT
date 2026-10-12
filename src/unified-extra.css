@@ -105,3 +105,6 @@
 .ux-outlook-footnote{color:#6883a1;font-size:10px;line-height:1.6}
 @media(max-width:850px){.ux-outlook-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.ux-outlook-card-grid{grid-template-columns:1fr}.ux-outlook-worker{flex-wrap:wrap}.ux-outlook-worker>a{margin-left:22px}}
 @media(max-width:540px){.ux-outlook-steps{grid-template-columns:1fr 1fr}.ux-outlook-steps span{font-size:10px;min-height:38px}.ux-email-job-status{max-width:120px}}
+
+.ux-outlook-select-label{display:grid;gap:6px;width:100%;font-size:11px;font-weight:700;color:#365c85}
+.ux-outlook-select-label select{width:100%;min-width:0;max-width:100%;border-radius:7px;border:1px solid #cbdcf3;padding:9px;background:#fff;color:#29486d;font-size:11px}
