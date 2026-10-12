@@ -2,12 +2,11 @@ import {useEffect,useRef,useState} from 'react';
 import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,AlertTriangle,Trash2} from 'lucide-react';
 import {cloud} from './cloud';
 import {displayField} from './documentFields';
-import {mergeRecipientEmails,recipientEmails,toggleRecipientEmail} from './emailRecipients.ts';
 import {mergeDocumentScans,safeUpdates,type Candidate,type ScannedDocument} from './documentMerge';
 export const blankProcess=()=>({process:'',party:'',so:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',clientEmail:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
 const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Dispatch & invoice (optional for Email)',fields:[['sales','Sales Person'],['ready','Ready for Dispatch','date'],['invoice','Invoice No.'],['invoiceDate','Invoice Date','date'],['amount','Invoice Amount (₹)','number'],['credit','Credit / Non-Credit','credit'],['po','PO No.'],['poDate','PO Date','date'],['payment','Payment Terms']]},
- {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Weight'],['transporter','Transporter'],['lr','LR / Docket No.'],['clientEmail','Client Email'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
+ {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Weight'],['transporter','Transporter'],['lr','LR / Docket No.'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
 ];
 export const documentKinds:[string,string][]= [['pickDoc','Pick Slip'],['invoiceDoc','Invoice'],['einvoiceDoc','E-Invoice'],['ebillDoc','E-Way Bill'],['lrDoc','LR / Docket'],['emailDoc','Outlook Email (.eml)'],['proofDoc','Delivery Proof']];
 export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,onDelete,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;onDelete:(r:any)=>Promise<void>;onClose:()=>void;onSave:(data:any,files:Record<string,File>)=>Promise<void|{saved:any;failed:string[];details:string}>}){
@@ -24,20 +23,18 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  const [scanProgress,setScanProgress]=useState('');
  const [scanCandidates,setScanCandidates]=useState<Candidate[]>([]);
  const [scanFailures,setScanFailures]=useState<string[]>([]);
- const [mailSuggestions,setMailSuggestions]=useState<string[]>([]);
- const extractable=['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc'];
+ const extractable=['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'];
  function presentScans(scans:ScannedDocument[],failures:string[]){
   const review=mergeDocumentScans(scans);
   const {changes,skipped}=safeUpdates(draft,review);
-  setDraft((current:any)=>({...current,...safeUpdates(current,review).changes,clientEmail:mergeRecipientEmails(current.clientEmail,review.emails)}));
+  setDraft((current:any)=>({...current,...safeUpdates(current,review).changes}));
   setScanCandidates(review.candidates);
   setScanFailures(failures);
-  setMailSuggestions(review.emails);
   setExpanded(true);
   const count=Object.keys(changes).length;
   const warnings=[...review.conflicts,...skipped,...failures];
   const head=review.candidates.length?review.candidates.length+' suggested field values read; '+count+' empty field(s) filled.':'No labelled values found in the selected documents.';
-  setScanInfo(head+(review.emails.length?' '+review.emails.length+' unique email address(es) added to Client Email.':'')+(warnings.length?' '+warnings.length+' item(s) need review below.':'')+' Review recipients, then click Save process & documents to persist.');
+  setScanInfo(head+(warnings.length?' '+warnings.length+' item(s) need review below.':'')+' Review document fields, then click Save process & documents. Outlook messages are never scanned for email addresses.');
  }
  async function scan(kind:string,file?:File,doc?:any){
   if(!file&&!doc)return;
@@ -58,7 +55,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
    }
    if(files[kind])selections.push({kind,name:files[kind].name,file:files[kind]});
   }
-  if(!selections.length){setScanInfo('No Invoice, E-Invoice, E-Way Bill, LR/Docket or Outlook Email documents available to extract.');return}
+  if(!selections.length){setScanInfo('No Invoice, E-Invoice, E-Way Bill or LR/Docket documents available to extract.');return}
   setScanBusy('all');setScanInfo('');setScanFailures([]);setScanCandidates([]);setError('');
   const scans:ScannedDocument[]=[],failures:string[]=[];
   try{
@@ -82,7 +79,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  const choose=(kind:string,file?:File)=>{
   if(!file)return;
   setFiles(old=>({...old,[kind]:file}));
-  if(['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc'].includes(kind))void scan(kind,file);
+  if(['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(kind))void scan(kind,file);
  };
  async function submit(moveToEmail=false){
   if(!draft.process?.trim()||!draft.party?.trim()||!draft.so?.trim()){
@@ -92,8 +89,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   }
   setBusy(true);setError('');
   try{
-    const cleaned={...draft,clientEmail:mergeRecipientEmails(draft.clientEmail)};
-    const payload=moveToEmail?{...cleaned,stage:'Email to Client',status:'Ready for Email'}:cleaned;
+    const payload=moveToEmail?{...draft,stage:'Email to Client',status:'Ready for Email'}:draft;
     const result=await onSave(payload,sourcePending&&sourceFile?{...files,pickDoc:sourceFile}:files);
     if(result&&result.failed.length){
       setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,stage:moveToEmail?'Email to Client':old.stage,status:moveToEmail?'Ready for Email':old.status,documents:result.saved.documents||old.documents}));
@@ -121,14 +117,14 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  <section className='ux-drawer-section'><div className='ux-section-title'><b>01</b><strong>Process identity</strong></div><div className='ux-field-grid'>
  {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}</div></section>
  <button className='ux-expand-button' onClick={()=>setExpanded(!expanded)}><Settings2 size={17}/>{expanded?'Hide additional fields':'Add invoice, carrier and dispatch details'}<ChevronDown size={17}/></button>
- {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:key==='clientEmail'?<><textarea rows={3} placeholder='Saved email addresses; separated by semicolons' value={draft.clientEmail??''} onChange={e=>setDraft((v:any)=>({...v,clientEmail:e.target.value}))}/><small className='ux-recipient-count'>{recipientEmails(draft.clientEmail).length} saved recipient(s). All extracted addresses are included; edit to remove unwanted recipients.</small></>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
+ {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
  <section className='ux-drawer-section'>
   <div className='ux-section-title'><b><FileText size={15}/></b><strong>Private attachments — open, download or extract details</strong></div>
   <div className='ux-extraction-controls'>
    <button type='button' className='ux-extract-all' disabled={demo||busy||Boolean(scanBusy)||!draft.id} onClick={()=>void scanAll()}>
     <FileText size={17}/>{scanBusy==='all'?'Reading saved documents…':'Extract All Documents'}
    </button>
-   <small>Reads saved invoice, E-Invoice, LR/Docket and Outlook files together. It fills only empty fields and flags different values for your review.</small>
+   <small>Extracts labelled invoice, E-Invoice, E-Way Bill and LR/Docket fields only. Outlook .eml conversations stay attached for Reply All; their addresses are never extracted.</small>
   </div>
   {scanProgress&&<p className='ux-extraction-progress' role='status'>{scanProgress}</p>}
   {scanInfo&&<div className='ux-import-warning' role='status'><FileText size={17}/><span>{scanInfo}</span></div>}
@@ -147,18 +143,15 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
    <small>Fields marked “Use value” require your confirmation before replacing an existing value. OCR/PDF extraction can be incorrect.</small>
   </div>}
   {scanFailures.length>0&&<div className='ux-extraction-failures' role='alert'><strong>Files requiring attention</strong>{scanFailures.map((x,i)=><p key={i}>{x}</p>)}</div>}
-  {mailSuggestions.length>0&&<div className='ux-email-suggestions'>
-   <strong>All extracted email addresses are added to Client Email. Click any recipient to include or remove them before saving:</strong>
-   <div>{mailSuggestions.map(address=><button key={address} type='button' aria-pressed={recipientEmails(draft.clientEmail).includes(address.toLowerCase())} className={recipientEmails(draft.clientEmail).includes(address.toLowerCase())?'included':''} onClick={()=>{setDraft((v:any)=>({...v,clientEmail:toggleRecipientEmail(v.clientEmail,address)}));setScanInfo('Recipient selection updated. Save process & documents to keep these addresses.')}}>{recipientEmails(draft.clientEmail).includes(address.toLowerCase())?'✓ ': '+ '}{address}</button>)}</div>
-  </div>}
   <div className='ux-upload-grid'>{documentKinds.map(([kind,label])=>{
    const existing=(draft.documents||[]).filter((d:any)=>d.kind===kind);
-   const canExtract=['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc'].includes(kind);
+   const canExtract=['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(kind);
    return <div className='ux-attachment-item' key={kind}>
     <label className='ux-upload'><Upload size={17}/><strong>{label}</strong>
      <small>{files[kind]?.name||(kind==='pickDoc'&&sourcePending&&sourceFile?.name)||(existing.length?existing.length+' saved':'Choose file')}</small>
      <input type='file' disabled={busy||Boolean(scanBusy)} accept={kind==='emailDoc'?'.eml,message/rfc822':'.pdf,.png,.jpg,.jpeg'} onChange={e=>{choose(kind,e.target.files?.[0]);e.target.value=''}}/>
     </label>
+    {kind==='emailDoc'&&<small className='ux-recipient-count'>Outlook Reply All will use this conversation when the email agent is running. No addresses are extracted.</small>}
     {files[kind]&&<button className='ux-preview-selected' type='button' onClick={()=>previewSelected(files[kind])}><ExternalLink size={14}/> Preview selected file (before save)</button>}
     {scanBusy===kind&&<small className='ux-scanning'>Reading the document…</small>}
     {existing.map((d:any)=><div key={d.id} className='ux-saved-file'>

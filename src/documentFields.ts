@@ -1,4 +1,3 @@
-import {recipientEmails} from './emailRecipients.ts';
 // PJS document field extraction. The original uploaded document is never changed.
 // The parser only proposes values backed by an explicit label in the PDF/email.
 export type DocumentFields={
@@ -16,7 +15,7 @@ export const expectedDocumentFields:Record<string,(keyof DocumentFields)[]>={
  einvoiceDoc:['einvoice','invoice'],
  ebillDoc:['ebill'],
  lrDoc:['lr'],
- emailDoc:['clientEmail']
+ emailDoc:[]
 };
 const tidy=(input:string)=>String(input||'').replace(/\u00ad/g,'').replace(/\u00a0/g,' ').replace(/\u200b/g,'').replace(/[ \t]+/g,' ').replace(/\r/g,'').trim();
 const clean=(value:string)=>tidy(value).replace(/^[\s:#.=–-]+|[\s,;]+$/g,'').trim();
@@ -52,17 +51,6 @@ const dateISO=(text:string)=>{
  const parsed=new Date(Date.UTC(year,month-1,day));
  return parsed.getUTCFullYear()===year&&parsed.getUTCMonth()===month-1&&parsed.getUTCDate()===day?year+'-'+pad(month)+'-'+pad(day):'';
 };
-export function mailCandidates(text:string):string[]{
- // Read all visible recipients in the conversation, including quoted replies and
- // forwarded messages, not just the first To/From/Cc header block.
- const raw=String(text||'').slice(0,TEXT_LIMIT).replace(/=\r?\n/g,'').replace(/=40/gi,'@');
- // MIME transport fields and base64 attachments are not recipient addresses.
- const readable=raw.split(/\r?\n/).filter(line=>
-  !/^\s*(?:message-id|references|in-reply-to|received|return-path|authentication-results|dkim-signature|x-[\w-]+):/i.test(line)&&
-  !/^\s*[A-Za-z0-9+/=]{100,}\s*$/.test(line)
- ).join('\n');
- return recipientEmails(readable);
-}
 const amountPattern=/\b(?:Grand\s*Total|Net\s*Invoice\s*(?:Amount|Value)|Total\s*Invoice\s*(?:Amount|Value)?|Invoice\s*(?:Amount|Value)|Total\s*Amount(?:\s*Payable)?)\b(?:\s*(?:\(?\s*(?:INR|Rs\.?|₹)\s*\)?))?\s*[:.=-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)(?!\d)/gi;
 const invoicePattern=[
  /\b(?:Tax\s*Invoice|Commercial\s*Invoice|Invoice|Inv\.?)\s*(?:No\.?|Num(?:ber)?\.?|#|:)\s*[:.#-]?\s*([A-Z0-9][A-Z0-9/._-]{0,48})\b/gi,
@@ -152,10 +140,7 @@ function tokenize(t:string,kind:string):DocumentFields{
  return fields;
 }
 export function parseDocumentFields(input:string,kind:string):ScanResult{
- if(kind==='emailDoc'){
-  const emails=mailCandidates(input);
-  return {fields:{},emails,notes:[emails.length?'Review all extracted recipient addresses before dispatch.':'No email address found in the uploaded conversation.']};
- }
+ if(kind==='emailDoc')return {fields:{},emails:[],notes:['Original .eml kept for Outlook Reply All; no recipient extraction.']};
  const original=tidy(String(input||'').slice(0,TEXT_LIMIT));
  const flat=original.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
  const fields=tokenize(flat,kind);

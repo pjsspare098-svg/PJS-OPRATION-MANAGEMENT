@@ -57,3 +57,27 @@ No machine has been configured just by committing these files to GitHub. Only in
 ## Security notes
 
 The \`.env\` must not be committed. The repository's \`.gitignore\` excludes \`.env\`. Keep the independent Supabase project isolated from legacy systems. A service-role key has broad database permissions: store it only on the trusted office PC in a protected directory, rotate it if exposed, and ideally migrate to a limited-scope worker credential later. Workstations can be disabled by pausing or removing the task; job history remains in Supabase.
+
+## Outlook Reply All (new adapter, draft-only until integration is tested)
+
+\`outlook_reply_agent.py\` provides a separate Reply All draft-preparation step.
+It takes the **verified original Outlook MailItem**, calls Outlook's native
+\`ReplyAll()\`, inserts escaped process/dispatch information, attaches
+locally verified dispatch files, saves a draft and displays it. The agent
+does **not** extract or save recipient addresses and does **not** call Send().
+
+The website queues an \ `email_reply` job with the exact stored \ `.eml`
+document ID plus Process/SO/invoice/carrier details, never email addresses.
+No Outlook worker claims these jobs yet: only DataDoc \ `bill_submit` is
+executable by the existing independent worker. The Windows bridge that opens
+the correct \ `.eml` in Classic Outlook, resolves the matching MailItem,
+requests operator approval, sends the final reply and confirms sent status
+will be implemented after reviewing the user's original VBA and testing on
+the authorized office PC. Never mark queued Outlook jobs as completed or
+automatically retry an uncertain sent state.
+
+Safe tests: from \ `worker\` run
+\`python -m unittest -v test_outlook_reply_agent.py\`.
+Requires Python 3.12+. No Outlook installation or secrets are needed for
+the mock tests. Actual Outlook COM automation will require Windows desktop
+Outlook and the appropriate approved Python dependencies.

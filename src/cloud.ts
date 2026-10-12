@@ -182,7 +182,7 @@ export const cloud={
   },
   async inspectAttachment(file:File,kind:string):Promise<ScanResult>{
     validFile(file);
-    if(kind==='emailDoc')return parseDocumentFields(await file.text(),kind);
+    if(kind==='emailDoc')return {fields:{},emails:[],notes:['Original Outlook conversation is retained without extracting recipient addresses.']};
     if(file.type==='application/pdf'){
       const {pdf,rows,rawRows}=await pdfRows(file);
       const visual=parseDocumentFields(rows.join('\n'),kind);

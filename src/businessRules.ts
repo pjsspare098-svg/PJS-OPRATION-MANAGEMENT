@@ -1,4 +1,3 @@
-import {recipientEmails} from './emailRecipients.ts';
 export type Rules={ready:boolean;missing:string[];warnings:string[]};
 export type RulePrefs={ebill_threshold:number;retrack_days:number;reminder_days:number};
 const text=(v:any)=>String(v??'').trim();
@@ -37,8 +36,9 @@ export function checkJob(r:any,type:RuleJob,prefs:RulePrefs={ebill_threshold:500
   if(!files.has('emailDoc'))missing.push('Original client email (.eml)');
  }
  if(type==='email_reply'){
-  if(!recipientEmails(r.clientEmail).length)missing.push('Valid client email');
-  if(!files.has('emailDoc'))missing.push('Outlook email conversation');
+  const originals=(r.documents||[]).filter((d:any)=>d.kind==='emailDoc');
+  if(originals.length!==1)missing.push(originals.length===0?'Original Outlook email conversation (.eml)':'Choose exactly one Outlook conversation to reply to');
+  if(originals.length===1&&!originals[0].id)missing.push('Saved Outlook conversation ID');
   if(!text(r.invoice))missing.push('Invoice No.');
  }
  if(type==='delivery_proof_submit'){
