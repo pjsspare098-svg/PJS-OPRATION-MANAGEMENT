@@ -63,6 +63,11 @@ def build_plan(job: dict, process: dict, documents: list[dict],
         ready=str(info.get("ready") or ""),
         product_name=str(info.get("productName") or ""),
         sales_person=str(info.get("sales") or ""),
+        po=str(info.get("po") or ""),
+        po_date=str(info.get("poDate") or ""),
+        invoice_date=str(info.get("invoiceDate") or ""),
+        courier_date=str(info.get("courierDate") or ""),
+        weight=str(info.get("weight") or ""),
     )
     details.validate()
     destination.mkdir(parents=True, exist_ok=True)
