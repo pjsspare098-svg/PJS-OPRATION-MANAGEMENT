@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import {parseDocumentFields,mailCandidates} from '../src/documentFields.ts';
-import {recipientEmails,mergeRecipientEmails,toggleRecipientEmail} from '../src/emailRecipients.ts';
+import {parseDocumentFields} from '../src/documentFields.ts';
 const invoice=parseDocumentFields('Tax Invoice No. 946 Invoice Date 10/10/2026 Invoice Amount ₹ 75,000 Sales Order No. 26271016','invoiceDoc');
 assert.equal(invoice.fields.invoice,'946');
 assert.equal(invoice.fields.invoiceDate,'2026-10-10');
@@ -12,8 +11,7 @@ assert.equal(parseDocumentFields('E-Way Bill No. 123456789012','ebillDoc').field
 assert.equal(parseDocumentFields('LR / Docket No: LR-12345','lrDoc').fields.lr,'LR-12345');
 assert.equal(parseDocumentFields('Docket No: 946','lrDoc').fields.lr,'946');
 const eml='From: "Customer Team" <customer@example.org>\r\nTo: PJS Office <office@example.in>\r\nCc: audit@example.net\r\nSubject: Dispatch\r\n\r\nHello';
-assert.deepEqual(mailCandidates(eml),['customer@example.org','office@example.in','audit@example.net']);
-assert.equal(parseDocumentFields(eml,'emailDoc').emails.length,3);
+assert.deepEqual(parseDocumentFields(eml,'emailDoc').emails,[], 'Outlook attachments must not extract or store email addresses');
 assert.equal(parseDocumentFields('random lines with 928347261 shipping updates','lrDoc').fields.lr,undefined);
 
 const multiline=`TAX INVOICE
@@ -39,7 +37,7 @@ assert.equal(parseDocumentFields('Consignment Note Number: CN-12345','lrDoc').fi
 assert.equal(parseDocumentFields('Docket No. 946','lrDoc').fields.lr,'946');
 assert.equal(parseDocumentFields('Invoice No: DATE Invoice Date: 10-Oct-2026','invoiceDoc').fields.invoice,undefined);
 
-console.log('PASS: 11 document field and email header extraction cases');
+console.log('PASS: document field extraction and disabled email scanning cases');
 console.log('PASS: additional invoice layouts, IRN, EWB and safe labelled-value cases');
 
 
@@ -82,11 +80,3 @@ const otherDoc=parseDocumentFields('PO No. PO-9999 PO Date: 10-Oct-2026 Payment 
 assert.equal(otherDoc.fields.po,undefined);
 assert.equal(otherDoc.fields.payment,undefined);
 console.log('PASS: PO No., PO Date, Payment Terms, multiline invoices and missing-field safeguards');
-
-const forwarded='From: PJS Office <OFFICE@example.in>\r\nTo: vipin@example.com\r\nCc: TEAM@example.com\r\nSubject: Dispatch\r\nMessage-ID: <internal-tracking@mailer.invalid>\r\n\r\nForwarded message:\r\nFrom: another@example.net\r\nTo: VIPIN@example.com, third@example.org\r\nContact: fourth@example.com';
-assert.deepEqual(mailCandidates(forwarded),['office@example.in','vipin@example.com','team@example.com','another@example.net','third@example.org','fourth@example.com']);
-assert.deepEqual(recipientEmails('VIPIN@example.com; another@example.net, vipin@example.com'),['vipin@example.com','another@example.net']);
-assert.equal(mergeRecipientEmails('first@example.org', ['SECOND@example.org','first@example.org']), 'first@example.org; second@example.org');
-assert.equal(toggleRecipientEmail('first@example.org; second@example.org','first@example.org'), 'second@example.org');
-assert.equal(toggleRecipientEmail('second@example.org','NEW@example.org'), 'second@example.org; new@example.org');
-console.log('PASS: forwarded conversations, uniqueness, multi-recipient saving and manual review');
