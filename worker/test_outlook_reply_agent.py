@@ -70,10 +70,11 @@ class OutlookReplyAllTests(unittest.TestCase):
         self.assertIn("Scan copy of the courier receipt", draft.HTMLBody)
 
     def test_html_escaping(self):
-        html = dispatch_html(self.details)
-        self.assertIn("292168", html)
-        self.assertNotIn("<Ltd>", html)
-        self.assertIn("&lt;Ltd&gt;", html)
+        from dataclasses import replace
+        html = dispatch_html(replace(self.details, po="<PO-123 & 456>"))
+        self.assertIn("PO No.", html)
+        self.assertIn("&lt;PO-123 &amp; 456&gt;", html)
+        self.assertNotIn("<PO-123 & 456>", html)
 
     def test_invalid_box_weight_rejected(self):
         from dataclasses import replace
