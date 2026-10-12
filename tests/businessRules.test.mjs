@@ -36,7 +36,7 @@ const reply={id:'process-reply-all',process:'292168',so:'26271016',party:'Test',
 assert.equal(checkJob(reply,'email_reply').ready,true,'Reply All uses saved original .eml and invoice PDF, never extracted recipient addresses');
 assert.equal(checkJob({...reply,documents:[]},'email_reply').ready,false);
 assert.equal(checkJob({...reply,documents:[{kind:'emailDoc',id:'a',name:'a.eml'},{kind:'emailDoc',id:'b',name:'b.eml'},{kind:'invoiceDoc',name:'invoice.pdf'},{kind:'lrDoc',name:'courier-receipt.pdf'}]},'email_reply').ready,false,'Multiple threads require explicit selection');
-assert.equal(checkJob({...reply,selected_email_document_id:'b',documents:[{kind:'emailDoc',id:'a',name:'a.eml'},{kind:'emailDoc',id:'b',name:'b.eml'},{kind:'invoiceDoc',name:'invoice.pdf'}]},'email_reply').ready,true,'Selected original thread can be queued safely');
+assert.equal(checkJob({...reply,selected_email_document_id:'b',documents:[{kind:'emailDoc',id:'a',name:'a.eml'},{kind:'emailDoc',id:'b',name:'b.eml'},{kind:'invoiceDoc',name:'invoice.pdf'},{kind:'lrDoc',name:'courier-receipt.pdf'}]},'email_reply').ready,true,'Selected original thread can be queued safely');
 assert.equal(checkJob({...reply,documents:[{kind:'emailDoc',name:'original.eml'}]},'email_reply').ready,false,'Original message and invoice PDF must be saved first');
 assert.equal(checkJob({...reply,po:''},'email_reply').ready,false);
 assert.equal(checkJob({...reply,weight:'0'},'email_reply').ready,false);
