@@ -14,6 +14,14 @@ This setup enables **draft preparation only**. It does not send email automatica
 
 No customer email addresses are extracted or copied into the PJS application.
 
+## Standard PressureJet customer dispatch format
+
+The Email to Client preview and Python Outlook HTML draft use the same company dispatch message: **Dear Sir**, the purchase order introduction, a structured table (PO No., PO Date, Invoice No., Invoice Date, Courier, Doc No., Courier Date, Box Weight in Kgs), delivery and damage instructions, the maintenance-video link, the unboxing-video request, and the **CHETAN SOLANKI** / PressureJet Systems signature supplied by dispatch.
+
+Before queuing, open **Edit dispatch** and complete PO No./Date, Invoice No./Date, Courier/Transporter, Doc No./LR, Courier Date and positive Box Weight. Upload **both** an Invoice PDF and the **Courier Receipt / LR PDF** in addition to exactly one original Outlook .eml. The new form includes a Courier Date field. Missing data or either PDF prevents a draft from being queued and the Windows worker independently checks again before preparing a draft.
+
+If the website shows **This is an older Outlook request**, cancel that queued legacy request first. Existing outdated jobs are not processed by the new versioned draft worker. Never requeue a running or uncertain Outlook job until the draft folder is checked.
+
 ## Windows setup (Python 3.12+; Python 3.13 is supported)
 
 Download/update this repository's worker folder to a permanent office PC location. The folder must be writable for logs and temporary files. Open Classic Outlook and sign in to the same account you will use for dispatch. The original conversation must exist in that mailbox Inbox or Sent Items with the same Message-ID as the attached .eml.
