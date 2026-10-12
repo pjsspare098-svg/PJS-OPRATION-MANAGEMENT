@@ -121,3 +121,14 @@
 .ux-pressurejet-email a{color:#235cb5;overflow-wrap:anywhere}
 .ux-pressurejet-signature{display:flex;flex-direction:column;gap:1px}
 @media(max-width:540px){.ux-pressurejet-email{padding:12px}.ux-pressurejet-email-table th,.ux-pressurejet-email-table td{padding:7px}.ux-pressurejet-email-table th{width:39%}}
+
+
+/* Delete guard displays the reason before attempting the protected Supabase RPC. */
+.ux-delete-blockers{display:grid;gap:7px;padding:12px 14px;margin:10px 0;border:1px solid #f2cc9e;background:#fff8eb;color:#8b5723;border-radius:9px;font-size:11px;line-height:1.5}
+.ux-delete-blockers strong{font-size:12px}
+.ux-delete-blockers button{justify-self:start}
+.ux-delete-blockers small{font-size:10px}
+.ux-deletion-unavailable{font-size:10px;color:#9a6470;max-width:280px;line-height:1.4}
+.ux-worker-error{display:flex;align-items:center;gap:8px;font-size:11px;color:#9f621b}
+.ux-worker-error button{cursor:pointer;border:0;background:transparent;color:#295ba6;display:flex;gap:4px}
+.ux-readiness small a{color:#295ba6;text-decoration:underline}
