@@ -35,7 +35,7 @@ def source_message_id(eml_path: str | Path) -> str:
             if not chunk or chunk in (b"\n", b"\r\n"):
                 break
             header.extend(chunk)
-    msg = BytesParser(policy=default, headersonly=True).parsebytes(bytes(header))
+    msg = BytesParser(policy=default).parsebytes(bytes(header), headersonly=True)
     message_id = str(msg.get("Message-ID", "")).strip()
     if not message_id.startswith("<") or not message_id.endswith(">") or "\n" in message_id:
         raise ValueError("Original .eml needs a valid Message-ID to link to Outlook")
