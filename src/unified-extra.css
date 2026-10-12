@@ -108,3 +108,16 @@
 
 .ux-outlook-select-label{display:grid;gap:6px;width:100%;font-size:11px;font-weight:700;color:#365c85}
 .ux-outlook-select-label select{width:100%;min-width:0;max-width:100%;border-radius:7px;border:1px solid #cbdcf3;padding:9px;background:#fff;color:#29486d;font-size:11px}
+
+/* PressureJet's dispatch message preview, matching the Outlook HTML draft. */
+.ux-pressurejet-email{display:grid;gap:12px;background:#fff;border:1px solid #dee7f2;border-radius:9px;padding:19px 20px;font:12px/1.7 Arial,sans-serif;color:#263a53;min-width:0}
+.ux-pressurejet-email p{margin:0}
+.ux-pressurejet-email-table{width:100%;max-width:670px;border-collapse:collapse;font:12px/1.5 Arial,sans-serif}
+.ux-pressurejet-email-table th,.ux-pressurejet-email-table td{text-align:left;border:1px solid #dce5ef;padding:8px 12px;vertical-align:top}
+.ux-pressurejet-email-table th{width:34%;font-weight:700;color:#34567b;background:#f6f9fe}
+.ux-pressurejet-email-table td{overflow-wrap:anywhere}
+.ux-pressurejet-email ul{padding-left:22px;margin:0;display:grid;gap:6px}
+.ux-pressurejet-email li{padding-left:3px}
+.ux-pressurejet-email a{color:#235cb5;overflow-wrap:anywhere}
+.ux-pressurejet-signature{display:flex;flex-direction:column;gap:1px}
+@media(max-width:540px){.ux-pressurejet-email{padding:12px}.ux-pressurejet-email-table th,.ux-pressurejet-email-table td{padding:7px}.ux-pressurejet-email-table th{width:39%}}
