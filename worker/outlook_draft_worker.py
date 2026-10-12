@@ -104,8 +104,9 @@ def execute_draft(db, job: dict, *, prepare=prepare_from_attached_eml) -> str:
         return db.storage.from_("oms-documents").download(path)
     with TemporaryDirectory(prefix="pjs-outlook-draft-") as temp:
         plan=build_plan(job,proc,docs,download,Path(temp))
-        if "invoiceDoc" in plan.missing:
-            raise ValueError("Invoice PDF not attached; review documents before drafting")
+        required_missing=[kind for kind in ("invoiceDoc","lrDoc") if kind in plan.missing]
+        if required_missing:
+            raise ValueError("Required dispatch PDFs missing: "+", ".join(required_missing))
         if plan.missing:
             log.info("Draft may be missing optional PDFs for process %s: %s",job["process_no"],",".join(plan.missing))
         # The bridge matches original .eml Message-ID to an authorized Outlook MailItem.
