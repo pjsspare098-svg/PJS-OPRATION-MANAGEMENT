@@ -37,9 +37,13 @@ export function checkJob(r:any,type:RuleJob,prefs:RulePrefs={ebill_threshold:500
  }
  if(type==='email_reply'){
   const originals=(r.documents||[]).filter((d:any)=>d.kind==='emailDoc');
-  if(originals.length!==1)missing.push(originals.length===0?'Original Outlook email conversation (.eml)':'Choose exactly one Outlook conversation to reply to');
-  if(originals.length===1&&!originals[0].id)missing.push('Saved Outlook conversation ID');
+  const selected=text(r.selected_email_document_id);
+  const chosen=selected?originals.find((d:any)=>d.id===selected):originals.length===1?originals[0]:null;
+  if(!chosen)missing.push(originals.length===0?'Original Outlook email conversation (.eml)':'Select the exact original Outlook conversation');
+  if(chosen&&!chosen.id)missing.push('Saved Outlook conversation ID');
+  if(chosen&&!/\.eml$/i.test(text(chosen.name)))missing.push('Original Outlook email must be .eml');
   if(!text(r.invoice))missing.push('Invoice No.');
+  if(!(r.documents||[]).some((d:any)=>d.kind==='invoiceDoc'&&/\.pdf$/i.test(text(d.name))))missing.push('Invoice PDF');
  }
  if(type==='delivery_proof_submit'){
   if(!/delivered|delivery proof/i.test([r.status,r.stage].join(' ')))missing.push('Confirmed delivery');
