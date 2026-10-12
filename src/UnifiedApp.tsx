@@ -202,11 +202,11 @@ export default function UnifiedApp(){
   catch(e:any){setError(e?.message||'Unable to queue request.')}finally{setBusy(false)}
  }
  function onDraftEmail(r:any){
-  const details='Dispatch update | Process '+r.process+' | SO '+(r.so||'')+'\n\nDear Customer,\n\nPlease find the dispatch details for your order:\nProcess: '+r.process+'\nSO No.: '+(r.so||'')+'\nInvoice No.: '+(r.invoice||'Pending')+'\nTransporter: '+(r.transporter||'Pending')+'\nLR / Docket: '+(r.lr||'Pending')+'\n\nRegards,\nPJS Dispatch Team';
+  const details='Dispatch update | Process '+r.process+' | SO '+(r.so||'')+'\n\nDear Customer,\n\nPlease find the dispatch details for your order:\nProcess: '+r.process+'\nSO No.: '+(r.so||'')+'\nProduct Name: '+(r.productName||'Not specified')+'\nInvoice No.: '+(r.invoice||'Pending')+'\nTransporter: '+(r.transporter||'Pending')+'\nLR / Docket: '+(r.lr||'Pending')+'\n\nRegards,\nPJS Dispatch Team';
   void navigator.clipboard.writeText(details).then(()=>onNotice('Dispatch details copied. The actual response must use Reply All on the saved Outlook conversation.')).catch(()=>setError('Clipboard unavailable; enable clipboard permissions and retry.'));
  }
  function onExport(){
-  const keys=[['process','Process No.'],['so','SO No.'],['party','Party Name'],['invoice','Invoice No.'],['transporter','Transporter'],['lr','LR'],['stage','Stage'],['status','Status']];
+  const keys=[['process','Process No.'],['so','SO No.'],['party','Party Name'],['productName','Product Name'],['sales','Sales Person'],['invoice','Invoice No.'],['transporter','Transporter'],['lr','LR'],['stage','Stage'],['status','Status']];
   const quote=(v:any)=>'"'+String(v??'').replace(/"/g,'""')+'"';
   const csv='\uFEFF'+keys.map(x=>quote(x[1])).join(',')+'\n'+results.map(r=>keys.map(x=>quote(r[x[0]])).join(',')).join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='PJS_OMS_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
