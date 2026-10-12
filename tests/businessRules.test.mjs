@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {checkBill,checkJob,canCloseProcess,amountValue} from '../src/businessRules.ts';
 const p={id:'process-1',process:'292184',so:'26270964',party:'Example Industrial Pvt Ltd',invoice:'INV-101',credit:'Credit',amount:'75,000',clientEmail:'dispatch@example.com',transporter:'TCI',lr:'LR-111111',stage:'Delivery Proof',status:'Delivered',documents:[
- {kind:'pickDoc'},{kind:'invoiceDoc'},{kind:'einvoiceDoc'},{kind:'ebillDoc'},{kind:'proofDoc'},{kind:'emailDoc'}
+ {kind:'pickDoc'},{kind:'invoiceDoc'},{kind:'einvoiceDoc'},{kind:'ebillDoc'},{kind:'proofDoc'},{kind:'emailDoc',id:'original-email-document'}
 ]};
 assert.equal(checkBill(p).ready,true);
 assert.equal(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,false);
@@ -32,7 +32,9 @@ console.log('PASS: 5 DataDoc office-worker readiness edge cases');
 
 console.log('PASS: 15 business readiness and closure tests');
 
-const multiAddressEmail={id:'process-recipient-test',process:'292168',party:'Test',invoice:'946',clientEmail:'vipin@example.com; team@example.com',documents:[{kind:'emailDoc'}]};
-assert.equal(checkJob(multiAddressEmail,'email_reply').ready,true,'Multiple saved client addresses must be accepted for reply validation');
-assert.equal(checkJob({...multiAddressEmail,clientEmail:'invalid'},'email_reply').ready,false);
-console.log('PASS: multi-recipient Outlook reply readiness');
+const reply={id:'process-reply-all',process:'292168',party:'Test',invoice:'946',clientEmail:'',documents:[{kind:'emailDoc',id:'eml-1'}]};
+assert.equal(checkJob(reply,'email_reply').ready,true,'Reply All uses the attachment, not any extracted email list');
+assert.equal(checkJob({...reply,documents:[]},'email_reply').ready,false);
+assert.equal(checkJob({...reply,documents:[{kind:'emailDoc',id:'a'},{kind:'emailDoc',id:'b'}]},'email_reply').ready,false,'Ambiguous threads must not be queued');
+assert.equal(checkJob({...reply,documents:[{kind:'emailDoc'}]},'email_reply').ready,false,'Original message must be saved in Supabase first');
+console.log('PASS: attached Outlook Reply All safety checks');
