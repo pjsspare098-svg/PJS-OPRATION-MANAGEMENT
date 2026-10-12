@@ -29,7 +29,8 @@ export default function EmailToClientWorkflow({p}:{p:any}){
  },[p.authenticated]);
  useEffect(()=>{void loadWorker();const timer=setInterval(()=>void loadWorker(),30000);return ()=>clearInterval(timer)},[loadWorker]);
  const lastSeen=worker?.last_seen_at?Date.parse(worker.last_seen_at):0;
- const online=Boolean(lastSeen&&Date.now()-lastSeen<90000&&['ready','idle','busy'].includes(worker?.status||''));
+ const connected=Boolean(lastSeen&&Date.now()-lastSeen<90000);
+ const online=Boolean(connected&&['ready','idle','busy'].includes(worker?.status||''));
  const rows=results.filter((r:any)=>/email|datadoc/i.test(r.stage||'')||Boolean(r.invoice));
  const toggle=(id:string)=>setExpanded(items=>items.includes(id)?items.filter(x=>x!==id):[...items,id]);
  return <div className='ux-email-workflow'>
@@ -42,8 +43,8 @@ export default function EmailToClientWorkflow({p}:{p:any}){
   </div>
   <div className='ux-outlook-worker'>
    <div className={'ux-outlook-worker-dot '+(online?'is-online':'')}/>
-   <div><strong>Outlook desktop worker: {online?(worker?.status==='busy'?'Preparing a draft':'Connected'):'Not connected'}</strong>
-    <small>{online?'Classic Outlook is reporting an active worker session. Sending still requires review.':'Requests can be queued, but drafts run only after the authorized Windows worker is installed and online.'}</small>
+   <div><strong>Outlook desktop worker: {online?(worker?.status==='busy'?'Preparing a draft':'Connected'):connected?'Connected — paused':'Not connected'}</strong>
+    <small>{online?'Classic Outlook is reporting an active worker session. Sending still requires review.':'Requests can be queued and will wait. A paused worker needs its local draft setting enabled; an offline worker needs an authorized Windows session.'}</small>
     {workerError&&<small>Connection status unavailable: {workerError}</small>}
    </div>
    <a href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/blob/main/docs/OUTLOOK_AUTOMATION_SETUP.md' target='_blank' rel='noreferrer'>Worker setup guide</a>
