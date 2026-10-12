@@ -44,6 +44,18 @@ export function checkJob(r:any,type:RuleJob,prefs:RulePrefs={ebill_threshold:500
   if(chosen&&!/\.eml$/i.test(text(chosen.name)))missing.push('Original Outlook email must be .eml');
   if(!text(r.invoice))missing.push('Invoice No.');
   if(!(r.documents||[]).some((d:any)=>d.kind==='invoiceDoc'&&/\.pdf$/i.test(text(d.name))))missing.push('Invoice PDF');
+  for(const [field,label] of [
+   ['po','PO No.'],['poDate','PO Date'],['invoiceDate','Invoice Date'],
+   ['transporter','Courier'],['lr','Doc No. / LR'],
+   ['courierDate','Courier Date']
+  ] as const)if(!text(r[field]))missing.push(label);
+  const weight=text(r.weight);
+  if(!weight||!Number.isFinite(Number(weight.replace(/\s*(?:kgs?|kilograms?)$/i,'').trim()))||
+     Number(weight.replace(/\s*(?:kgs?|kilograms?)$/i,'').trim())<=0)
+   missing.push('Positive box weight (Kgs)');
+  if(!(r.documents||[]).some((d:any)=>d.kind==='lrDoc'&&/\.pdf$/i.test(text(d.name))))
+   missing.push('Courier receipt / LR PDF');
+
  }
  if(type==='delivery_proof_submit'){
   if(!/delivered|delivery proof/i.test([r.status,r.stage].join(' ')))missing.push('Confirmed delivery');
