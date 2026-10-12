@@ -1,0 +1,29 @@
+name: Verify Outlook Reply All Agent
+on:
+  pull_request:
+    paths:
+      - "worker/outlook_reply_agent.py"
+      - "worker/test_outlook_reply_agent.py"
+      - ".github/workflows/outlook-reply-test.yml"
+  push:
+    branches: [main]
+    paths:
+      - "worker/outlook_reply_agent.py"
+      - "worker/test_outlook_reply_agent.py"
+      - ".github/workflows/outlook-reply-test.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Outlook adapter
+        working-directory: worker
+        run: python -m py_compile outlook_reply_agent.py test_outlook_reply_agent.py
+      - name: Test safe Reply All drafts without Outlook or secrets
+        working-directory: worker
+        run: python -m unittest -v test_outlook_reply_agent.py
