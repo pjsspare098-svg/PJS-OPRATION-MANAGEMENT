@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 import re
+import math
 from html import escape
 from pathlib import Path
 from typing import Any, Iterable
@@ -53,7 +54,8 @@ class DispatchDetails:
             raise ValueError("Missing dispatch information: " + ", ".join(missing))
         amount = re.sub(r"\s*(?:kg|kgs|kilogram|kilograms)$", "", str(self.weight).strip(), flags=re.I).strip()
         try:
-            if float(amount) <= 0:
+            value=float(amount)
+            if not math.isfinite(value) or value <= 0:
                 raise ValueError("Box weight must be positive")
         except ValueError:
             raise ValueError("Box weight must be a positive number in Kgs") from None
