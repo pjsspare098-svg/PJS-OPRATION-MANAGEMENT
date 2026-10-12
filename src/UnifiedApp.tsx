@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {AlertCircle,CheckCircle2,Upload,X} from 'lucide-react';
 import {supabase} from './independentClient';
 import {cloud} from './cloud';
+import {dispatchDetailsText} from './emailWorkflow';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
 import {teamsApi} from './teamOps';
 import {agentApi} from './agentApi';
@@ -197,13 +198,38 @@ export default function UnifiedApp(){
   onNotice('Process '+r.process+' moved to '+stage+'. No email or office automation was executed.');
  }
  async function onQueue(r:any,type:JobType){
-  if(!authenticated){onNotice('Automation jobs require an authenticated cloud account. Local workspace cannot run or queue jobs.');return}
-  setBusy(true);try{await ops.queue(r,type,jobs,settings);await refresh();onNotice(type==='bill_submit'?'Approved DataDoc Bill Submit queued for the Windows office worker. It will wait until the office PC worker is running and live execution is enabled.': 'Job queued. Its separate office adapter is not connected yet; no external action has run.')}
-  catch(e:any){setError(e?.message||'Unable to queue request.')}finally{setBusy(false)}
+  if(!authenticated){onNotice('Sign in to queue office automation.');return}
+  setBusy(true);
+  try{
+    await ops.queue(r,type,jobs,settings);await refresh();
+    onNotice(type==='bill_submit'
+      ?'Approved DataDoc Bill Submit queued for the Windows office worker.'
+      :type==='email_reply'
+      ?'Reply All draft queued. The office Outlook worker will prepare a draft when connected; it will NOT send an email.'
+      :'Job queued. Its separate office adapter must be connected before any external action.');
+  }catch(e:any){setError(e?.message||'Unable to queue request.')}
+  finally{setBusy(false)}
+ }
+ async function onCancelEmailJob(job:Job){
+  setBusy(true);
+  try{await ops.cancelEmailJob(job);await refresh();onNotice('Waiting Outlook draft request cancelled.')}
+  catch(e:any){setError(e?.message||'Could not cancel this request.')}
+  finally{setBusy(false)}
+ }
+ async function onConfirmEmailSent(r:any){
+  if(!window.confirm('Confirm that you personally checked the Reply All recipients, attachments and dispatch details, and SENT this reply from Outlook. This is a manual confirmation, not automatic verification. Move to tracking?'))return;
+  setBusy(true);
+  try{
+   await ops.audit(r,'Outlook dispatch sent confirmed by operator',{method:'manual_confirmation',process:r.process});
+   await ops.stage(r,'Dispatch Tracking','Pending');
+   await refresh();onNotice('Manual sent confirmation recorded. Process moved to Dispatch Tracking.');
+  }catch(e:any){setError(e?.message||'Unable to record manual sent confirmation.')}
+  finally{setBusy(false)}
  }
  function onDraftEmail(r:any){
-  const details='Dispatch update | Process '+r.process+' | SO '+(r.so||'')+'\n\nDear Customer,\n\nPlease find the dispatch details for your order:\nProcess: '+r.process+'\nSO No.: '+(r.so||'')+'\nProduct Name: '+(r.productName||'Not specified')+'\nInvoice No.: '+(r.invoice||'Pending')+'\nTransporter: '+(r.transporter||'Pending')+'\nLR / Docket: '+(r.lr||'Pending')+'\n\nRegards,\nPJS Dispatch Team';
-  void navigator.clipboard.writeText(details).then(()=>onNotice('Dispatch details copied. The actual response must use Reply All on the saved Outlook conversation.')).catch(()=>setError('Clipboard unavailable; enable clipboard permissions and retry.'));
+  void navigator.clipboard.writeText(dispatchDetailsText(r))
+   .then(()=>onNotice('Dispatch details copied. Reply All in Outlook retains the original email recipients and thread.'))
+   .catch(()=>setError('Clipboard unavailable; enable clipboard permissions and retry.'));
  }
  function onExport(){
   const keys=[['process','Process No.'],['so','SO No.'],['party','Party Name'],['productName','Product Name'],['sales','Sales Person'],['invoice','Invoice No.'],['transporter','Transporter'],['lr','LR'],['stage','Stage'],['status','Status']];
@@ -214,7 +240,7 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,trashedProcesses,onRestoreProcess,results,stats,authenticated,onAgentMove,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onError:setError,onNotice};
+ const p={records,trashedProcesses,onRestoreProcess,results,stats,authenticated,onAgentMove,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onAttach,onDraftEmail,onCancelEmailJob,onConfirmEmailSent,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} notificationCount={agentUnread} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}

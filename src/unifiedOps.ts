@@ -1,6 +1,7 @@
 import { supabase } from './independentClient';
 import { cloud } from './cloud';
 import {checkBill,checkJob,type RulePrefs} from './businessRules';
+import {OUTLOOK_DRAFT_VERSION,emailDraftReadiness} from './emailWorkflow';
 
 export type JobType='bill_submit'|'datadoc_submit'|'tracking'|'delivery_proof_submit'|'email_reply';
 export type Job={id:string;process_id:string;process_no:string;job_type:JobType;status:string;progress:number;error_message:string|null;created_at:string;updated_at:string;payload:any;result:any};
@@ -55,11 +56,21 @@ export const ops={
     if(!r.id||!r.process)throw Error('Save this process first.');
     if(existing.some(j=>j.process_id===r.id&&j.job_type===type&&['queued','running'].includes(j.status)))throw Error('A '+type.replaceAll('_',' ')+' job is already queued for '+r.process);
     if(type==='bill_submit'&&existing.some(j=>j.process_id===r.id&&j.job_type==='bill_submit'&&j.status==='completed'))throw Error('DataDoc bill was already submitted for this process. Verify DataDoc instead of creating a duplicate.');
-    const verification=checkJob(r,type,prefs,existing);
+    if(type==='email_reply'&&r.owner_id&&r.owner_id!==u.id)throw Error('The owner of this process must queue the Outlook draft. Team-wide mailbox access is not enabled yet.');
+    const verification=type==='email_reply'?emailDraftReadiness(r,existing):checkJob(r,type,prefs,existing);
     if(!verification.ready)throw Error('Cannot queue '+type.replaceAll('_',' ')+'. Missing: '+verification.missing.join(', '));
-    const {data,error}=await supabase!.from('oms_jobs').insert({user_id:u.id,process_id:r.id,process_no:r.process,job_type:type,status:'queued',progress:0,office_execution:type==='bill_submit'?'auto_on_login':'manual',payload:{process:r.process,so:r.so||'',transporter:r.transporter||'',tracking_id:r.lr||'',stage:r.stage||'Universal Process',authorized_by:u.id,requested_at:new Date().toISOString(),...(type==='email_reply'?{reply_all:true,email_document_id:(r.documents||[]).find((d:any)=>d.kind==='emailDoc')?.id||null,dispatch_details:{party:r.party||'',process:r.process||'',so:r.so||'',product_name:r.productName||'',sales_person:r.sales||'',invoice:r.invoice||'',transporter:r.transporter||'',lr:r.lr||'',ready:r.ready||''}}:{})}}).select().single();
+    const {data,error}=await supabase!.from('oms_jobs').insert({user_id:u.id,process_id:r.id,process_no:r.process,job_type:type,status:'queued',progress:0,office_execution:type==='bill_submit'?'auto_on_login':'manual',payload:{process:r.process,so:r.so||'',transporter:r.transporter||'',tracking_id:r.lr||'',stage:r.stage||'Universal Process',authorized_by:u.id,requested_at:new Date().toISOString(),...(type==='email_reply'?{reply_all:true,automation_version:OUTLOOK_DRAFT_VERSION,approved_for_draft:true,auto_send:false,email_document_id:r.selected_email_document_id||((r.documents||[]).filter((d:any)=>d.kind==='emailDoc').length===1?(r.documents||[]).find((d:any)=>d.kind==='emailDoc')?.id:null),dispatch_details:{party:r.party||'',process:r.process||'',so:r.so||'',product_name:r.productName||'',sales_person:r.sales||'',invoice:r.invoice||'',transporter:r.transporter||'',lr:r.lr||'',ready:r.ready||''}}:{})}}).select().single();
     if(error)throw error;
     try{await ops.audit(r,'Job queued · '+type,{jobId:data.id,worker:type==='bill_submit'?'approved_office_auto_queue':'manual_worker_pending'});}catch(e){console.warn('Job queued successfully but activity log could not be written',e)}
     return data as Job;
+  },
+  async cancelEmailJob(job:Job){
+    const u=await currentUser();
+    if(job.job_type!=='email_reply'||job.status!=='queued')throw Error('Only waiting Outlook draft requests can be cancelled');
+    const {data,error}=await supabase!.rpc('oms_cancel_outlook_draft',{p_job_id:job.id});
+    if(error)throw error;
+    if(!data)throw Error('The request may already be running. Refresh and verify before changing it.');
+    await ops.audit({id:job.process_id,process:job.process_no},'Outlook draft request cancelled',{jobId:job.id,by:u.id});
+    return true;
   }
 };
