@@ -1,3 +1,4 @@
+import {recipientEmails} from './emailRecipients.ts';
 // PJS document field extraction. The original uploaded document is never changed.
 // The parser only proposes values backed by an explicit label in the PDF/email.
 export type DocumentFields={
@@ -52,11 +53,15 @@ const dateISO=(text:string)=>{
  return parsed.getUTCFullYear()===year&&parsed.getUTCMonth()===month-1&&parsed.getUTCDate()===day?year+'-'+pad(month)+'-'+pad(day):'';
 };
 export function mailCandidates(text:string):string[]{
- const header=String(text||'').split(/\r?\n\r?\n/)[0].slice(0,25000).replace(/\r?\n[ \t]+/g,' ');
- const lines=header.split(/\r?\n/).filter(l=>/^(from|to|cc|reply-to):/i.test(l));
- const emails=new Set<string>();
- for(const line of lines)for(const e of line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi))emails.add(e[0].toLowerCase());
- return [...emails];
+ // Read all visible recipients in the conversation, including quoted replies and
+ // forwarded messages, not just the first To/From/Cc header block.
+ const raw=String(text||'').slice(0,TEXT_LIMIT).replace(/=\r?\n/g,'').replace(/=40/gi,'@');
+ // MIME transport fields and base64 attachments are not recipient addresses.
+ const readable=raw.split(/\r?\n/).filter(line=>
+  !/^\s*(?:message-id|references|in-reply-to|received|return-path|authentication-results|dkim-signature|x-[\w-]+):/i.test(line)&&
+  !/^\s*[A-Za-z0-9+/=]{100,}\s*$/.test(line)
+ ).join('\n');
+ return recipientEmails(readable);
 }
 const amountPattern=/\b(?:Grand\s*Total|Net\s*Invoice\s*(?:Amount|Value)|Total\s*Invoice\s*(?:Amount|Value)?|Invoice\s*(?:Amount|Value)|Total\s*Amount(?:\s*Payable)?)\b(?:\s*(?:\(?\s*(?:INR|Rs\.?|₹)\s*\)?))?\s*[:.=-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)(?!\d)/gi;
 const invoicePattern=[
@@ -149,7 +154,7 @@ function tokenize(t:string,kind:string):DocumentFields{
 export function parseDocumentFields(input:string,kind:string):ScanResult{
  if(kind==='emailDoc'){
   const emails=mailCandidates(input);
-  return {fields:{},emails,notes:[emails.length?'Choose the customer address from the email headers.':'No email address found in the From/To/Cc headers.']};
+  return {fields:{},emails,notes:[emails.length?'Review all extracted recipient addresses before dispatch.':'No email address found in the uploaded conversation.']};
  }
  const original=tidy(String(input||'').slice(0,TEXT_LIMIT));
  const flat=original.replace(/\n/g,' ').replace(/\s+/g,' ').trim();

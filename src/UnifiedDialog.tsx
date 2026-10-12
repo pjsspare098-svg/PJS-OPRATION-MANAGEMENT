@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,AlertTriangle,Trash2} from 'lucide-react';
 import {cloud} from './cloud';
 import {displayField} from './documentFields';
+import {mergeRecipientEmails,recipientEmails,toggleRecipientEmail} from './emailRecipients.ts';
 import {mergeDocumentScans,safeUpdates,type Candidate,type ScannedDocument} from './documentMerge';
 export const blankProcess=()=>({process:'',party:'',so:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',clientEmail:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
 const sections:{label:string;fields:[string,string,string?][]}[]=[
@@ -28,7 +29,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  function presentScans(scans:ScannedDocument[],failures:string[]){
   const review=mergeDocumentScans(scans);
   const {changes,skipped}=safeUpdates(draft,review);
-  setDraft((current:any)=>({...current,...safeUpdates(current,review).changes}));
+  setDraft((current:any)=>({...current,...safeUpdates(current,review).changes,clientEmail:mergeRecipientEmails(current.clientEmail,review.emails)}));
   setScanCandidates(review.candidates);
   setScanFailures(failures);
   setMailSuggestions(review.emails);
@@ -36,7 +37,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   const count=Object.keys(changes).length;
   const warnings=[...review.conflicts,...skipped,...failures];
   const head=review.candidates.length?review.candidates.length+' suggested field values read; '+count+' empty field(s) filled.':'No labelled values found in the selected documents.';
-  setScanInfo(head+(warnings.length?' '+warnings.length+' item(s) need review below.':'')+' No values are permanently saved until you click Save process & documents.');
+  setScanInfo(head+(review.emails.length?' '+review.emails.length+' unique email address(es) added to Client Email.':'')+(warnings.length?' '+warnings.length+' item(s) need review below.':'')+' Review recipients, then click Save process & documents to persist.');
  }
  async function scan(kind:string,file?:File,doc?:any){
   if(!file&&!doc)return;
@@ -91,7 +92,8 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   }
   setBusy(true);setError('');
   try{
-    const payload=moveToEmail?{...draft,stage:'Email to Client',status:'Ready for Email'}:draft;
+    const cleaned={...draft,clientEmail:mergeRecipientEmails(draft.clientEmail)};
+    const payload=moveToEmail?{...cleaned,stage:'Email to Client',status:'Ready for Email'}:cleaned;
     const result=await onSave(payload,sourcePending&&sourceFile?{...files,pickDoc:sourceFile}:files);
     if(result&&result.failed.length){
       setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,stage:moveToEmail?'Email to Client':old.stage,status:moveToEmail?'Ready for Email':old.status,documents:result.saved.documents||old.documents}));
@@ -119,7 +121,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  <section className='ux-drawer-section'><div className='ux-section-title'><b>01</b><strong>Process identity</strong></div><div className='ux-field-grid'>
  {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}</div></section>
  <button className='ux-expand-button' onClick={()=>setExpanded(!expanded)}><Settings2 size={17}/>{expanded?'Hide additional fields':'Add invoice, carrier and dispatch details'}<ChevronDown size={17}/></button>
- {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
+ {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:key==='clientEmail'?<><textarea rows={3} placeholder='Saved email addresses; separated by semicolons' value={draft.clientEmail??''} onChange={e=>setDraft((v:any)=>({...v,clientEmail:e.target.value}))}/><small className='ux-recipient-count'>{recipientEmails(draft.clientEmail).length} saved recipient(s). All extracted addresses are included; edit to remove unwanted recipients.</small></>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
  <section className='ux-drawer-section'>
   <div className='ux-section-title'><b><FileText size={15}/></b><strong>Private attachments — open, download or extract details</strong></div>
   <div className='ux-extraction-controls'>
@@ -146,8 +148,8 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   </div>}
   {scanFailures.length>0&&<div className='ux-extraction-failures' role='alert'><strong>Files requiring attention</strong>{scanFailures.map((x,i)=><p key={i}>{x}</p>)}</div>}
   {mailSuggestions.length>0&&<div className='ux-email-suggestions'>
-   <strong>Choose the customer's email address from the uploaded conversation:</strong>
-   <div>{mailSuggestions.map(address=><button key={address} type='button' onClick={()=>{setDraft((v:any)=>({...v,clientEmail:address}));setScanInfo('Selected client email '+address+'. Confirm before saving.')}}>{address}</button>)}</div>
+   <strong>All extracted email addresses are added to Client Email. Click any recipient to include or remove them before saving:</strong>
+   <div>{mailSuggestions.map(address=><button key={address} type='button' aria-pressed={recipientEmails(draft.clientEmail).includes(address.toLowerCase())} className={recipientEmails(draft.clientEmail).includes(address.toLowerCase())?'included':''} onClick={()=>{setDraft((v:any)=>({...v,clientEmail:toggleRecipientEmail(v.clientEmail,address)}));setScanInfo('Recipient selection updated. Save process & documents to keep these addresses.')}}>{recipientEmails(draft.clientEmail).includes(address.toLowerCase())?'✓ ': '+ '}{address}</button>)}</div>
   </div>}
   <div className='ux-upload-grid'>{documentKinds.map(([kind,label])=>{
    const existing=(draft.documents||[]).filter((d:any)=>d.kind===kind);

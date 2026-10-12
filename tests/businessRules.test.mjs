@@ -31,3 +31,8 @@ assert.equal(checkBill({...p,amount:'0'}).ready,false);
 console.log('PASS: 5 DataDoc office-worker readiness edge cases');
 
 console.log('PASS: 15 business readiness and closure tests');
+
+const multiAddressEmail={id:'process-recipient-test',process:'292168',party:'Test',invoice:'946',clientEmail:'vipin@example.com; team@example.com',documents:[{kind:'emailDoc'}]};
+assert.equal(checkJob(multiAddressEmail,'email_reply').ready,true,'Multiple saved client addresses must be accepted for reply validation');
+assert.equal(checkJob({...multiAddressEmail,clientEmail:'invalid'},'email_reply').ready,false);
+console.log('PASS: multi-recipient Outlook reply readiness');

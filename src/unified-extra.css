@@ -58,3 +58,15 @@
 .ux-extraction-failures>strong{font-size:11px}
 .ux-extraction-failures>p{font-size:10px;margin:7px 0 0;line-height:1.7;overflow-wrap:anywhere}
 @media(max-width:680px){.ux-extraction-controls{align-items:stretch;flex-direction:column}.ux-extract-all{justify-content:center}.ux-extracted-row>span:first-child{flex-basis:100%}.ux-extracted-row>code{max-width:calc(100vw - 105px)}}
+
+
+/* Multi-address recipient storage and review. */
+.ux-field textarea{display:block;width:100%;min-height:74px;resize:vertical;border:1px solid #dbe5f2;outline:0;background:white;border-radius:9px;color:#213c5e;padding:11px 12px;font:12px/1.65 inherit;margin-top:8px;box-sizing:border-box}
+.ux-field textarea:focus{border-color:#658cff;box-shadow:0 0 0 3px #537bf51b}
+.ux-recipient-count{display:block;margin-top:6px;color:#65809e;font-size:10px;font-weight:600;line-height:1.6}
+.ux-email-suggestions button.included{border-color:#87cbb7;background:#eaf8f2;color:#15715f}
+.ux-dispatch-recipients{margin:12px 0;padding:12px;border:1px solid #d4e5f7;background:#f7fbff;border-radius:9px;display:grid;gap:7px}
+.ux-dispatch-recipients strong{font-size:12px;color:#294969}
+.ux-dispatch-recipients small{color:#7990a8;font-size:11px}
+.ux-dispatch-recipients>div{display:flex;flex-wrap:wrap;gap:6px}
+.ux-dispatch-recipients span{display:inline-block;overflow-wrap:anywhere;background:#fff;border:1px solid #c9def2;border-radius:7px;padding:6px 9px;font-size:11px;color:#275c8c}
