@@ -49,6 +49,11 @@ class OutlookReplyAllTests(unittest.TestCase):
             invoice="946",
             transporter="TCI",
             lr="LR-8888",
+            po="PO-8888",
+            po_date="2026-10-07",
+            invoice_date="2026-10-08",
+            courier_date="2026-10-09",
+            weight="13.5",
         )
 
     def test_reply_all_keeps_original_thread_and_does_not_send(self):
@@ -59,13 +64,24 @@ class OutlookReplyAllTests(unittest.TestCase):
         self.assertTrue(draft.displayed)
         self.assertFalse(draft.sent)
         self.assertIn("Original thread preserved", draft.HTMLBody)
-        self.assertIn("Process No.", draft.HTMLBody)
+        self.assertIn("PO No.", draft.HTMLBody)
+        self.assertIn("09/10/2026", draft.HTMLBody)
+        self.assertIn("CHETAN SOLANKI", draft.HTMLBody)
+        self.assertIn("Scan copy of the courier receipt", draft.HTMLBody)
 
     def test_html_escaping(self):
-        html = dispatch_html(self.details)
-        self.assertIn("292168", html)
-        self.assertNotIn("<Ltd>", html)
-        self.assertIn("&lt;Ltd&gt;", html)
+        from dataclasses import replace
+        html = dispatch_html(replace(self.details, po="<PO-123 & 456>"))
+        self.assertIn("PO No.", html)
+        self.assertIn("&lt;PO-123 &amp; 456&gt;", html)
+        self.assertNotIn("<PO-123 & 456>", html)
+
+    def test_invalid_box_weight_rejected(self):
+        from dataclasses import replace
+        with self.assertRaises(ValueError):
+            dispatch_html(replace(self.details, weight="NaN"))
+        with self.assertRaises(ValueError):
+            dispatch_html(replace(self.details, courier_date=""))
 
     def test_required_fields_prevent_draft(self):
         with self.assertRaises(ValueError):

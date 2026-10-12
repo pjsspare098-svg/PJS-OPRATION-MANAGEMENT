@@ -11,7 +11,9 @@ class DispatchBridgeTests(unittest.TestCase):
             "id": "process-1", "user_id": self.owner,
             "process_no": "292168", "party_name": "Customer",
             "sales_order_no": "26271016",
-            "data": {"invoice": "2627/946", "sales": "Vivek Pal", "productName": "PJ Spares"}
+            "data": {"invoice": "2627/946", "sales": "Vivek Pal", "productName": "PJ Spares",
+                     "po": "PO-9090", "poDate": "2026-10-07", "invoiceDate":"2026-10-08",
+                     "transporter":"TCI","lr":"LR-8888","courierDate":"2026-10-09","weight":"10.5"}
         }
         self.email = {"id": "original-1", "kind": "emailDoc", "name": "original.eml", "process_id": "process-1",
                       "user_id": self.owner, "path": "user-1/process-1/original.eml"}
@@ -29,6 +31,9 @@ class DispatchBridgeTests(unittest.TestCase):
             self.assertEqual(len(p.attachments), 1)
             self.assertEqual(p.details.sales_person, "Vivek Pal")
             self.assertEqual(p.details.product_name, "PJ Spares")
+            self.assertEqual(p.details.po, "PO-9090")
+            self.assertEqual(p.details.courier_date, "2026-10-09")
+            self.assertEqual(p.details.weight, "10.5")
             self.assertIn("lrDoc", p.missing)
 
     def test_no_thread_guessing(self):
