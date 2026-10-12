@@ -1,3 +1,4 @@
+import {recipientEmails} from './emailRecipients.ts';
 import {type DocumentFields,displayField} from './documentFields.ts';
 
 export type ScannedDocument={name:string;kind:string;fields:DocumentFields;emails:string[]};
@@ -19,7 +20,7 @@ export function mergeDocumentScans(scans:ScannedDocument[]):ScanReview{
  const conflicts:string[]=[];
  const emails=new Set<string>();
  for(const doc of sorted){
-  for(const email of doc.emails||[])if(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))emails.add(email);
+  for(const email of recipientEmails(doc.emails||[]))emails.add(email);
   for(const key of fieldsByKind[doc.kind]||[]){
    const value=String(doc.fields[key]||'').trim();
    if(!value)continue;
