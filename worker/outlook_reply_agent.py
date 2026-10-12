@@ -42,6 +42,7 @@ def dispatch_html(details: DispatchDetails) -> str:
     """Escape ERP/Supabase values before inserting into an Outlook HTML reply."""
     details.validate()
     rows = (
+        ("Party Name", details.party),
         ("Process No.", details.process),
         ("Sales Order No.", details.so),
         ("Invoice No.", details.invoice),
