@@ -1,18 +1,19 @@
 import {useCallback,useEffect,useState} from 'react';
-import {Activity,AlertTriangle,CheckCircle2,ClipboardCheck,Clock3,Download,FileText,Mail,RefreshCw,Send,ShieldCheck,Upload,XCircle} from 'lucide-react';
-import {Button,Empty,Heading,Tone} from './UnifiedKit';
+import {AlertTriangle,CheckCircle2,ClipboardCheck,Download,FileText,Mail,RefreshCw,ShieldCheck,Upload,XCircle} from 'lucide-react';
+import {Button,Empty,Heading} from './UnifiedKit';
 import {cloud} from './cloud';
 import {supabase} from './independentClient';
 import {dispatchDetailsText,emailDraftReadiness,originalOutlookMessages} from './emailWorkflow';
 
 type OutlookStatus={worker_name:string;status:string;last_seen_at:string;details:any}|null;
 export default function EmailToClientWorkflow({p}:{p:any}){
- const {results,jobs,onEdit,onStage,onAttach,onQueue,onDraftEmail,busy}=p;
+ const {results,jobs,onEdit,onAttach,onQueue,onDraftEmail,busy}=p;
  const [worker,setWorker]=useState<OutlookStatus>(null);
  const [workerError,setWorkerError]=useState('');
  const [checking,setChecking]=useState(false);
  const [expanded,setExpanded]=useState<string[]>([]);
  const [localError,setLocalError]=useState('');
+ const [selectedOriginal,setSelectedOriginal]=useState<Record<string,string>>({});
  const loadWorker=useCallback(async()=>{
   if(!supabase||!p.authenticated){setWorker(null);return}
   setChecking(true);
@@ -50,7 +51,10 @@ export default function EmailToClientWorkflow({p}:{p:any}){
   {localError&&<div className='ux-import-warning' role='alert'><AlertTriangle size={16}/>{localError}<button onClick={()=>setLocalError('')} aria-label='Dismiss error'><XCircle size={16}/></button></div>}
   <div className='ux-card-list'>{rows.length?rows.map((r:any)=>{
    const docs=originalOutlookMessages(r);
-   const readiness=emailDraftReadiness({...r,current_user_id:p.userId},jobs);
+   const originalId=selectedOriginal[r.id]||(docs.length===1?docs[0].id:'');
+   const selected=docs.find((doc:any)=>doc.id===originalId);
+   const draftRecord={...r,selected_email_document_id:originalId,current_user_id:p.userId};
+   const readiness=emailDraftReadiness(draftRecord,jobs);
    const {latest,active}=readiness;
    const isOpen=expanded.includes(r.id);
    const attachments=(r.documents||[]).filter((d:any)=>['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(d.kind));
@@ -64,9 +68,15 @@ export default function EmailToClientWorkflow({p}:{p:any}){
     <div className='ux-outlook-card-grid'>
      <div className='ux-outlook-subpanel'>
       <strong><Mail size={16}/> Original Outlook conversation</strong>
-      {docs.length===1?<><span className='ux-email-filename'>{docs[0].name}</span>
-       <Button disabled={busy} onClick={()=>void cloud.download(r.id,docs[0].id).catch((e:any)=>setLocalError(e?.message||'Download failed'))}><Download size={14}/> Download original .eml</Button></>:
-       <small>{docs.length===0?'No original email attached. Upload the original .eml file.':'Multiple conversations attached. Resolve to exactly one before queueing.'}</small>}
+      {docs.length===0?<small>No original email attached. Upload the original .eml file.</small>:<>
+        {docs.length>1?<label className='ux-outlook-select-label'>Choose the original Outlook conversation
+         <select value={originalId} onChange={e=>setSelectedOriginal(old=>({...old,[r.id]:e.target.value}))}>
+          <option value=''>Select an original .eml</option>
+          {docs.map((d:any)=><option key={d.id} value={d.id}>{d.name}</option>)}
+         </select></label>:null}
+        {selected&&<><span className='ux-email-filename'>{selected.name}</span>
+         <Button disabled={busy} onClick={()=>void cloud.download(r.id,selected.id).catch((e:any)=>setLocalError(e?.message||'Download failed'))}><Download size={14}/> Download original .eml</Button></>}
+      </>}
      </div>
      <div className='ux-outlook-subpanel'>
       <strong><FileText size={16}/> Dispatch details and files</strong>
@@ -87,7 +97,7 @@ export default function EmailToClientWorkflow({p}:{p:any}){
     <div className='ux-row-actions'>
      <label className='ux-button secondary ux-file-button'><Upload size={15}/> Upload .eml<input type='file' accept='.eml,message/rfc822' onChange={e=>{onAttach(r,'emailDoc',e.target.files?.[0]);e.target.value=''}}/></label>
      <Button onClick={()=>onEdit(r)}>Edit dispatch</Button>
-     <Button variant='primary' disabled={busy||!p.authenticated||!readiness.ready||Boolean(active)} onClick={()=>onQueue(r,'email_reply')}><Mail size={15}/> Queue Reply All draft</Button>
+     <Button variant='primary' disabled={busy||!p.authenticated||!readiness.ready||Boolean(active)} onClick={()=>onQueue(draftRecord,'email_reply')}><Mail size={15}/> Queue Reply All draft</Button>
      {active?.status==='queued'&&<Button disabled={busy} onClick={()=>void p.onCancelEmailJob?.(active)}><XCircle size={15}/> Cancel queued request</Button>}
      {latest?.status==='completed'&&<Button variant='mint' disabled={busy} onClick={()=>void p.onConfirmEmailSent?.(r)}><ShieldCheck size={15}/> Confirm sent &amp; track</Button>}
     </div>
