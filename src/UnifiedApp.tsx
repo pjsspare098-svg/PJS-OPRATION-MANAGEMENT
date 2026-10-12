@@ -1,4 +1,3 @@
-import {mergeRecipientEmails,recipientEmails} from './emailRecipients.ts';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {AlertCircle,CheckCircle2,Upload,X} from 'lucide-react';
 import {supabase} from './independentClient';
@@ -148,20 +147,9 @@ export default function UnifiedApp(){
   setBusy(true);
   try{
    await cloud.upload(r.id,kind,file);
-   let recipientNote='';
-   if(kind==='emailDoc'){
-    try{
-     const scanned=await cloud.inspectAttachment(file,kind);
-     const combined=mergeRecipientEmails(r.clientEmail,scanned.emails);
-     if(combined!==mergeRecipientEmails(r.clientEmail)){
-      await ops.save({...r,clientEmail:combined},'Outlook recipient addresses extracted');
-     }
-     recipientNote=' '+recipientEmails(combined).length+' unique email recipient(s) saved for dispatch.';
-    }catch(e:any){recipientNote=' The conversation was uploaded, but saving extracted recipients failed: '+String(e?.message||'Open Edit and extract again.')}
-   }
    await ops.audit(r,'Document uploaded',{kind,name:file.name});
    await refresh();
-   onNotice('Document added to '+r.process+'.'+recipientNote);
+   onNotice('Document added to '+r.process+(kind==='emailDoc'?'. Original Outlook conversation saved for Reply All; no email addresses extracted.':'.'));
   }catch(e:any){setError(e?.message||'Could not upload file.')}
   finally{setBusy(false)}
  }
@@ -214,9 +202,8 @@ export default function UnifiedApp(){
   catch(e:any){setError(e?.message||'Unable to queue request.')}finally{setBusy(false)}
  }
  function onDraftEmail(r:any){
-  const to=recipientEmails(r.clientEmail);
-  const message='To: '+to.join('; ')+'\nSubject: Dispatch update | Process '+r.process+' | SO '+(r.so||'')+'\n\nDear Customer,\n\nPlease find the dispatch details for your order:\nProcess: '+r.process+'\nSO No.: '+(r.so||'')+'\nInvoice No.: '+(r.invoice||'Pending')+'\nTransporter: '+(r.transporter||'Pending')+'\nLR / Docket: '+(r.lr||'Pending')+'\n\nRegards,\nPJS Dispatch Team';
-  void navigator.clipboard.writeText(message).then(()=>onNotice('Dispatch draft with '+to.length+' saved recipient(s) copied. Verify all recipients in Outlook before sending.')).catch(()=>setError('Clipboard unavailable; enable clipboard permissions and retry.'));
+  const details='Dispatch update | Process '+r.process+' | SO '+(r.so||'')+'\n\nDear Customer,\n\nPlease find the dispatch details for your order:\nProcess: '+r.process+'\nSO No.: '+(r.so||'')+'\nInvoice No.: '+(r.invoice||'Pending')+'\nTransporter: '+(r.transporter||'Pending')+'\nLR / Docket: '+(r.lr||'Pending')+'\n\nRegards,\nPJS Dispatch Team';
+  void navigator.clipboard.writeText(details).then(()=>onNotice('Dispatch details copied. The actual response must use Reply All on the saved Outlook conversation.')).catch(()=>setError('Clipboard unavailable; enable clipboard permissions and retry.'));
  }
  function onExport(){
   const keys=[['process','Process No.'],['so','SO No.'],['party','Party Name'],['invoice','Invoice No.'],['transporter','Transporter'],['lr','LR'],['stage','Stage'],['status','Status']];
