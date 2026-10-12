@@ -1,3 +1,4 @@
+import {filterStage} from './workflowStages';
 import {Activity,AlertTriangle,ArrowRight,CheckCircle2,ChevronRight,Clock3,Cloud,Database,Download,FileCheck2,FileClock,FileText,FileUp,Inbox,PackageCheck,Plus,RefreshCw,ShieldCheck,Sparkles,Truck,Upload} from 'lucide-react';
 import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone,steps} from './UnifiedKit';
 import {missingDocs,readyForBill} from './unifiedOps';
@@ -28,9 +29,12 @@ export default function UnifiedCorePages({page,p}:{page:string;p:any}){
    </div>):<p>No deleted personal processes.</p>}</div>}
   </section>}
  </>;
- if(page==='Universal Process')return <>
+ if(page==='Universal Process'){
+  const universalRows=filterStage(results,'Universal Process');
+  return <>
   <Heading eyebrow='STAGE 02 · MASTER PROCESS' title='Universal Process' description='Maintain the Process No. and documents. Invoice details are optional for moving to Email to Client.' actions={<><Button onClick={onExport}><Download size={16}/> Export CSV</Button><Button variant='primary' onClick={onImport}><FileUp size={16}/> Upload Pick Slip</Button><Button onClick={onDonePick}><FileCheck2 size={16}/> Done Pick List</Button></>}/>
-  <Panel title='Process register' subtitle='Moving a verified process to Email does not require invoice, E-Invoice or E-Way Bill attachments.' actions={<Button onClick={onNew}><Plus size={16}/> New process</Button>}><SearchBar value={search} onChange={setSearch} count={results.length}/><RecordsTable records={results} onEdit={onEdit} renderAction={(r:any)=><><Button onClick={()=>onEdit(r)}>Edit</Button><Button variant='mint' disabled={busy} onClick={()=>onStage(r,'Email to Client','Ready for Email')}>Move to Email <ArrowRight size={13}/></Button></>}/></Panel>
+  <Panel title='Process register' subtitle='Only processes assigned to Universal Process are listed. Move them explicitly to Email or DataDoc.' actions={<Button onClick={onNew}><Plus size={16}/> New process</Button>}><SearchBar value={search} onChange={setSearch} count={universalRows.length}/><RecordsTable records={universalRows} onEdit={onEdit} renderAction={(r:any)=><><Button onClick={()=>onEdit(r)}>Edit</Button><Button variant='mint' disabled={busy} onClick={()=>onStage(r,'Email to Client','Ready for Email')}>Move to Email <ArrowRight size={13}/></Button><Button disabled={busy} onClick={()=>onStage(r,'DataDoc','Pending')}>Move to DataDoc <ArrowRight size={13}/></Button></>}/></Panel>
  </>;
+ }
  return null;
 }
