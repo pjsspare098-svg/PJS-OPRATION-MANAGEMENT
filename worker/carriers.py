@@ -76,7 +76,6 @@ class CarrierEngine:
         options.add_argument("--disable-notifications")
         options.add_argument("--disable-popup-blocking")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--no-sandbox")
 
         profile = os.getenv("PJS_CHROME_PROFILE", "").strip()
         if profile:
@@ -248,7 +247,7 @@ class CarrierEngine:
             raise TimeoutException("Shree Maruti result not found")
 
         driver.switch_to.default_content()
-        shot = self.screenshot(process_no, "SHREE MARUTI") if normalize_status(raw_status if 'raw_status' in locals() else status if 'status' in locals() else row_status if 'row_status' in locals() else str(meta) if 'meta' in locals() else "") in ("Delivered", "RTO Delivered") else None
+        shot = self.screenshot(process_no, "SHREE MARUTI") if normalize_status(status) in ("Delivered", "RTO Delivered") else None
         return TrackResult(normalize_status(status), status.strip(), delivery_date.strip(), shot)
 
     def track_vrl(self, tracking_id: str, process_no: str) -> TrackResult:
@@ -283,7 +282,7 @@ class CarrierEngine:
         except Exception:
             pass
 
-        shot = self.screenshot(process_no, "VRL") if normalize_status(raw_status if 'raw_status' in locals() else status if 'status' in locals() else row_status if 'row_status' in locals() else str(meta) if 'meta' in locals() else "") in ("Delivered", "RTO Delivered") else None
+        shot = self.screenshot(process_no, "VRL") if normalize_status(raw_status) in ("Delivered", "RTO Delivered") else None
         return TrackResult(normalize_status(raw_status), str(meta).strip(), eta, shot)
 
     def track_acpl(self, tracking_id: str, process_no: str) -> TrackResult:
@@ -315,7 +314,7 @@ class CarrierEngine:
             pass
 
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        shot = self.screenshot(process_no, "ACPL") if normalize_status(raw_status if 'raw_status' in locals() else status if 'status' in locals() else row_status if 'row_status' in locals() else str(meta) if 'meta' in locals() else "") in ("Delivered", "RTO Delivered") else None
+        shot = self.screenshot(process_no, "ACPL") if normalize_status(row_status) in ("Delivered", "RTO Delivered") else None
         return TrackResult(normalize_status(row_status), row_status, delivery_date, shot)
 
     def _close_vexpress_popups(self):
@@ -384,7 +383,7 @@ class CarrierEngine:
             driver.execute_script("arguments[0].scrollIntoView({block:'center'});", result)
         except Exception:
             pass
-        shot = self.screenshot(process_no, "V EXPRESS") if normalize_status(raw_status if 'raw_status' in locals() else status if 'status' in locals() else row_status if 'row_status' in locals() else str(meta) if 'meta' in locals() else "") in ("Delivered", "RTO Delivered") else None
+        shot = self.screenshot(process_no, "V EXPRESS") if normalize_status(raw_status) in ("Delivered", "RTO Delivered") else None
         self._close_vexpress_popups()
         return TrackResult(normalize_status(raw_status), raw_status, "", shot)
 
@@ -416,7 +415,7 @@ class CarrierEngine:
         except Exception:
             pass
 
-        shot = self.screenshot(process_no, "TCI FREIGHT") if normalize_status(raw_status if 'raw_status' in locals() else status if 'status' in locals() else row_status if 'row_status' in locals() else str(meta) if 'meta' in locals() else "") in ("Delivered", "RTO Delivered") else None
+        shot = self.screenshot(process_no, "TCI FREIGHT") if normalize_status(raw_status) in ("Delivered", "RTO Delivered") else None
         try:
             driver.find_element(By.XPATH, "//button[@aria-label='close']").click()
         except Exception:
@@ -449,5 +448,5 @@ class CarrierEngine:
             delivery_date = match.group(1).strip()
 
         driver.execute_script("arguments[0].scrollIntoView({block:'center'});", status_cell)
-        shot = self.screenshot(process_no, "ARC") if normalize_status(raw_status if 'raw_status' in locals() else status if 'status' in locals() else row_status if 'row_status' in locals() else str(meta) if 'meta' in locals() else "") in ("Delivered", "RTO Delivered") else None
+        shot = self.screenshot(process_no, "ARC") if normalize_status(raw_status) in ("Delivered", "RTO Delivered") else None
         return TrackResult(normalize_status(raw_status), raw_status, delivery_date, shot)
