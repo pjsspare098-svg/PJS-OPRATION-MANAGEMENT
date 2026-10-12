@@ -1,3 +1,4 @@
+import {recipientEmails} from './emailRecipients.ts';
 export type Rules={ready:boolean;missing:string[];warnings:string[]};
 export type RulePrefs={ebill_threshold:number;retrack_days:number;reminder_days:number};
 const text=(v:any)=>String(v??'').trim();
@@ -36,7 +37,7 @@ export function checkJob(r:any,type:RuleJob,prefs:RulePrefs={ebill_threshold:500
   if(!files.has('emailDoc'))missing.push('Original client email (.eml)');
  }
  if(type==='email_reply'){
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text(r.clientEmail)))missing.push('Valid client email');
+  if(!recipientEmails(r.clientEmail).length)missing.push('Valid client email');
   if(!files.has('emailDoc'))missing.push('Outlook email conversation');
   if(!text(r.invoice))missing.push('Invoice No.');
  }
