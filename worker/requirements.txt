@@ -1,3 +1,5 @@
 supabase>=2.18,<3
 python-dotenv>=1.1,<2
 selenium>=4.35,<5
+# Only needed for Classic Outlook on authorized Windows office PC
+pywin32>=306; platform_system == 'Windows'
