@@ -24,6 +24,8 @@ class DispatchDetails:
     transporter: str = ""
     lr: str = ""
     ready: str = ""
+    product_name: str = ""
+    sales_person: str = ""
 
     def validate(self) -> None:
         missing = [
@@ -45,6 +47,8 @@ def dispatch_html(details: DispatchDetails) -> str:
         ("Party Name", details.party),
         ("Process No.", details.process),
         ("Sales Order No.", details.so),
+        ("Product Name", details.product_name or "Not specified"),
+        ("Sales Person", details.sales_person or "Not specified"),
         ("Invoice No.", details.invoice),
         ("Transporter", details.transporter or "Pending"),
         ("LR / Docket", details.lr or "Pending"),
