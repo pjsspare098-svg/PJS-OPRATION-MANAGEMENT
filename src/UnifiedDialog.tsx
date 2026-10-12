@@ -2,8 +2,9 @@ import {useEffect,useRef,useState} from 'react';
 import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,AlertTriangle,Trash2} from 'lucide-react';
 import {cloud} from './cloud';
 import {displayField} from './documentFields';
+import {salesPeople,productNames} from './processOptions';
 import {mergeDocumentScans,safeUpdates,type Candidate,type ScannedDocument} from './documentMerge';
-export const blankProcess=()=>({process:'',party:'',so:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',clientEmail:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
+export const blankProcess=()=>({process:'',party:'',so:'',productName:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
 const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Dispatch & invoice (optional for Email)',fields:[['sales','Sales Person'],['ready','Ready for Dispatch','date'],['invoice','Invoice No.'],['invoiceDate','Invoice Date','date'],['amount','Invoice Amount (₹)','number'],['credit','Credit / Non-Credit','credit'],['po','PO No.'],['poDate','PO Date','date'],['payment','Payment Terms']]},
  {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Weight'],['transporter','Transporter'],['lr','LR / Docket No.'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
@@ -115,9 +116,20 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  {sourceFile&&<div className='ux-doc-banner'><FileCheck2 size={20}/><div><strong>{sourceFile.name}</strong><small>{importIssue?'Reading needs attention — complete the missing fields below.':'Process No., Party Name and SO No. extracted. Please verify against the PDF.'}</small></div></div>}
  {importIssue&&<div className='ux-import-warning' role='alert'><AlertTriangle size={17}/><span>{importIssue}</span></div>}
  <section className='ux-drawer-section'><div className='ux-section-title'><b>01</b><strong>Process identity</strong></div><div className='ux-field-grid'>
- {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}</div></section>
+ {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}
+ <label className='ux-field'>Product Name
+  <select value={draft.productName||''} onChange={e=>setDraft((old:any)=>({...old,productName:e.target.value}))}>
+   <option value=''>Select Product Name</option>
+   {draft.productName&&!productNames.includes(draft.productName)&&<option value={draft.productName}>{draft.productName} (existing value)</option>}
+   {productNames.map(name=><option key={name} value={name}>{name}</option>)}
+  </select>
+ </label></div></section>
  <button className='ux-expand-button' onClick={()=>setExpanded(!expanded)}><Settings2 size={17}/>{expanded?'Hide additional fields':'Add invoice, carrier and dispatch details'}<ChevronDown size={17}/></button>
- {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
+ {expanded&&sections.map((section,i)=><section className='ux-drawer-section' key={section.label}><div className='ux-section-title'><b>0{i+2}</b><strong>{section.label}</strong></div><div className='ux-field-grid'>{section.fields.map(([key,label,kind])=><label className='ux-field' key={key}>{label}{kind==='credit'?<select value={draft.credit||'Credit'} onChange={e=>setDraft({...draft,credit:e.target.value})}><option>Credit</option><option>Non Credit</option></select>:key==='sales'?<select value={draft.sales||''} onChange={e=>setDraft((old:any)=>({...old,sales:e.target.value}))}>
+ <option value=''>Select Sales Person</option>
+ {draft.sales&&!salesPeople.includes(draft.sales)&&<option value={draft.sales}>{draft.sales} (existing value)</option>}
+ {salesPeople.map(name=><option key={name} value={name}>{name}</option>)}
+ </select>:<input type={kind||'text'} value={draft[key]??''} onChange={e=>setDraft({...draft,[key]:e.target.value})}/>}</label>)}</div></section>)}
  <section className='ux-drawer-section'>
   <div className='ux-section-title'><b><FileText size={15}/></b><strong>Private attachments — open, download or extract details</strong></div>
   <div className='ux-extraction-controls'>
