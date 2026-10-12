@@ -8,9 +8,7 @@ export function originalOutlookMessages(record:any):any[]{
 export function emailDraftReadiness(record:any, jobs:any[]=[]){
  const base=checkJob(record,'email_reply');
  const missing=[...base.missing];
- const messages=originalOutlookMessages(record);
- if(messages.length===1&&!/\.eml$/i.test(messages[0].name||''))missing.push('Original Outlook email must be .eml');
- if(!String(record?.so||'').trim())missing.push('Sales Order No.');
+
  const owner=record?.owner_id;
  if(owner&&record?.current_user_id&&owner!==record.current_user_id)missing.push('Only the process owner can queue office Outlook drafts');
  const latest=jobs.find((job:any)=>job.process_id===record?.id&&job.job_type==='email_reply');
