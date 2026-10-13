@@ -6,9 +6,9 @@ export const amountValue=(v:any)=>{const s=text(v).replace(/[₹,\s]/g,'');if(!s
 export function checkBill(r:any,threshold=50000):Rules{
  const files=kinds(r),missing:string[]=[],warnings:string[]=[];
  if(!/^\d{5,9}$/.test(text(r.process)))missing.push('Valid Process No.');
- if(!text(r.party))missing.push('Party Name');
- if(!/^\d{6,12}$/.test(text(r.so)))missing.push('Valid SO No.');
- if(!files.has('pickDoc'))missing.push('Original Pick Slip PDF');
+ if(!text(r.party))warnings.push('Party Name not recorded');
+ if(!/^\d{6,12}$/.test(text(r.so)))warnings.push('SO No. not recorded');
+ if(!files.has('pickDoc'))warnings.push('Original Pick Slip PDF not attached');
  if(!text(r.invoice))missing.push('Invoice No.');
  if(!['Credit','Non Credit'].includes(text(r.credit)))missing.push('Credit Type');
  if(!files.has('invoiceDoc'))missing.push('Invoice PDF');
