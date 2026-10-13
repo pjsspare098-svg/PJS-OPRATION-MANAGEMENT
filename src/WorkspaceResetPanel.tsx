@@ -10,6 +10,16 @@ type Preview={
  managed_backups_removed:false;
 };
 const PHRASE='DELETE ALL MY PROCESSES';
+async function readableResetError(error:any):Promise<string>{
+ const response=error?.context;
+ if(response&&typeof response.json==='function'){
+  try{
+   const data=await response.json();
+   if(typeof data?.error==='string'&&data.error.length<280)return data.error;
+  }catch{/* Body may be unavailable; use generic text below. */}
+ }
+ return 'The protected reset preview could not be loaded. No changes were made. Click Refresh count or sign in again.';
+}
 
 export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
  authenticated:boolean;demo:boolean;onChanged:()=>Promise<void>|void
@@ -28,7 +38,7 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
    if(error)throw error;
    if(data?.error)throw Error(data.error);
    setPreview(data as Preview);setError('');
-  }catch(e:any){setError(e?.message||'Cannot verify reset preview. No data was changed.');setPreview(null)}
+  }catch(e:any){setError(await readableResetError(e));setPreview(null)}
   finally{setBusy(false)}
  },[authenticated,demo]);
  useEffect(()=>{void load()},[load]);
@@ -51,7 +61,7 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
    await onChanged();
    await load();
   }catch(e:any){
-   setError((e?.message||'Deletion did not complete.')+
+   setError((await readableResetError(e))+
     ' Check the preview again. If cleanup is pending, retry; do not assume all files were deleted.');
    await load();
   }finally{setBusy(false)}
@@ -78,6 +88,7 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
    {preview?.pending_cleanup&&<p className='sc-invalid' role='alert'>A previous deletion was interrupted. Confirm again to resume storage cleanup and finish deleting the personal records.</p>}
    {Boolean(preview?.running_count)&&<p className='sc-invalid' role='alert'>Running jobs exist. Wait for them to finish before deleting anything.</p>}
    {error&&<p className='sc-invalid' role='alert'>{error}</p>}
+   {!preview&&<p className='sc-invalid' role='status'>Typing is locked until the server verifies the process count. Click Refresh count after reconnecting.</p>}
    {notice&&<p className='sc-reset-success' role='status'>{notice}</p>}
    <label className='ux-field'>Type <strong>{PHRASE}</strong> to enable permanent deletion
     <input autoComplete='off' spellCheck={false} placeholder={PHRASE} value={typed}
