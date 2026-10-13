@@ -28,6 +28,14 @@ if (-not $python) {
   if ($command) { $python = $command.Source; $prefix = '-3 ' }
 }
 if (-not $python) { Write-Error 'Python 3.12+ is required. Set PJS_PYTHON_EXE to your python.exe path.'; exit 1 }
+$preflight = Join-Path $PSScriptRoot 'office_preflight.py'
+if (-not (Test-Path $preflight)) { Write-Error 'Missing worker/office_preflight.py'; exit 1 }
+Write-Host 'Verifying Python modules and Supabase credential (no changes to jobs or customer data)...'
+if ($prefix) { & $python -3 $preflight } else { & $python $preflight }
+if ($LASTEXITCODE -ne 0) {
+  Write-Error 'Preflight failed. Worker launch cancelled to avoid repeated 401/invalid-key errors.'
+  exit 1
+}
 $launcher = Join-Path $PSScriptRoot 'start_worker.py'
 if (-not (Test-Path $launcher)) { Write-Error 'Missing worker/start_worker.py'; exit 1 }
 foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispatch_tracking_worker.py')) {
