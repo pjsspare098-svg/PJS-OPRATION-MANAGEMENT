@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {Activity,AlertTriangle,CheckCircle2,Clock3,RefreshCw,Truck} from 'lucide-react';
+import {AlertTriangle,CheckCircle2,Clock3,RefreshCw,Truck} from 'lucide-react';
 import {supabase} from './independentClient';
 import {filterStage} from './workflowStages';
 import {checkJob} from './businessRules';
