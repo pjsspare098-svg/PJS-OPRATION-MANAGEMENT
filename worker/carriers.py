@@ -29,7 +29,7 @@ def normalize_status(text: str) -> str:
     Carrier-specific adapters should extract the CURRENT event, not full history.
     Unknown or challenge text must never be guessed as In Transit or Delivered.
     """
-    u = re.sub(r"\\s+", " ", (text or "").strip()).upper()
+    u = re.sub(r"\s+", " ", (text or "").strip()).upper()
     if not u:
         return "Unknown"
     if any(x in u for x in (
@@ -42,15 +42,15 @@ def normalize_status(text: str) -> str:
         return "RTO Delivered"
     if any(x in u for x in ("UNDELIVERED", "NOT DELIVERED", "DELIVERY FAILED", "FAILED DELIVERY")):
         return "Undelivered"
-    if "RETURN TO ORIGIN" in u or re.search(r"\\bRTO\\b", u):
+    if "RETURN TO ORIGIN" in u or re.search(r"\bRTO\b", u):
         return "RTO"
-    if "RETURNED" in u or re.search(r"\\bRETURN\\b", u):
+    if "RETURNED" in u or re.search(r"\bRETURN\b", u):
         return "Returned"
     if "CANCELLED" in u or "CANCELED" in u:
         return "Cancelled"
     if "OUT FOR DELIVERY" in u:
         return "Out for Delivery"
-    if re.search(r"\\bDELIVERED\\b", u):
+    if re.search(r"\bDELIVERED\b", u):
         return "Delivered"
     if any(x in u for x in ("NOT FOUND", "NO RECORD", "NO CONSIGNMENT", "NO RESULT")):
         return "Not Found"
