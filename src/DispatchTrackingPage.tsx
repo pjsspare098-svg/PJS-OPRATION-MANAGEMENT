@@ -5,6 +5,7 @@ import {filterStage} from './workflowStages';
 import {checkJob} from './businessRules';
 import {Button,Empty,Heading,Panel,SearchBar,Stat,Tone} from './UnifiedKit';
 import type {Job} from './unifiedOps';
+import {carrierTrackingUrl} from './carrierRegistry';
 
 type Worker = {worker_name:string;status:string;last_seen_at:string;details:Record<string,unknown>} | null;
 
@@ -80,6 +81,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
     const running=latest&&['queued','running'].includes(latest.status);
     const status=String(r.trackingStatus||r.status||'Pending');
     const rule=checkJob(r,'tracking',settings,recent);
+    const carrierUrl=carrierTrackingUrl(r.transporter);
     const owner=(!r.owner_id||r.owner_id===p.userId);
     const alreadyDelivered=r.trackingStatus==='Delivered';
     const verifiedDelivery=Boolean(alreadyDelivered&&recent.some((j:Job)=>
@@ -93,13 +95,15 @@ export default function DispatchTrackingPage({p}:{p:any}){
       <small>{latest.error_message||latest.result?.detail||'Request recorded'}</small></>:<small>Not queued</small>}</td>
      <td><div className='ux-action-flex'>
       <Button onClick={()=>onEdit(r)}>Edit</Button>
-      <Button variant='primary' disabled={busy||!p.authenticated||!owner||!rule.ready||Boolean(running)||alreadyDelivered}
+      {carrierUrl&&<a className='ux-button secondary' href={carrierUrl} target='_blank' rel='noopener noreferrer'>Carrier site</a>}
+      <Button variant='primary' disabled={busy||!p.authenticated||!owner||!carrierUrl||!rule.ready||Boolean(running)||alreadyDelivered}
        onClick={()=>onQueue(r,'tracking')}>
        {running?'Tracking queued':alreadyDelivered?'Delivered':'Queue track'}
       </Button>
       {verifiedDelivery&&<Button variant='mint' disabled={busy} onClick={()=>onStage(r,'Delivery Proof','Delivered')}>Delivery Proof</Button>}
      </div>{!owner&&<small>Only the process owner can queue office tracking.</small>}
      {!rule.ready&&<small>{rule.missing.join(', ')}</small>}
+     {!carrierUrl&&<small>Carrier adapter unavailable; select one of the six supported transporters.</small>}
      </td>
     </tr>;
    }):<tr><td colSpan={5}><Empty icon={Truck} title='No matching tracking records'
