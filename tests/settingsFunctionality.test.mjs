@@ -17,6 +17,16 @@ assert.ok(reset.includes('window.confirm('),'Require secondary explicit confirma
 assert.ok(reset.includes('preview.running_count===0'),'Never allow live deletion during running jobs');
 assert.ok(reset.includes('managed backups'),'Must distinguish managed database backups from app files');
 assert.ok(edge.includes('getUser(token)')&&edge.includes('ALLOWED_ORIGINS'),'Verify user/session on privileged edge');
+assert.ok(edge.includes('x.path.split("/").some(segment=>segment==="."||segment===".."||segment==="")'),'Reject only actual unsafe path segments');
+assert.ok(!edge.includes('x.path.includes("..")'),'Real uploaded PDF names with consecutive dots must not prevent a reset preview');
+const unsafePath=(owner,path)=>!path.startsWith(owner+"/")||path.split("/").some(segment=>segment==="."||segment===".."||segment==="");
+const uid='00000000-0000-4000-8000-000000000000';
+assert.equal(unsafePath(uid,uid+'/process-id/scan..signed.pdf'),false,'Legitimate double-dot filename');
+assert.equal(unsafePath(uid,uid+'/process-id/../../outside.pdf'),true,'Real parent segment must be rejected');
+assert.equal(unsafePath(uid,'another-owner/process-id/invoice.pdf'),true,'Cross-owner storage path must be rejected');
+assert.ok(reset.includes('readableResetError'),'Show server validation error instead of only non-2xx status');
+assert.ok(reset.includes('Typing is locked until the server verifies'),'Explain why field is disabled on failed preview');
+
 assert.ok(edge.includes('oms_prepare_personal_reset')&&edge.includes('oms_complete_personal_reset'),'Require atomic database-scoped preparation/finish');
 assert.ok(edge.includes('.storage.from(bucket).remove(group)'),'Delete private storage files via Storage API');
 assert.ok(sql.includes('where user_id=p_owner and team_id is null'),'Never delete shared team or another user data');
