@@ -77,6 +77,8 @@ def run_batch(jobs: Iterable[TrackingJob], engine: Any, *, only_pending: bool = 
             # Prefer extracted carrier status over timeline detail, which may
             # mention an old unsuccessful delivery while the current status changed.
             status = normalize_status(reported or raw)
+            if status in {"Error", "Unknown"}:
+                raise ValueError("Carrier did not provide a recognized current shipment status")
             result = TrackingOutcome(
                 job.process_no, job.transporter, job.tracking_id, status, raw,
                 str(getattr(response, "delivery_date", "") or ""),
@@ -84,8 +86,7 @@ def run_batch(jobs: Iterable[TrackingJob], engine: Any, *, only_pending: bool = 
             )
         except LookupError as exc:
             result = TrackingOutcome(job.process_no, job.transporter, job.tracking_id,
-                                     "Not Found", "Tracking result not found", checked_at=now,
-                                     error=str(exc)[:250])
+                                     "Not Found", "Carrier reports no result for this tracking ID", checked_at=now)
         except Exception as exc:
             # Preserve unknown outcomes separately; never record as delivered.
             result = TrackingOutcome(job.process_no, job.transporter, job.tracking_id,
