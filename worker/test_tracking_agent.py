@@ -14,6 +14,22 @@ class TrackingAgentTests(unittest.TestCase):
         self.assertEqual(normalize_status("IN TRANSIT"), "In Transit")
         self.assertEqual(normalize_status("NOT FOUND"), "Not Found")
 
+    def test_vba_status_precedence_and_unknown_response(self):
+        self.assertEqual(normalize_status("UNKNOWN MESSAGE"), "Unknown")
+        self.assertEqual(normalize_status("VERIFY YOU ARE HUMAN"), "Error")
+        self.assertEqual(normalize_status("OUT FOR DELIVERY"), "Out for Delivery")
+        self.assertEqual(normalize_status("RTO DELIVERED"), "RTO Delivered")
+        self.assertEqual(normalize_status("NOT DELIVERED"), "Undelivered")
+        self.assertEqual(normalize_status("BOOKED"), "In Transit")
+        self.assertEqual(normalize_status("PENDING"), "Pending")
+
+    def test_unknown_status_cannot_report_success(self):
+        engine = Mock()
+        engine.track.return_value = Mock(status="shipment ??", detail="Tracking page changed", delivery_date="")
+        rows = run_batch([TrackingJob("292168", "VRL", "123456")], engine)
+        self.assertEqual(rows[0].status, "Error")
+        self.assertTrue(rows[0].error)
+
     def test_missing_fields(self):
         with self.assertRaises(ValueError):
             TrackingJob("292168", "VRL", "")
