@@ -4,6 +4,9 @@ const p={id:'process-1',process:'292184',so:'26270964',party:'Example Industrial
  {kind:'pickDoc'},{kind:'invoiceDoc',id:'inv-1',name:'invoice.pdf'},{kind:'lrDoc',id:'lr-1',name:'courier-receipt.pdf'},{kind:'einvoiceDoc'},{kind:'ebillDoc'},{kind:'proofDoc'},{kind:'emailDoc',id:'original-email-document',name:'original.eml'}
 ]};
 assert.equal(checkBill(p).ready,true);
+assert.equal(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='pickDoc')}).ready,true,'Pick Slip is informational; not uploaded by the DataDoc bill adapter');
+assert.ok(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='pickDoc')}).warnings.some(x=>x.includes('Pick Slip')));
+assert.equal(checkBill({...p,party:'',so:''}).ready,true,'Party and SO metadata are informational for the existing DataDoc adapter');
 assert.equal(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,false);
 assert.ok(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).missing.some(x=>x.includes('E-Way')));
 assert.equal(checkBill({...p,amount:'1200',documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,true);
