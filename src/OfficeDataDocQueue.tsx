@@ -2,11 +2,12 @@ import {useCallback,useEffect,useState} from 'react';
 import {Activity,AlertTriangle,CheckCircle2,Clock3,Monitor,RefreshCw,ShieldCheck} from 'lucide-react';
 import {supabase} from './independentClient';
 import './office-queue.css';
+import {checkBill} from './businessRules';
 
-type OfficeRow={id:string;process_no:string;status:string;progress:number;office_execution:string;approved_at:string|null;created_at:string;updated_at:string;error_message:string|null;worker_name:string|null};
+type OfficeRow={id:string;process_id:string;payload:any;process_no:string;status:string;progress:number;office_execution:string;approved_at:string|null;created_at:string;updated_at:string;error_message:string|null;worker_name:string|null};
 type Heartbeat={worker_name:string;machine_name:string;status:string;last_seen_at:string;details:any};
 const human=(stamp:string)=>new Date(stamp).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'numeric',minute:'2-digit'});
-export default function OfficeDataDocQueue({authenticated}:{authenticated:boolean}){
+export default function OfficeDataDocQueue({authenticated,records=[],threshold=50000}:{authenticated:boolean;records?:any[];threshold?:number}){
  const [rows,setRows]=useState<OfficeRow[]>([]);
  const [worker,setWorker]=useState<Heartbeat|null>(null);
  const [loading,setLoading]=useState(false);
@@ -18,7 +19,7 @@ export default function OfficeDataDocQueue({authenticated}:{authenticated:boolea
    const {data:{user},error:authError}=await supabase.auth.getUser();
    if(authError||!user)throw Error('Sign in to view your DataDoc queue.');
    const [jobs,status]=await Promise.all([
-    supabase.from('oms_jobs').select('id,process_no,status,progress,office_execution,approved_at,created_at,updated_at,error_message,worker_name')
+    supabase.from('oms_jobs').select('id,process_id,payload,process_no,status,progress,office_execution,approved_at,created_at,updated_at,error_message,worker_name')
      .eq('job_type','bill_submit').eq('user_id',user.id)
      .order('created_at',{ascending:false}).limit(35),
     supabase.from('oms_office_workers').select('worker_name,machine_name,status,last_seen_at,details')
@@ -59,7 +60,12 @@ export default function OfficeDataDocQueue({authenticated}:{authenticated:boolea
   {error&&<p className='oq-error' role='alert'>{error}</p>}
   <div className='oq-jobs'>
    {rows.length?rows.slice(0,12).map(row=>{
-    const status=row.status==='queued'&&row.office_execution==='auto_on_login'?'Waiting for PC':
+    const process=records.find((r:any)=>r.id===row.process_id);
+    const billNotes=process?checkBill(process,threshold).missing:[];
+    const deferred=row.status==='queued'&&row.payload?.office_policy==='advisory_v1';
+    const waitingInfo=deferred&&billNotes.length>0;
+    const awaitingUpgrade=deferred&&!waitingInfo&&worker?.details?.bill_submit_version!=='advisory_v1';
+    const status=waitingInfo?'Waiting for bill details':awaitingUpgrade?'Update office worker':row.status==='queued'&&row.office_execution==='auto_on_login'?'Waiting for PC':
       row.status==='running'?'Processing':
       row.status==='completed'?'Submitted':
       row.status==='failed'?'Needs review':
@@ -67,6 +73,8 @@ export default function OfficeDataDocQueue({authenticated}:{authenticated:boolea
     const className=row.status==='completed'?'ok':row.status==='failed'?'bad':row.status==='running'?'busy':'waiting';
     return <div className='oq-job' key={row.id}><div><strong>Process {row.process_no}</strong>
      <small>Queued {human(row.created_at)} {row.worker_name?'· '+row.worker_name:''}</small>
+     {waitingInfo&&<small className='oq-job-error'>Request saved. Worker will wait for {billNotes.slice(0,3).join(', ')}.</small>}
+     {awaitingUpgrade&&<small className='oq-job-error'>Update the office worker before this new-format request can run.</small>}
      {row.error_message&&<small className='oq-job-error'>{row.error_message}</small>}
      {row.status==='running'&&Date.now()-new Date(row.updated_at).getTime()>30*60000&&<small className='oq-job-error'>Worker appears interrupted. Check DataDoc before creating a new job.</small>}
     </div><span className={'oq-job-status '+className}>{status}</span></div>
