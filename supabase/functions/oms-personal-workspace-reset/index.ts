@@ -66,7 +66,7 @@ async function getManifest(owner:string):Promise<Manifest>{
    ...docRows.map(x=>({bucket:"oms-documents",path:x.path,user_id:x.user_id})),
    ...photoRows.map(x=>({bucket:"oms-done-pick-photos",path:x.path,user_id:x.user_id}))
  ];
- if(files.some(x=>x.user_id!==owner||!x.path.startsWith(owner+"/")||x.path.includes("..")))
+ if(files.some(x=>x.user_id!==owner||!x.path.startsWith(owner+"/")||x.path.split("/").some(segment=>segment==="."||segment===".."||segment==="")))
    throw new Error("Attachment ownership path inconsistent; reset not allowed");
  const distinct=new Map(files.map(x=>[x.bucket+"|"+x.path,{bucket:x.bucket,path:x.path}]));
  return {processes,paths:[...distinct.values()],albums:albumRows.length,queued,running};
