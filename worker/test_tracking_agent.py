@@ -42,7 +42,7 @@ class TrackingAgentTests(unittest.TestCase):
 
     def test_dedup(self):
         engine = Mock()
-        engine.track.return_value = Mock(detail="IN TRANSIT", delivery_date="", screenshot_path=None)
+        engine.track.return_value = Mock(status="In Transit", detail="IN TRANSIT", delivery_date="", screenshot_path=None)
         row = TrackingJob("292168", "VRL", "5555", "Pending")
         outcomes = run_batch([row, row], engine)
         self.assertEqual(len(outcomes), 2)
