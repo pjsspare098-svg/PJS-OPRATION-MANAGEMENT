@@ -44,6 +44,7 @@ export default function WorkerFleetStatus({authenticated}:{authenticated:boolean
    <b className={status.color}>{status.label}</b>
   </div>})}
 
+  <div className='ux-worker-quickstart'><small>On an office PC, use the <a href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/blob/main/docs/ONE_CLICK_OFFICE_START.md' target='_blank' rel='noreferrer'>one-click website + worker desktop shortcut</a> to start missing agents. A normal browser tab cannot launch Windows programs.</small></div>
   {error&&<div className='ux-worker-error'><Clock3 size={16}/> {error} <button type='button' onClick={()=>void refresh()}><RefreshCw size={14}/> Retry</button></div>}
  </>;
 }
