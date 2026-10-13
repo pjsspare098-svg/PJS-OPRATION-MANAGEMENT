@@ -61,7 +61,9 @@ export default function DonePickListPage({records,authenticated}:{records:any[];
   if(!files.length)return;
   setError('');setNotice('');
   try{
-   if(files.length>25)throw Error('Choose no more than 25 photos in one batch.');
+   const chosenLimit=Number(localStorage.getItem('pjs_oms_photo_batch_limit_v1'));
+   const limit=Number.isInteger(chosenLimit)&&chosenLimit>=1&&chosenLimit<=25?chosenLimit:25;
+   if(files.length>limit)throw Error('Choose no more than '+limit+' photos in one batch (Settings → Camera & Photos).');
    files.forEach(validatePhoto);
    if(review)closeReview();
    const items=files.map(file=>{
