@@ -121,11 +121,11 @@ export default function EmailToClientWorkflow({p}:{p:any}){
     <div className='ux-row-actions'>
      <label className='ux-button secondary ux-file-button'><Upload size={15}/> Upload .eml<input type='file' accept='.eml,message/rfc822' onChange={e=>{onAttach(r,'emailDoc',e.target.files?.[0]);e.target.value=''}}/></label>
      <Button onClick={()=>onEdit(r)}>Edit dispatch</Button>
-     <Button variant='primary' disabled={busy||!p.authenticated||!readiness.ready||Boolean(active)} onClick={()=>onQueue(draftRecord,'email_reply')}><Mail size={15}/> Queue Reply All draft</Button>
+     <Button variant='primary' disabled={busy||!p.authenticated||!readiness.ready||Boolean(active)} onClick={()=>onQueue(draftRecord,'email_reply')}><Mail size={15}/> Prepare Reply All draft</Button>
      {active?.status==='queued'&&<Button disabled={busy} onClick={()=>void p.onCancelEmailJob?.(active)}><XCircle size={15}/> Cancel queued request</Button>}
-     {latest?.status==='completed'&&<Button variant='mint' disabled={busy} onClick={()=>void p.onConfirmEmailSent?.(r)}><ShieldCheck size={15}/> Confirm sent &amp; track</Button>}
+     {latest?.status==='completed'&&<Button variant='mint' disabled={busy} onClick={()=>void p.onConfirmEmailSent?.(r)}><ShieldCheck size={15}/> I sent this in Outlook · Track</Button>}
     </div>
-    <small className='ux-outlook-footnote'>Draft creation is automated only with the connected Classic Outlook worker. No recipients are extracted, and no email is sent automatically.</small>
+    <small className='ux-outlook-footnote'>Draft creation is automated only with the connected Classic Outlook worker. No recipients are extracted, and no email is sent automatically. Clicking I sent this is your recorded manual confirmation, not verification by Outlook.</small>
    </article>;
   }):<Empty icon={Mail} title='No email-ready processes' help='Move a process to Email to Client from Universal Process or DataDoc.'/>}</div>
  </div>;
