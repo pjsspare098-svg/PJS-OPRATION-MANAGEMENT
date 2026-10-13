@@ -1,4 +1,5 @@
 import { supabase } from './independentClient';
+import {normalizeCarrier} from './carrierRegistry';
 import { cloud } from './cloud';
 import {checkBill,checkJob,type RulePrefs} from './businessRules';
 import {OUTLOOK_DRAFT_VERSION,emailDraftReadiness} from './emailWorkflow';
@@ -58,6 +59,7 @@ export const ops={
     if(type==='bill_submit'&&existing.some(j=>j.process_id===r.id&&j.job_type==='bill_submit'&&j.status==='completed'))throw Error('DataDoc bill was already submitted for this process. Verify DataDoc instead of creating a duplicate.');
     if(type==='tracking'&&r.owner_id&&r.owner_id!==u.id)throw Error('Only the process owner can authorize office carrier lookups.');
     if(type==='tracking'&&String(r.stage||'').trim().toLowerCase()!=='dispatch tracking')throw Error('Move the process to Dispatch Tracking before queuing a carrier lookup.');
+    if(type==='tracking'&&!normalizeCarrier(r.transporter))throw Error('Unsupported transporter. Choose Shree Maruti, VRL, ACPL, V Express, TCI Freight or ARC.');
     if(type==='email_reply'&&r.owner_id&&r.owner_id!==u.id)throw Error('The owner of this process must queue the Outlook draft. Team-wide mailbox access is not enabled yet.');
     const verification=type==='email_reply'?emailDraftReadiness(r,existing):checkJob(r,type,prefs,existing);
     if(!verification.ready)throw Error('Cannot queue '+type.replaceAll('_',' ')+'. Missing: '+verification.missing.join(', '));
