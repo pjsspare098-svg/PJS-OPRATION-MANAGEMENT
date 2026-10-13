@@ -1,13 +1,13 @@
+import DispatchTrackingPage from './DispatchTrackingPage';
 import {filterStage} from './workflowStages';
 import EmailToClientWorkflow from './EmailToClientWorkflow';
-import {Activity,AlertCircle,AlertTriangle,ArrowRight,ClipboardCheck,FileCheck2,FileUp,Mail,PackageCheck,RefreshCw,Search,Truck,Upload} from 'lucide-react';
-import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone} from './UnifiedKit';
-import {readyForBill} from './unifiedOps';
-import {checkBill,checkJob} from './businessRules';
+import {Activity,ArrowRight,FileCheck2,Mail,PackageCheck} from 'lucide-react';
+import {Button,Heading,Panel,RecordsTable} from './UnifiedKit';
+import {checkJob} from './businessRules';
 import {useState} from 'react';
 import OfficeDataDocQueue from './OfficeDataDocQueue';
 export default function UnifiedStagePagesA({page,p}:{page:string;p:any}){
- const {results,records,jobs,onEdit,onGoto,onStage,onQueue,onAttach,onDraftEmail,search,setSearch,busy,settings}=p;
+ const {results,jobs,onEdit,onStage,onQueue,busy,settings}=p;
  const [tab,setTab]=useState<'Bill Submit'|'Emails'|'Delivery Proof'>('Bill Submit');
  const [status,setStatus]=useState('All');
  if(page==='DataDoc'){
@@ -21,13 +21,7 @@ export default function UnifiedStagePagesA({page,p}:{page:string;p:any}){
    <RecordsTable records={list} onEdit={onEdit} renderAction={(r:any)=>{const type=tab==='Bill Submit'?'bill_submit':tab==='Emails'?'datadoc_submit':'delivery_proof_submit';const rule=checkJob(r,type,settings,jobs);const billJobs=jobs.filter((j:any)=>j.process_id===r.id&&j.job_type==='bill_submit');const submitted=type==='bill_submit'&&billJobs.some((j:any)=>j.status==='completed');const queued=type==='bill_submit'&&billJobs.some((j:any)=>['queued','running'].includes(j.status));return <><span title={rule.missing.join('\n')} className={'ux-readiness-chip '+(rule.ready?'ready':'missing')}>{rule.ready?'Ready':'Missing '+rule.missing.length}</span><Button onClick={()=>onEdit(r)}>Review</Button><Button variant='primary' disabled={!rule.ready||busy||Boolean(submitted||queued)} onClick={()=>onQueue(r,type)}>{tab==='Bill Submit'?(submitted?'Already submitted':queued?'Waiting for office PC':'Approve & queue for office PC'):'Queue request'}</Button>{tab==='Bill Submit'&&<Button variant='mint' disabled={busy} onClick={()=>onStage(r,'Email to Client','Ready for Email')}>Move to Email <ArrowRight size={14}/></Button>}{!rule.ready&&<small style={{color:'#ad6c42',maxWidth:270,whiteSpace:'normal'}}>{rule.missing.slice(0,3).join(', ')}{rule.missing.length>3?'…':''}</small>}</>}}/></Panel></>;
  }
  if(page==='Email to Client')return <EmailToClientWorkflow p={p}/>;
- if(page==='Dispatch Tracking'){
-  const trackingRows=filterStage(results,'Dispatch Tracking');
-  const rows=trackingRows.filter((r:any)=>status==='All'||(r.status||'Pending')===status);
-  const queue=jobs.filter((j:any)=>j.job_type==='tracking'&&['queued','running'].includes(j.status));
-  return <><Heading eyebrow='STAGE 05 · TRANSPORTER AUTOMATION' title='Dispatch Tracking' description='Only processes moved to Dispatch Tracking are shown. Check carrier status and route exceptions after email dispatch.' actions={<Button onClick={()=>onGoto('Audit & Reports')}><Activity size={15}/> View queue</Button>}/>
-   <div className='ux-stats compact'><Stat label='Transporter entries' icon={Truck} value={trackingRows.filter((r:any)=>r.transporter&&r.lr).length} note='Carrier + LR available'/><Stat label='Tracking requests' icon={RefreshCw} tone='orange' value={queue.length} note='Awaiting Python worker'/><Stat label='Exceptions' icon={AlertTriangle} tone='red' value={trackingRows.filter((r:any)=>/exception|rto|returned|delay/i.test((r.status||'')+' '+(r.stage||''))).length} note='Check List intervention'/></div>
-   <Panel title='Tracking records' subtitle='Real carrier results require office-side Chrome automation.' actions={<span className='ux-offline'><Activity size={14}/> WORKER NOT CONNECTED</span>}><SearchBar value={search} onChange={setSearch} count={rows.length}/><div className='ux-tracking-filter'><label>Filter status <select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Pending</option><option>In Transit</option><option>Delivered</option><option>Exception</option></select></label></div><div className='ux-tablewrap'><table className='ux-table'><thead><tr><th>Process</th><th>Transporter</th><th>LR / Docket</th><th>Status</th><th>Stage</th><th>Action</th></tr></thead><tbody>{rows.length?rows.map((r:any)=><tr key={r.id}><td><button className='ux-process-link' onClick={()=>onEdit(r)}>{r.process}</button><small>{r.party}</small></td><td>{r.transporter||<span className='ux-warning'>Missing</span>}</td><td>{r.lr||<span className='ux-warning'>Missing</span>}</td><td><Tone value={r.status}/></td><td>{r.stage||'Universal Process'}</td><td><div className='ux-action-flex'><Button onClick={()=>onEdit(r)}>Edit</Button><Button variant='primary' disabled={busy||!r.transporter||!r.lr} onClick={()=>onQueue(r,'tracking')}>Queue track</Button></div></td></tr>):<tr><td colSpan={6}><Empty icon={Truck} title='No tracking records' help='Enter a transporter and LR number in Universal Process.'/></td></tr>}</tbody></table></div></Panel></>;
- }
+ if(page==='Dispatch Tracking')return <DispatchTrackingPage p={p}/>;
+
  return null;
 }
