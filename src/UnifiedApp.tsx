@@ -6,7 +6,7 @@ import {dispatchDetailsText} from './emailWorkflow';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
 import {teamsApi} from './teamOps';
 import {agentApi} from './agentApi';
-import {canCloseProcess} from './businessRules';
+import {canCloseProcess,checkBill} from './businessRules';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
 import UnifiedLogin from './UnifiedLogin';
 import DonePickListUpload from './DonePickListUpload';
@@ -201,9 +201,10 @@ export default function UnifiedApp(){
   if(!authenticated){onNotice('Sign in to queue office automation.');return}
   setBusy(true);
   try{
+    const needsBillInfo=type==='bill_submit'&&!checkBill(r,settings.ebill_threshold).ready;
     await ops.queue(r,type,jobs,settings);await refresh();
     onNotice(type==='bill_submit'
-      ?'Approved DataDoc Bill Submit queued for the Windows office worker.'
+      ?needsBillInfo?'DataDoc request saved. Office worker will wait for the required invoice information and files before submitting.':'Approved DataDoc Bill Submit queued for the Windows office worker.'
       :type==='email_reply'
       ?'Reply All draft queued. The office Outlook worker will prepare a draft when connected; it will NOT send an email.'
       :'Job queued. Its separate office adapter must be connected before any external action.');
