@@ -38,7 +38,7 @@ DEFAULT_NAME = "pjs-carrier-tracking-office"
 VERSION = "carrier_track_v1"
 VALID_STATUSES = {
     "Delivered", "In Transit", "Out for Delivery", "Undelivered", "RTO",
-    "RTO Delivered", "Returned", "Cancelled", "Delayed", "Address Issue", "Not Found"
+    "RTO Delivered", "Returned", "Cancelled", "Delayed", "Address Issue", "Not Found", "Pending"
 }
 
 
