@@ -1,35 +1,40 @@
-# Start both independent PJS OMS desktop workers in separate Windows sessions.
-# Does not install, change .env or enable live external actions.
+# Launch PJS independent office workers. Does not enable live automation.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 $envPath = Join-Path $PSScriptRoot '.env'
 if (-not (Test-Path $envPath)) {
-  Write-Error 'Missing local worker/.env. See README.md and OUTLOOK_AUTOMATION_SETUP.md. Do not share credentials.'
+  Write-Error 'Missing private worker/.env. Follow worker/README.md first.'
   exit 1
 }
 $settings = Get-Content $envPath -Raw
 if ($settings -match 'PASTE_INDEPENDENT_SUPABASE_SERVICE_ROLE_KEY_HERE|PASTE_YOUR_OMS_USER_UUID_HERE') {
-  Write-Error 'Fill in your independent Supabase credentials and authorized owner ID in the local .env first.'
+  Write-Error 'Set the independent Supabase credential and authorized owner UID locally first.'
   exit 1
 }
-$py = Get-Command py -ErrorAction SilentlyContinue
-if ($py) {
-  $exe = $py.Source
-  $prefix = '-3'
+$python = $null
+$prefix = ''
+if ($env:PJS_PYTHON_EXE -and (Test-Path $env:PJS_PYTHON_EXE)) {
+  $python = $env:PJS_PYTHON_EXE
 } else {
-  $py = Get-Command python -ErrorAction SilentlyContinue
-  if (-not $py) { Write-Error 'Python 3.12+ is required'; exit 1 }
-  $exe = $py.Source
-  $prefix = ''
+  $candidate = Join-Path $env:USERPROFILE 'Python313\python.exe'
+  if (Test-Path $candidate) { $python = $candidate }
 }
-function Start-PJSWorker([string] $file) {
-  if (-not (Test-Path (Join-Path $PSScriptRoot $file))) { throw "Missing $file" }
-  $arguments = if ($prefix) { "-3 $file" } else { $file }
-  Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory $PSScriptRoot -PassThru | Out-Null
-  Write-Host "Launched $file. Check its heartbeat in PJS Control Tower."
+if (-not $python) {
+  $command = Get-Command python -ErrorAction SilentlyContinue
+  if ($command) { $python = $command.Source }
 }
-Start-PJSWorker 'independent_worker.py'
-Start-PJSWorker 'outlook_draft_worker.py'
-Write-Host 'Both processes were launched, not confirmed online. Refresh Control Tower and check worker/logs.'
-Write-Host 'No safety flags were modified. If live modes are disabled they should report PAUSED.'
-Write-Host 'Carrier Tracking is not an unattended Supabase worker yet; do not expect an online heartbeat.'
+if (-not $python) {
+  $command = Get-Command py -ErrorAction SilentlyContinue
+  if ($command) { $python = $command.Source; $prefix = '-3 ' }
+}
+if (-not $python) { Write-Error 'Python 3.12+ is required. Set PJS_PYTHON_EXE to your python.exe path.'; exit 1 }
+$launcher = Join-Path $PSScriptRoot 'start_worker.py'
+if (-not (Test-Path $launcher)) { Write-Error 'Missing worker/start_worker.py'; exit 1 }
+foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispatch_tracking_worker.py')) {
+  if (-not (Test-Path (Join-Path $PSScriptRoot $worker))) { throw "Missing $worker" }
+  $args = $prefix + '"' + $launcher + '" ' + $worker
+  Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $PSScriptRoot | Out-Null
+  Write-Host "Launched $worker. Verify heartbeat in PJS website; launch is not proof of connection."
+}
+Write-Host 'Safety flags were not modified. Disabled workers should report PAUSED.'
+Write-Host 'Logs: worker\logs\datadoc-worker.log, outlook-draft-worker.log, dispatch-tracking.log'
