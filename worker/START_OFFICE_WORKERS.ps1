@@ -38,11 +38,29 @@ if ($LASTEXITCODE -ne 0) {
 }
 $launcher = Join-Path $PSScriptRoot 'start_worker.py'
 if (-not (Test-Path $launcher)) { Write-Error 'Missing worker/start_worker.py'; exit 1 }
+# Opening the website again must never start duplicate job consumers.
+# Check both the old direct-Python launch and the newer start_worker.py launcher.
+try {
+  $processes = @(Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'pythonw.exe'" -ErrorAction Stop)
+} catch {
+  throw 'Cannot verify existing Python processes. No workers started; check Windows WMI/CIM access.'
+}
 foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispatch_tracking_worker.py')) {
   if (-not (Test-Path (Join-Path $PSScriptRoot $worker))) { throw "Missing $worker" }
+  $workerPath = Join-Path $PSScriptRoot $worker
+  $pattern = '(^|[\\/\s"''])(?:' + [regex]::Escape($worker) + ')(?=$|[\s"''])'
+  $alreadyRunning = @($processes | Where-Object {
+    $line = $_.CommandLine
+    $line -and ($line.Contains($workerPath) -or
+      ($line.Contains($launcher) -and [regex]::IsMatch($line,$pattern,[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)))
+  }).Count -gt 0
+  if ($alreadyRunning) {
+    Write-Host "Already running: $worker (not starting a duplicate)."
+    continue
+  }
   $args = $prefix + '"' + $launcher + '" ' + $worker
   Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $PSScriptRoot | Out-Null
-  Write-Host "Launched $worker. Verify heartbeat in PJS website; launch is not proof of connection."
+  Write-Host "Started $worker. Check Control Tower for a fresh heartbeat."
 }
 Write-Host 'Safety flags were not modified. Disabled workers should report PAUSED.'
 Write-Host 'Logs: worker\logs\datadoc-worker.log, outlook-draft-worker.log, dispatch-tracking.log'
