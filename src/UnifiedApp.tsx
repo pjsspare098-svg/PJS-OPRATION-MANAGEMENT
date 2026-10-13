@@ -217,10 +217,16 @@ export default function UnifiedApp(){
   finally{setBusy(false)}
  }
  async function onConfirmEmailSent(r:any){
+  if(!authenticated){setError('Sign in before confirming a real Outlook dispatch.');return}
+  if(String(r.stage||'').trim()!=='Email to Client'){setError('Process is not in Email to Client; refresh before confirming.');return}
+  const confirmedDraft=jobs.find(j=>j.process_id===r.id&&j.job_type==='email_reply'&&
+    j.status==='completed'&&j.payload?.automation_version==='outlook_draft_v1'&&
+    j.result?.draft_saved===true&&j.result?.email_sent===false);
+  if(!confirmedDraft){setError('A completed Reply All draft must be verified before confirming the email was sent.');return}
   if(!window.confirm('Confirm that you personally checked the Reply All recipients, attachments and dispatch details, and SENT this reply from Outlook. This is a manual confirmation, not automatic verification. Move to tracking?'))return;
   setBusy(true);
   try{
-   await ops.audit(r,'Outlook dispatch sent confirmed by operator',{method:'manual_confirmation',process:r.process});
+   await ops.audit(r,'Outlook dispatch sent confirmed by operator',{method:'manual_confirmation',process:r.process,source_draft_job_id:confirmedDraft.id,operator_confirmed_at:new Date().toISOString(),automatic_sent_verification:false});
    await ops.stage(r,'Dispatch Tracking','Pending');
    await refresh();onNotice('Manual sent confirmation recorded. Process moved to Dispatch Tracking.');
   }catch(e:any){setError(e?.message||'Unable to record manual sent confirmation.')}

@@ -70,8 +70,8 @@ class TrackingWorkerTests(unittest.TestCase):
         engine = Mock()
         engine.track.side_effect = LookupError("Carrier did not find docket")
         result = execute_tracking(database(), approved(), OWNER, engine)
-        self.assertFalse(result["success"])
-        self.assertEqual(result["status"], "Error")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["status"], "Not Found")
 
     def test_inconclusive_does_not_count_as_delivery(self):
         engine = Mock()

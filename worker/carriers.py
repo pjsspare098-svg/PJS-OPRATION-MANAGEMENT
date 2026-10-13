@@ -24,36 +24,50 @@ class TrackResult:
 
 
 def normalize_status(text: str) -> str:
-    """VBA TD_NormalizeStatus precedence: avoid false Delivered on Undelivered."""
+    """Conservative translation of the user's TRACKING MASTER VBA status table.
+
+    Carrier-specific adapters should extract the CURRENT event, not full history.
+    Unknown or challenge text must never be guessed as In Transit or Delivered.
+    """
     u = re.sub(r"\s+", " ", (text or "").strip()).upper()
     if not u:
-        return "Pending"
+        return "Unknown"
+    if any(x in u for x in (
+        "VERIFICATION REQUIRED", "VERIFY YOU ARE HUMAN", "CAPTCHA",
+        "ACCESS DENIED", "BLOCKED REQUEST", "PLEASE ENABLE JAVASCRIPT",
+        "SERVICE UNAVAILABLE", "DATABASE ERROR",
+    )):
+        return "Error"
     if "RTO DELIVERED" in u:
         return "RTO Delivered"
-    if any(x in u for x in ("UNDELIVERED", "NOT DELIVERED", "DELIVERY FAILED")):
+    if any(x in u for x in ("UNDELIVERED", "NOT DELIVERED", "DELIVERY FAILED", "FAILED DELIVERY")):
         return "Undelivered"
     if "RETURN TO ORIGIN" in u or re.search(r"\bRTO\b", u):
         return "RTO"
-    if "RETURN" in u:
+    if "RETURNED" in u or re.search(r"\bRETURN\b", u):
         return "Returned"
-    if any(x in u for x in ("CANCELLED", "CANCELED")):
+    if "CANCELLED" in u or "CANCELED" in u:
         return "Cancelled"
     if "OUT FOR DELIVERY" in u:
         return "Out for Delivery"
-    if "DELIVERED" in u:
+    if re.search(r"\bDELIVERED\b", u):
         return "Delivered"
-    if "NOT FOUND" in u or "NO RECORD" in u:
+    if any(x in u for x in ("NOT FOUND", "NO RECORD", "NO CONSIGNMENT", "NO RESULT")):
         return "Not Found"
-    if any(x in u for x in ("ERROR", "EXCEPTION", "TIMEOUT")):
+    if any(x in u for x in ("ERROR", "EXCEPTION", "TIMEOUT", "TIMED OUT", "CONNECTION REFUSED")):
         return "Error"
-    if "PENDING" in u or "NOT CHECKED" in u:
-        return "Pending"
-    if "DELAY" in u:
-        return "Delayed"
     if "ADDRESS" in u and ("ISSUE" in u or "INCORRECT" in u):
         return "Address Issue"
-    return "In Transit"
-
+    if "DELAY" in u:
+        return "Delayed"
+    if "PENDING" in u or "NOT CHECKED" in u:
+        return "Pending"
+    if any(x in u for x in (
+        "IN TRANSIT", "IN-TRANSIT", "TRANSIT", "DISPATCHED",
+        "BOOKED", "PICKED UP", "PICKUP COMPLETED", "SHIPPED",
+    )):
+        return "In Transit"
+    return "Unknown"
 
 class CarrierEngine:
     def __init__(self, screenshot_dir: str):
@@ -99,7 +113,9 @@ class CarrierEngine:
         folder = self.screenshot_dir / safe
         folder.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = folder / f"{process_no}_{stamp}.png"
+        # Process references are external input; never let one escape screenshot folder.
+        safe_process = re.sub(r"[^A-Za-z0-9_-]+", "_", str(process_no)).strip("_")[:50] or "process"
+        path = folder / f"{safe_process}_{stamp}.png"
         driver.save_screenshot(str(path))
         return str(path)
 
