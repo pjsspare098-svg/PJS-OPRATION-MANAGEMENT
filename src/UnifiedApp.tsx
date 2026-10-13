@@ -21,7 +21,7 @@ import './unified-extra.css';
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
  const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
- const [page,setPage]=useState<Section>('Control Tower'),[records,setRecords]=useState<any[]>([]),[trashedProcesses,setTrashedProcesses]=useState<any[]>([]);
+ const [page,setPage]=useState<Section>(()=>{const saved=localStorage.getItem('pjs_oms_landing_page_v1');return saved==='Universal Process'||saved==='DataDoc'||saved==='Dispatch Tracking'?saved:'Control Tower'}),[records,setRecords]=useState<any[]>([]),[trashedProcesses,setTrashedProcesses]=useState<any[]>([]);
  const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[exceptions,setExceptions]=useState<any[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
@@ -31,6 +31,7 @@ export default function UnifiedApp(){
  const [activeTeam,setActiveTeam]=useState('');
  const [importIssue,setImportIssue]=useState('');
  const picker=useRef<HTMLInputElement>(null);
+ useEffect(()=>{document.documentElement.dataset.omsTheme=localStorage.getItem('pjs_oms_appearance_theme_v1')==='dark'?'dark':'light'},[]);
  useEffect(()=>{
   let active=true;
   if(!supabase){setChecking(false);return}

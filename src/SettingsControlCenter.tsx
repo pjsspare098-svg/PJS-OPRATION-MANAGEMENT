@@ -7,6 +7,10 @@ import {
 import {Button,Heading} from './UnifiedKit';
 import TeamWorkspace from './TeamWorkspace';
 import HistoricalImport from './HistoricalImport';
+import WorkerFleetStatus from './WorkerFleetStatus';
+import SettingsNotifications from './SettingsNotifications';
+import WorkspaceResetPanel from './WorkspaceResetPanel';
+import PdfOcrTestBench from './PdfOcrTestBench';
 import {ops,type Preferences} from './unifiedOps';
 import './settings-control-center.css';
 
@@ -39,6 +43,9 @@ function Planned({title,items}:{title:string;items:string[]}){
   return <section className='sc-card'><SectionHeader title={title} description='Implementation roadmap — these options are not yet connected to a backend.' badge='PLANNED'/><div className='sc-feature-grid'>{items.map(item=><div className='sc-feature' key={item}><Clock3 size={15}/>{item}</div>)}</div></section>;
 }
 const PREF_DENSITY='pjs_oms_display_density_v1';
+const PREF_THEME='pjs_oms_appearance_theme_v1';
+const PREF_LANDING='pjs_oms_landing_page_v1';
+const PREF_PHOTO_BATCH='pjs_oms_photo_batch_limit_v1';
 
 export default function SettingsControlCenter({p}:{p:any}){
   const {authenticated,demo,records,jobs,events,settings,setSettings,userId,activeTeam,onTeamSelect,onRefresh,onNotice,onError,onExport,onGoto}=p;
@@ -49,7 +56,13 @@ export default function SettingsControlCenter({p}:{p:any}){
   const [density,setDensity]=useState<'comfortable'|'compact'>(()=>{
     try{return localStorage.getItem(PREF_DENSITY)==='compact'?'compact':'comfortable';}catch{return 'comfortable';}
   });
+  const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem(PREF_THEME)==='dark'?'dark':'light'}catch{return 'light'}});
+  const [landing,setLanding]=useState<'Control Tower'|'Universal Process'|'DataDoc'|'Dispatch Tracking'>(()=>{try{const v=localStorage.getItem(PREF_LANDING);return v==='Universal Process'||v==='DataDoc'||v==='Dispatch Tracking'?v:'Control Tower'}catch{return 'Control Tower'}});
+  const [photoBatch,setPhotoBatch]=useState(()=>{try{const v=Number(localStorage.getItem(PREF_PHOTO_BATCH));return Number.isInteger(v)&&v>=1&&v<=25?v:25}catch{return 25}});
   useEffect(()=>{if(!dirty)setDraft(settings);},[settings,dirty]);
+  useEffect(()=>{document.documentElement.dataset.omsTheme=theme;try{localStorage.setItem(PREF_THEME,theme)}catch{}},[theme]);
+  useEffect(()=>{try{localStorage.setItem(PREF_LANDING,landing)}catch{}},[landing]);
+  useEffect(()=>{try{localStorage.setItem(PREF_PHOTO_BATCH,String(photoBatch))}catch{}},[photoBatch]);
   useEffect(()=>{
     document.documentElement.dataset.omsDensity=density;
     try{localStorage.setItem(PREF_DENSITY,density);}catch{ /* local preferences are optional */ }
@@ -80,7 +93,7 @@ export default function SettingsControlCenter({p}:{p:any}){
       description='Manage operations safely. Active settings are separated from planned integrations; existing cloud records stay unchanged.'/>
     <div className='sc-hero'>
       <div><strong><ShieldCheck size={17}/> Independent OMS</strong><p>Protected cloud workspace. The original PJS Delivery Control database is not used here.</p></div>
-      <div className='sc-hero-status'><Status tone={demo?'warning':'good'}>{demo?'Local demo':'Authenticated cloud'}</Status><Status tone='warning'>Office worker offline</Status></div>
+      <div className='sc-hero-status'><Status tone={demo?'warning':'good'}>{demo?'Local demo':'Authenticated cloud'}</Status><Status>View live worker status below</Status></div>
     </div>
     <div className='sc-layout'>
       <nav aria-label='Settings sections' className='sc-navigation'>
@@ -93,7 +106,7 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SectionHeader title='System overview' description='Actual available services and current operational data.'/>
             <div className='sc-metrics'>
               <div><Database size={19}/><span>Cloud workspace</span><strong>{demo?'Demo':'Connected'}</strong></div>
-              <div><Server size={19}/><span>Office automation</span><strong>Not connected</strong></div>
+              <div><Server size={19}/><span>Office automation</span><strong>Live status in Worker tab</strong></div>
               <div><ClipboardCheck size={19}/><span>Visible processes</span><strong>{records.length}</strong></div>
               <div><Workflow size={19}/><span>Queued jobs</span><strong>{waiting}</strong></div>
             </div>
@@ -102,7 +115,7 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SectionHeader title='Configure your workspace' description='Open a category to review its controls and implementation status.'/>
             <div className='sc-overview-grid'>{tabs.filter(t=>t.id!=='overview').map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={19}/><strong>{label}</strong><ArrowRight size={15}/></button>)}</div>
           </section>
-          <Note>Worker controls, notification delivery, backup restoration and advanced automation require separate server-side implementation. They are not active from this design alone.</Note>
+          <Note>Office agents are monitored live; start/pause requires the authorized Windows PC. In-app notifications and user-scoped process deletion are connected. Managed database backups and outbound messaging remain separately administered.</Note>
         </>}
         {tab==='dispatch'&&<section className='sc-card'>
           <SectionHeader title='Dispatch rules' description='Existing user-specific rules, stored in independent Supabase.' badge='LIVE SETTINGS'/>
@@ -117,20 +130,24 @@ export default function SettingsControlCenter({p}:{p:any}){
         </section>}
         {tab==='dispatch'&&<Planned title='Advanced dispatch configuration' items={['Overdue delivery escalation','Carrier-specific retry rules','E-Way Bill expiry warnings','Notification recipients and delivery schedule','Rule change history and approval gates']}/>}
         {tab==='worker'&&<>
-          <section className='sc-card'><SectionHeader title='Office Python worker' description='Real-world DataDoc, Outlook and courier automation must run on the authorized office PC.' badge='AWAITING SETUP'/>
-            <SettingRow title='Worker connection' description='No live authenticated heartbeat endpoint is configured.' right={<Status tone='warning'>Offline</Status>}/>
-            <SettingRow title='Queued job requests' description='Requests remain queued until an approved worker claims them.' right={<strong>{waiting}</strong>}/>
-            <SettingRow title='Failed job requests' description='Review failures before retrying any potentially non-idempotent action.' right={<strong>{failed}</strong>}/>
-            <Note>Remote Start / Stop is intentionally unavailable until the Python worker is registered, secured and independently tested. No office PC command has been sent.</Note>
+          <section className='sc-card'><SectionHeader title='Live office agents' description='Current Supabase heartbeats from DataDoc, Outlook Draft and Carrier Tracking. Status depends on your office computer.' badge='LIVE HEARTBEATS'/>
+            <div className='sc-worker-fleet'><WorkerFleetStatus authenticated={authenticated}/></div>
+            <SettingRow title='Queued jobs' description='Requests wait safely in the cloud until the appropriate worker can claim them.' right={<strong>{waiting}</strong>}/>
+            <SettingRow title='Failed jobs' description='Inspect external systems before manually retrying to avoid duplicate submissions.' right={<strong>{failed}</strong>}/>
+            <div className='sc-actions'><Button onClick={()=>onGoto('DataDoc')}>View DataDoc jobs <ArrowRight size={15}/></Button>
+              <a className='sc-link-button' href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/blob/main/docs/ONE_CLICK_OFFICE_START.md' target='_blank' rel='noreferrer'>Install one-click Windows startup</a></div>
+            <Note>For security, a website tab cannot start, stop or change local Python worker switches. Use the Windows desktop launcher and private .env file. No remote command is sent.</Note>
           </section>
-          <Planned title='Worker connectivity roadmap' items={['Authenticated worker registration and heartbeat','Windows logon auto-start and safe local pause','Claim/lease a job with timeout recovery','Idempotency keys and manual verified retry','Operator-visible worker logs (secrets removed)']}/>
         </>}
         {tab==='automation'&&<>
-          <section className='sc-card'><SectionHeader title='Automation job monitor' description='The cloud stores job requests; there is no connected job executor.' badge='MONITORING ONLY'/>
+          <section className='sc-card'><SectionHeader title='Automation job monitor' description='Live queued, running and failed jobs from this workspace. Agent execution remains on the authorized office PC.' badge='LIVE QUEUE'/>
             <div className='sc-metrics'><div><Clock3 size={19}/><span>Queued</span><strong>{waiting}</strong></div><div><Activity size={19}/><span>Running</span><strong>{jobs.filter((j:any)=>j.status==='running').length}</strong></div><div><AlertTriangle size={19}/><span>Failed</span><strong>{failed}</strong></div></div>
-            <div className='sc-actions'><Button onClick={()=>onGoto('Audit & Reports')}>Review job history <ArrowRight size={15}/></Button></div>
+            <div className='sc-actions'><Button onClick={()=>onGoto('Audit & Reports')}>Review job history <ArrowRight size={15}/></Button>
+            <Button onClick={()=>onGoto('Dispatch Tracking')}>Carrier tracking <Truck size={15}/></Button>
+            <Button onClick={()=>onGoto('Email to Client')}>Outlook draft workflow <ArrowRight size={15}/></Button></div>
+            <Note>Automatic sending and untested DataDoc Email Submit cannot be enabled from this page. The local office configuration controls live execution; website approval never guarantees completion.</Note>
           </section>
-          <Planned title='Automation controls' items={['DataDoc submission enable/disable','Outlook draft/send with human approval','Carrier tracking schedules','Per-action retry policies and dry-run mode','Action-specific roles and immutable audit log']}/>
+          <Planned title='Additional automation controls' items={['Secure remote worker command channel','Automatic retry scheduling after external verification','Per-agent live test mode','Action-specific approval policies']}/>
         </>}
         {tab==='users'&&<>
           <section className='sc-card'><SectionHeader title='Access roles' description='Existing team authorization uses Admin, Operator and Viewer in Supabase.' badge='EXISTING ACCESS'/>
@@ -147,7 +164,8 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SettingRow title='Invoices and E-Invoices' description='PO No., PO Date and Payment Terms require source-sensitive review and conflict protection.' right={<Status tone='good'>In use</Status>}/>
             <SettingRow title='Document association' description='A Process No. must match the selected authorized record; OCR does not grant access.' right={<Status tone='good'>Verified</Status>}/>
           </section>
-          <Planned title='OCR tuning and test bench' items={['Per-vendor field mapping templates','Run extraction against sample PDFs','Confidence thresholds and review queue','Side-by-side original and extracted values','Versioned mapping history']}/>
+          <PdfOcrTestBench/>
+          <Planned title='Further OCR tuning' items={['Per-vendor field mapping templates','Scanned image OCR side-by-side comparison','Field confidence review queue','Versioned mapping history']}/>
         </>}
         {tab==='camera'&&<>
           <section className='sc-card'><SectionHeader title='Done Pick List photo capture' description='Existing multi-photo albums and Process No. verification remain unchanged.' badge='EXISTING UPLOAD'/>
@@ -155,7 +173,10 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SettingRow title='Multi-photo capture' description='Photos are reviewed and grouped before an album is uploaded.' right={<Status tone='good'>Available</Status>}/>
             <div className='sc-actions'><Button variant='primary' onClick={()=>onGoto('Done Pick List')}>Open Done Pick List <ArrowRight size={16}/></Button></div>
           </section>
-          <Planned title='Advanced camera preferences' items={['Configurable image compression','Camera resolution preset','Maximum images per album','Upload retry and progress controls','Optional photo metadata and capture timestamps']}/>
+          <section className='sc-card'><SectionHeader title='Photo batch preference' description='Applies to new Done Pick List image selection on this device; the server still enforces a maximum of 25 per upload.' badge='ACTIVE LOCAL SETTING'/>
+            <div className='sc-fields'><label className='ux-field'>Maximum photos selected per batch<input type='number' min='1' max='25' step='1' value={photoBatch} onChange={e=>{const v=Number(e.target.value);if(Number.isInteger(v)&&v>=1&&v<=25)setPhotoBatch(v)}}/><small>Saved in this browser. Existing albums and photos are unchanged.</small></label></div>
+          </section>
+          <Planned title='Future camera enhancements' items={['Configurable image compression','Device resolution presets','Background upload retry','Optional capture timestamps']}/>
         </>}
         {tab==='alerts'&&<>
           <section className='sc-card'><SectionHeader title='Notifications & alerts' description='Pending task review is available; automatic outbound notifications are not configured.' badge='PARTIALLY AVAILABLE'/>
@@ -163,7 +184,8 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SettingRow title='Email, SMS or WhatsApp delivery' description='Requires server-side delivery integration and opt-in settings.' right={<Status>Not configured</Status>}/>
             <div className='sc-actions'><Button onClick={()=>onGoto('Pending Task Review')}>Open pending tasks <ArrowRight size={15}/></Button></div>
           </section>
-          <Planned title='Alerts roadmap' items={['Worker offline and failed-job alerts','Dispatch escalation recipients','In-app notifications with read state','Notification digest and quiet hours','Duplicate and rate-limit protection']}/>
+          <SettingsNotifications authenticated={authenticated&&!demo}/>
+          <Planned title='External notification delivery' items={['Email / SMS / WhatsApp providers and verified consent','Quiet hours and notification digest','Rate limits and escalation routing']}/>
         </>}
         {tab==='backup'&&<>
           <section className='sc-card'><SectionHeader title='Export & recovery' description='Existing CSV export is not a full database or document backup.' badge='LIMITED EXPORT'/>
@@ -172,6 +194,7 @@ export default function SettingsControlCenter({p}:{p:any}){
             <Note>Backup schedules, storage retention, and restoration cannot be validated from the browser. Do not rely on CSV alone as a backup or test restore against production.</Note>
           </section>
           {!demo&&<HistoricalImport records={records} teamId={activeTeam} onImported={onRefresh}/>}
+          <WorkspaceResetPanel authenticated={authenticated} demo={demo} onChanged={onRefresh}/>
           <Planned title='Backup and recovery roadmap' items={['Verified database backup schedule','Object-storage retention and recovery','Encrypted backup manifest and integrity check','Non-production restore rehearsal','Admin-only recovery approval and activity trail']}/>
         </>}
         {tab==='security'&&<>
@@ -190,7 +213,11 @@ export default function SettingsControlCenter({p}:{p:any}){
             </div>
             <p className='sc-muted'>Changes apply to supported page spacing and tables on this device. Cloud-wide themes are not enabled yet.</p>
           </section>
-          <Planned title='Appearance roadmap' items={['Dark mode with accessible contrast','Per-user landing page selection','Column visibility preferences','User-synced display preferences']}/>
+          <section className='sc-card'><SectionHeader title='Theme and landing page' description='Working display preferences stored on this browser.' badge='ACTIVE LOCAL SETTINGS'/>
+            <div className='sc-fields'><label className='ux-field'>Color scheme<select value={theme} onChange={e=>setTheme(e.target.value==='dark'?'dark':'light')}><option value='light'>Light</option><option value='dark'>Dark</option></select></label>
+              <label className='ux-field'>Initial page after sign-in<select value={landing} onChange={e=>setLanding(e.target.value as typeof landing)}>{(['Control Tower','Universal Process','DataDoc','Dispatch Tracking'] as const).map(v=><option key={v}>{v}</option>)}</select></label></div>
+          </section>
+          <Planned title='Advanced appearance' items={['Per-table column visibility','Cloud-synced preferences between devices']}/>
         </>}
       </div>
     </div>
