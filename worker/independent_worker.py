@@ -85,7 +85,7 @@ def heartbeat(db, status: str, job_id: str | None = None, note: str = "") -> Non
         "owner_id": OWNER, "worker_name": WORKER,
         "machine_name": socket.gethostname(), "status": status,
         "current_job_id": job_id, "last_seen_at": utcnow(),
-        "details": {"note": note[:180], "mode": "auto_on_login", "live_enabled": LIVE}
+        "details": {"note": note[:180], "mode": "auto_on_login", "live_enabled": LIVE, "bill_submit_version": "advisory_v1"}
     }).execute()
 
 def claim(db) -> dict | None:
@@ -126,12 +126,8 @@ def validate_bill(process: dict, documents: dict) -> dict:
     invoice = str(info.get("invoice", "")).strip()
     credit = str(info.get("credit", "")).strip()
     raw_amount = str(info.get("amount", "")).strip()
-    so = str(process.get("sales_order_no") or "")
-    party = str(process.get("party_name") or "").strip()
     if not re.fullmatch(r"\d{5,9}", number):
         raise ValueError("Invalid DataDoc Process No.")
-    if not re.fullmatch(r"\d{6,12}", so) or not party:
-        raise ValueError("Sales Order No. or Party Name is missing.")
     if not invoice or not re.fullmatch(r"[A-Za-z0-9/._-]{1,80}", invoice):
         raise ValueError("Invoice No. is missing or invalid.")
     if credit not in {"Credit", "Non Credit"}:
@@ -142,7 +138,9 @@ def validate_bill(process: dict, documents: dict) -> dict:
         raise ValueError("Invoice amount must be numeric.")
     if not amount.is_finite() or amount <= 0:
         raise ValueError("Invoice amount must be positive.")
-    required = ["pickDoc", "invoiceDoc", "einvoiceDoc"]
+    # Pick Slip, party and SO are informational in OMS; the DataDoc adapter
+    # does not read or upload the Pick Slip for the actual bill transaction.
+    required = ["invoiceDoc", "einvoiceDoc"]
     if amount > Decimal("50000"):
         required.append("ebillDoc")
     missing = [key for key in required if key not in documents]
