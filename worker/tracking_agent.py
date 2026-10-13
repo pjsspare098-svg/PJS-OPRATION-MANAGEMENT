@@ -72,8 +72,11 @@ def run_batch(jobs: Iterable[TrackingJob], engine: Any, *, only_pending: bool = 
         now = datetime.now(timezone.utc).isoformat()
         try:
             response = engine.track(job.transporter, job.tracking_id, job.process_no)
-            raw = str(getattr(response, "detail", "") or getattr(response, "status", "")).strip()
-            status = normalize_status(raw)
+            reported = str(getattr(response, "status", "") or "").strip()
+            raw = str(getattr(response, "detail", "") or reported).strip()
+            # Prefer extracted carrier status over timeline detail, which may
+            # mention an old unsuccessful delivery while the current status changed.
+            status = normalize_status(reported or raw)
             result = TrackingOutcome(
                 job.process_no, job.transporter, job.tracking_id, status, raw,
                 str(getattr(response, "delivery_date", "") or ""),
