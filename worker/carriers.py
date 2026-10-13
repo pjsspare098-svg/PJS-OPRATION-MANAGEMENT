@@ -113,7 +113,9 @@ class CarrierEngine:
         folder = self.screenshot_dir / safe
         folder.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = folder / f"{process_no}_{stamp}.png"
+        # Process references are external input; never let one escape screenshot folder.
+        safe_process = re.sub(r"[^A-Za-z0-9_-]+", "_", str(process_no)).strip("_")[:50] or "process"
+        path = folder / f"{safe_process}_{stamp}.png"
         driver.save_screenshot(str(path))
         return str(path)
 
