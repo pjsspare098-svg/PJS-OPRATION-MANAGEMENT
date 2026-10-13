@@ -56,3 +56,25 @@ jobs:
       - name: Test carrier status, batch control, DataDoc proof and Reply All mailbox matching
         working-directory: worker
         run: python -m unittest -v test_tracking_agent.py test_datadoc_email_agent.py test_outlook_reply_agent.py test_outlook_mailbox_bridge.py test_oms_dispatch_bridge.py test_outlook_draft_worker.py test_dispatch_tracking_worker.py test_datadoc_informational.py
+
+  windows-launcher-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Validate actual Windows PowerShell script syntax
+        shell: powershell
+        run: |
+          foreach ($file in @('worker/START_OFFICE_WORKERS.ps1', 'worker/INSTALL_PJS_WEBSITE_SHORTCUT.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors -and $errors.Count -gt 0) { $errors | Out-String | Write-Error; exit 1 }
+          }
+          Write-Host 'PASS: Windows startup scripts parse correctly.'
+      - name: Ensure only one worker instance can hold a lock
+        working-directory: worker
+        shell: powershell
+        run: python -m unittest -v test_start_worker.py
