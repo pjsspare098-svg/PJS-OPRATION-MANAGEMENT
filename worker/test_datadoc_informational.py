@@ -24,13 +24,13 @@ class DataDocInformationalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"invoiceDoc"):
             validate_bill(source(),files("einvoiceDoc"))
 
-    def test_einvoice_pdf_is_still_necessary(self):
-        with self.assertRaisesRegex(ValueError,"einvoiceDoc"):
-            validate_bill(source(),files("invoiceDoc"))
+    def test_only_invoice_pdf_is_necessary_for_zip_submission(self):
+        bill=validate_bill(source(),files("invoiceDoc"))
+        self.assertEqual(bill["invoice_no"],"2627/947")
 
-    def test_eway_pdf_above_50000_only(self):
-        with self.assertRaisesRegex(ValueError,"ebillDoc"):
-            validate_bill(source("50001"),files("invoiceDoc","einvoiceDoc"))
+    def test_optional_eway_and_einvoice_in_zip(self):
+        bill=validate_bill(source("50001"),files("invoiceDoc"))
+        self.assertTrue(bill["has_ebill"])
         bill=validate_bill(source("50000"),files("invoiceDoc","einvoiceDoc"))
         self.assertFalse(bill["has_ebill"])
 
