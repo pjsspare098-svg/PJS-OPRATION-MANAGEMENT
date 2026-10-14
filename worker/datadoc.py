@@ -197,22 +197,23 @@ class DataDocAgent:
             return False
 
         process_result = None
-        xpath = (
-            "//ul[contains(@class,'ui-autocomplete')]"
-            "//div[contains(@class,'ui-menu-item-wrapper')]"
-            f"[contains(normalize-space(.),{self._xpath_literal(process_no)})]"
-        )
+        xpath = "//ul[contains(@class,'ui-autocomplete')]//div[contains(@class,'ui-menu-item-wrapper')]"
+        # Never select a different process whose number merely contains our digits.
+        exact_process = re.compile(r"^\s*" + re.escape(process_no) + r"(?!\d)(?:\b|[\s'\"-])")
 
-        end = time.monotonic() + 3.0
+        end = time.monotonic() + 8.0
         while time.monotonic() < end:
             try:
                 matches = self.driver.find_elements(By.XPATH, xpath)
-                if matches:
-                    process_result = matches[0]
+                for candidate in matches:
+                    if exact_process.match(candidate.text or ""):
+                        process_result = candidate
+                        break
+                if process_result is not None:
                     break
             except Exception:
                 pass
-            time.sleep(0.1)
+            time.sleep(0.15)
 
         if process_result is None:
             return False
