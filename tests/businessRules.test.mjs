@@ -7,8 +7,8 @@ assert.equal(checkBill(p).ready,true);
 assert.equal(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='pickDoc')}).ready,true,'Pick Slip is informational; not uploaded by the DataDoc bill adapter');
 assert.ok(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='pickDoc')}).warnings.some(x=>x.includes('Pick Slip')));
 assert.equal(checkBill({...p,party:'',so:''}).ready,true,'Party and SO metadata are informational for the existing DataDoc adapter');
-assert.equal(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,false);
-assert.ok(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).missing.some(x=>x.includes('E-Way')));
+assert.equal(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,true);
+assert.ok(checkBill({...p,documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).warnings.some(x=>x.includes('E-Way')));
 assert.equal(checkBill({...p,amount:'1200',documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,true);
 assert.equal(checkBill({...p,invoice:''}).ready,false);
 assert.equal(checkBill({...p,amount:''}).ready,false);
@@ -24,12 +24,11 @@ assert.equal(canCloseProcess(p,jobs).ready,true);
 assert.equal(canCloseProcess({...p,exceptionReason:'Address issue'},jobs).ready,false);
 assert.equal(canCloseProcess(p,[]).ready,false);
 
-// The Windows DataDoc adapter requires a verified E-Invoice PDF even when
-// an E-Way Bill is attached, and needs E-Way only ABOVE the threshold.
-assert.equal(checkBill({...p,amount:'25000',documents:p.documents.filter(d=>d.kind!=='einvoiceDoc')}).ready,false);
-assert.ok(checkBill({...p,amount:'25000',documents:p.documents.filter(d=>d.kind!=='einvoiceDoc')}).missing.includes('E-Invoice PDF'));
+// DataDoc ZIP includes E-Invoice and E-Way Bill if saved, without inventing absent documents.
+assert.equal(checkBill({...p,amount:'25000',documents:p.documents.filter(d=>d.kind!=='einvoiceDoc')}).ready,true);
+assert.ok(checkBill({...p,amount:'25000',documents:p.documents.filter(d=>d.kind!=='einvoiceDoc')}).warnings.some(x=>x.includes('E-Invoice')));
 assert.equal(checkBill({...p,amount:'50000',documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,true);
-assert.equal(checkBill({...p,amount:'50001',documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,false);
+assert.equal(checkBill({...p,amount:'50001',documents:p.documents.filter(d=>d.kind!=='ebillDoc')}).ready,true);
 assert.equal(checkBill({...p,amount:'0'}).ready,false);
 console.log('PASS: 5 DataDoc office-worker readiness edge cases');
 
