@@ -151,6 +151,8 @@ def validate_bill(process: dict, documents: dict) -> dict:
             doc = documents[kind]
             if not str(doc["name"]).lower().endswith(".pdf"):
                 raise ValueError(kind + " must be a confirmed PDF for DataDoc submission.")
+            if str(doc["user_id"]) != str(process["user_id"]):
+                raise ValueError("Document owner does not match the verified bill process.")
             expected_prefix = str(doc["user_id"]) + "/" + str(process["id"]) + "/"
             if not str(doc["path"]).startswith(expected_prefix):
                 raise ValueError("Document storage path does not match its verified process.")
