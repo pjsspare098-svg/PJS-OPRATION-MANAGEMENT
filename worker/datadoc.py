@@ -162,20 +162,21 @@ class DataDocAgent:
         if self._search_ready(1.0):
             return True
 
+        # The authorized DataDoc Bill Submit flow uses the Sales module.
+        # Some module changes trigger an ASP.NET postback, so locate controls
+        # AFTER the module settles rather than holding stale WebElements.
         try:
+            module = self.driver.find_elements(By.XPATH, "//label[normalize-space()='MODULE']/following::select[1]")
+            if module:
+                selected = Select(module[0])
+                if selected.first_selected_option.text.strip().casefold() != "sales":
+                    selected.select_by_visible_text("Sales")
+                    time.sleep(0.7)
             username = self.driver.find_element(By.ID, "txtUserName")
             password = self.driver.find_element(By.ID, "txtPassword")
             login = self.driver.find_element(By.ID, "btnLogin")
         except Exception:
             return False
-
-        # The user's DataDoc account operates in Sales module.
-        try:
-            module = self.driver.find_elements(By.XPATH, "//label[normalize-space()='MODULE']/following::select[1]")
-            if module:
-                Select(module[0]).select_by_visible_text("Sales")
-        except Exception:
-            pass
 
         username.clear()
         username.send_keys(self.username)
