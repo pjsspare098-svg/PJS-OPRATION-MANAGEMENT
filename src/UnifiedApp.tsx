@@ -200,6 +200,7 @@ export default function UnifiedApp(){
  }
  async function onQueue(r:any,type:JobType){
   if(!authenticated){onNotice('Sign in to queue office automation.');return}
+  if(type==='bill_submit'&&!window.confirm('Approve a real DataDoc bill for Process '+r.process+'? Check the Invoice No., positive amount, Credit/Non-Credit and that Full Payment Verify = Yes is true. The Windows worker will attach one ZIP and may SUBMIT a real transaction when enabled.'))return;
   setBusy(true);
   try{
     const needsBillInfo=type==='bill_submit'&&!checkBill(r,settings.ebill_threshold).ready;
