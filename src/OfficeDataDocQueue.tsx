@@ -48,7 +48,7 @@ export default function OfficeDataDocQueue({authenticated,records=[],threshold=5
  return <div className='oq-panel'>
   <div className='oq-top'><div><span className='oq-kicker'><Monitor size={13}/> OFFICE WORKER HANDOFF</span>
    <h3>DataDoc pending submission queue</h3>
-   <p>Approve bills from your phone. They remain saved in Supabase until your office PC is logged in and the local worker is running.</p>
+   <p>Approve bills from your phone. The office worker creates one ZIP of invoice documents, uploads it in the first DataDoc transaction, and verifies completion.</p>
   </div><button type='button' disabled={loading} className='oq-refresh' onClick={()=>void refresh()}><RefreshCw size={14}/> Refresh</button></div>
   <div className='oq-overview'>
    <div><span className='oq-stat-ico blue'><Clock3 size={18}/></span><strong>{count}</strong><small>Waiting for office PC</small></div>
@@ -62,9 +62,9 @@ export default function OfficeDataDocQueue({authenticated,records=[],threshold=5
    {rows.length?rows.slice(0,12).map(row=>{
     const process=records.find((r:any)=>r.id===row.process_id);
     const billNotes=process?checkBill(process,threshold).missing:[];
-    const deferred=row.status==='queued'&&row.payload?.office_policy==='advisory_v1';
+    const deferred=row.status==='queued'&&row.payload?.office_policy==='zip_v2' || row.payload?.office_policy==='advisory_v1';
     const waitingInfo=deferred&&billNotes.length>0;
-    const awaitingUpgrade=deferred&&!waitingInfo&&worker?.details?.bill_submit_version!=='advisory_v1';
+    const awaitingUpgrade=deferred&&!waitingInfo&&worker?.details?.bill_submit_version!=='zip_v2';
     const status=waitingInfo?'Waiting for bill details':awaitingUpgrade?'Update office worker':row.status==='queued'&&row.office_execution==='auto_on_login'?'Waiting for PC':
       row.status==='running'?'Processing':
       row.status==='completed'?'Submitted':
@@ -74,12 +74,12 @@ export default function OfficeDataDocQueue({authenticated,records=[],threshold=5
     return <div className='oq-job' key={row.id}><div><strong>Process {row.process_no}</strong>
      <small>Queued {human(row.created_at)} {row.worker_name?'· '+row.worker_name:''}</small>
      {waitingInfo&&<small className='oq-job-error'>Request saved. Worker will wait for {billNotes.slice(0,3).join(', ')}.</small>}
-     {awaitingUpgrade&&<small className='oq-job-error'>Update the office worker before this new-format request can run.</small>}
+     {awaitingUpgrade&&<small className='oq-job-error'>Update the local DataDoc worker to ZIP v2 before this request can run.</small>}
      {row.error_message&&<small className='oq-job-error'>{row.error_message}</small>}
      {row.status==='running'&&Date.now()-new Date(row.updated_at).getTime()>30*60000&&<small className='oq-job-error'>Worker appears interrupted. Check DataDoc before creating a new job.</small>}
     </div><span className={'oq-job-status '+className}>{status}</span></div>
    }):<div className='oq-empty'><ShieldCheck size={17}/> No DataDoc bill jobs are queued yet. Use Approve & Queue on a verified Process to add one.</div>}
   </div>
-  <div className='oq-note'><ShieldCheck size={15}/><span>Automatic execution requires one-time Windows installation and a verified live setting. Only approved <strong>Bill Submit</strong> jobs auto-run; Outlook and Delivery Proof integrations remain separate. Failed submissions never retry automatically.</span></div>
+  <div className='oq-note'><ShieldCheck size={15}/><span>Automatic execution requires one-time Windows installation and a verified live setting. Approved <strong>Bill Submit</strong> jobs build one ZIP automatically and require verified confirmation; Outlook and Delivery Proof integrations remain separate. Failed submissions never retry automatically.</span></div>
  </div>;
 }
