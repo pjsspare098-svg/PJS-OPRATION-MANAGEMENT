@@ -62,7 +62,7 @@ export default function OfficeDataDocQueue({authenticated,records=[],threshold=5
    {rows.length?rows.slice(0,12).map(row=>{
     const process=records.find((r:any)=>r.id===row.process_id);
     const billNotes=process?checkBill(process,threshold).missing:[];
-    const deferred=row.status==='queued'&&row.payload?.office_policy==='zip_v2' || row.payload?.office_policy==='advisory_v1';
+    const deferred=row.status==='queued'&&(row.payload?.office_policy==='zip_v2'||row.payload?.office_policy==='advisory_v1');
     const waitingInfo=deferred&&billNotes.length>0;
     const awaitingUpgrade=deferred&&!waitingInfo&&worker?.details?.bill_submit_version!=='zip_v2';
     const status=waitingInfo?'Waiting for bill details':awaitingUpgrade?'Update office worker':row.status==='queued'&&row.office_execution==='auto_on_login'?'Waiting for PC':
