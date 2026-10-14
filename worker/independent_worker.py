@@ -27,6 +27,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from datadoc import DataDocAgent
+from datadoc_bill_package import build_bill_zip
 
 BASE = Path(__file__).resolve().parent
 load_dotenv(BASE / ".env")
@@ -85,7 +86,7 @@ def heartbeat(db, status: str, job_id: str | None = None, note: str = "") -> Non
         "owner_id": OWNER, "worker_name": WORKER,
         "machine_name": socket.gethostname(), "status": status,
         "current_job_id": job_id, "last_seen_at": utcnow(),
-        "details": {"note": note[:180], "mode": "auto_on_login", "live_enabled": LIVE, "bill_submit_version": "advisory_v1"}
+        "details": {"note": note[:180], "mode": "auto_on_login", "live_enabled": LIVE, "bill_submit_version": "zip_v2"}
     }).execute()
 
 def claim(db) -> dict | None:
@@ -106,8 +107,8 @@ def read_process(db, job: dict) -> dict:
         "id,process_no,user_id,team_id,party_name,sales_order_no,data,deleted_at"
     ).eq("id", job["process_id"]).eq("process_no", job["process_no"]).limit(1).execute()
     rows = res.data or []
-    if len(rows) != 1 or rows[0].get("deleted_at"):
-        raise ValueError("Source process was deleted or changed. No DataDoc action attempted.")
+    if len(rows) != 1 or rows[0].get("deleted_at") or rows[0].get("user_id") != job["user_id"]:
+        raise ValueError("Source process ownership, identity or stage has changed; no DataDoc action attempted.")
     return rows[0]
 
 def lookup_documents(db, job: dict) -> dict:
@@ -138,11 +139,10 @@ def validate_bill(process: dict, documents: dict) -> dict:
         raise ValueError("Invoice amount must be numeric.")
     if not amount.is_finite() or amount <= 0:
         raise ValueError("Invoice amount must be positive.")
-    # Pick Slip, party and SO are informational in OMS; the DataDoc adapter
-    # does not read or upload the Pick Slip for the actual bill transaction.
-    required = ["invoiceDoc", "einvoiceDoc"]
-    if amount > Decimal("50000"):
-        required.append("ebillDoc")
+    # Build one ZIP from the available invoice documents for this process.
+    # Invoice itself is required for an actual financial transaction. E-Invoice
+    # and E-Way Bill are included when saved, not uploaded as separate Add Docs.
+    required = ["invoiceDoc"]
     missing = [key for key in required if key not in documents]
     if missing:
         raise ValueError("Missing required DataDoc attachment(s): " + ", ".join(missing))
@@ -151,6 +151,8 @@ def validate_bill(process: dict, documents: dict) -> dict:
             doc = documents[kind]
             if not str(doc["name"]).lower().endswith(".pdf"):
                 raise ValueError(kind + " must be a confirmed PDF for DataDoc submission.")
+            if str(doc["user_id"]) != str(process["user_id"]):
+                raise ValueError("Document owner does not match the verified bill process.")
             expected_prefix = str(doc["user_id"]) + "/" + str(process["id"]) + "/"
             if not str(doc["path"]).startswith(expected_prefix):
                 raise ValueError("Document storage path does not match its verified process.")
@@ -183,18 +185,22 @@ def execute_bill(db, job: dict, data_doc: DataDocAgent) -> tuple[bool, str]:
     log.info("Processing approved DataDoc bill submit for Process %s, job %s", bill["process_no"], job["id"])
     with tempfile.TemporaryDirectory(prefix="pjs-datadoc-") as folder:
         root = Path(folder)
-        invoice = download_document(db, documents["invoiceDoc"], root)
-        einvoice = download_document(db, documents["einvoiceDoc"], root)
-        ebill = download_document(db, documents["ebillDoc"], root) if bill["has_ebill"] else None
-        # The legacy DataDoc adapter reuses an existing Dispatch transaction where
-        # possible. It may still partially succeed. NEVER auto-retry a failure.
+        local_pdfs = {
+            kind: download_document(db, documents[kind], root)
+            for kind in ("invoiceDoc", "einvoiceDoc", "ebillDoc")
+            if kind in documents
+        }
+        package, contents = build_bill_zip(bill["process_no"], local_pdfs, root)
+        log.info("Prepared one verified bill ZIP for Process %s with %s", bill["process_no"], ", ".join(contents))
+        # Submit ZIP in the *initial* DataDoc transaction only, without Add Docs.
+        # No automatic retries if the external result is uncertain.
         result = data_doc.submit_bill(
             process_no=bill["process_no"], credit_type=bill["credit_type"],
             invoice_no=bill["invoice_no"], amount=bill["amount"],
-            invoice_path=invoice, einvoice_path=einvoice, ebill_path=ebill
+            zip_path=str(package)
         )
     if result.success:
-        return True, f"Confirmed DataDoc submission for Process {bill['process_no']}. {result.action}"
+        return True, f"Verified DataDoc bill with ZIP for Process {bill['process_no']}. {result.action}"
     return False, f"Process {bill['process_no']}: {result.error or 'DataDoc outcome uncertain'}. Check the real DataDoc record before retrying."
 
 def main() -> int:

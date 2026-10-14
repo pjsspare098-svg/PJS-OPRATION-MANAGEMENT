@@ -5,7 +5,7 @@ UID="12345678-1234-4234-8234-123456789abc"
 PID="22222222-2222-4222-8222-222222222222"
 
 def source(amount="20000"):
-    return {"id":PID,"process_no":"291888","party_name":"",
+    return {"id":PID,"user_id":UID,"process_no":"291888","party_name":"",
             "sales_order_no":"",
             "data":{"invoice":"2627/947","credit":"Credit","amount":amount}}
 
@@ -24,13 +24,13 @@ class DataDocInformationalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"invoiceDoc"):
             validate_bill(source(),files("einvoiceDoc"))
 
-    def test_einvoice_pdf_is_still_necessary(self):
-        with self.assertRaisesRegex(ValueError,"einvoiceDoc"):
-            validate_bill(source(),files("invoiceDoc"))
+    def test_only_invoice_pdf_is_necessary_for_zip_submission(self):
+        bill=validate_bill(source(),files("invoiceDoc"))
+        self.assertEqual(bill["invoice_no"],"2627/947")
 
-    def test_eway_pdf_above_50000_only(self):
-        with self.assertRaisesRegex(ValueError,"ebillDoc"):
-            validate_bill(source("50001"),files("invoiceDoc","einvoiceDoc"))
+    def test_optional_eway_and_einvoice_in_zip(self):
+        bill=validate_bill(source("50001"),files("invoiceDoc"))
+        self.assertTrue(bill["has_ebill"])
         bill=validate_bill(source("50000"),files("invoiceDoc","einvoiceDoc"))
         self.assertFalse(bill["has_ebill"])
 
@@ -45,6 +45,12 @@ class DataDocInformationalTests(unittest.TestCase):
         src["data"]["credit"]=""
         with self.assertRaisesRegex(ValueError,"Credit"):
             validate_bill(src,files("invoiceDoc","einvoiceDoc"))
+
+    def test_cross_owner_documents_are_rejected(self):
+        doc=files("invoiceDoc")
+        doc["invoiceDoc"]["user_id"]="99999999-9999-4999-8999-999999999999"
+        with self.assertRaisesRegex(ValueError,"Document owner"):
+            validate_bill(source(),doc)
 
     def test_document_ownership_still_required(self):
         doc=files("invoiceDoc","einvoiceDoc")

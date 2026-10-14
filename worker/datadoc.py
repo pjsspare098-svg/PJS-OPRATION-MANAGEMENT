@@ -155,14 +155,23 @@ class DataDocAgent:
 
         self.close()
         self.driver = self._new_driver()
-        self.driver.get(self.url)
+        self.driver.get(self.url.rstrip("/") + ("/FarmModule.aspx" if self.url.rstrip("/").endswith(":8082") else ""))
         time.sleep(1.8)
 
         # If a reused Chrome profile already has a valid session, do not log in again.
         if self._search_ready(1.0):
             return True
 
+        # The authorized DataDoc Bill Submit flow uses the Sales module.
+        # Some module changes trigger an ASP.NET postback, so locate controls
+        # AFTER the module settles rather than holding stale WebElements.
         try:
+            module = self.driver.find_elements(By.XPATH, "//label[normalize-space()='MODULE']/following::select[1]")
+            if module:
+                selected = Select(module[0])
+                if selected.first_selected_option.text.strip().casefold() != "sales":
+                    selected.select_by_visible_text("Sales")
+                    time.sleep(0.7)
             username = self.driver.find_element(By.ID, "txtUserName")
             password = self.driver.find_element(By.ID, "txtPassword")
             login = self.driver.find_element(By.ID, "btnLogin")
@@ -189,22 +198,23 @@ class DataDocAgent:
             return False
 
         process_result = None
-        xpath = (
-            "//ul[contains(@class,'ui-autocomplete')]"
-            "//div[contains(@class,'ui-menu-item-wrapper')]"
-            f"[contains(normalize-space(.),{self._xpath_literal(process_no)})]"
-        )
+        xpath = "//ul[contains(@class,'ui-autocomplete')]//div[contains(@class,'ui-menu-item-wrapper')]"
+        # Never select a different process whose number merely contains our digits.
+        exact_process = re.compile(r"^\s*" + re.escape(process_no) + r"(?!\d)(?:\b|[\s'\"-])")
 
-        end = time.monotonic() + 3.0
+        end = time.monotonic() + 8.0
         while time.monotonic() < end:
             try:
                 matches = self.driver.find_elements(By.XPATH, xpath)
-                if matches:
-                    process_result = matches[0]
+                for candidate in matches:
+                    if exact_process.match(candidate.text or ""):
+                        process_result = candidate
+                        break
+                if process_result is not None:
                     break
             except Exception:
                 pass
-            time.sleep(0.1)
+            time.sleep(0.15)
 
         if process_result is None:
             return False
@@ -748,232 +758,139 @@ class DataDocAgent:
             return self._click_submit()
 
 
+    def _confirm_dispatch_bill(self, work_name: str, invoice_no: str, timeout: float = 18.0) -> bool:
+        """Confirm the completed transaction appears in the process history."""
+        wanted_work = self._normalize(work_name)
+        wanted_invoice = self._normalize(invoice_no)
+        until = time.monotonic() + timeout
+        while time.monotonic() < until:
+            self._default_content()
+            try:
+                for row in self.driver.find_elements(By.CSS_SELECTOR, "tr"):
+                    line = self._normalize(row.text or "")
+                    if wanted_work in line and wanted_invoice in line:
+                        return True
+            except WebDriverException:
+                pass
+            time.sleep(0.3)
+        return False
+
     def submit_bill(
         self,
         process_no: str,
         credit_type: str,
         invoice_no: str,
         amount: str,
-        invoice_path: str,
-        einvoice_path: Optional[str] = None,
-        ebill_path: Optional[str] = None,
+        zip_path: str,
     ) -> DataDocResult:
-        """
-        Complete DataDoc Bill Submit workflow.
+        """Use one ZIP in the transaction attachment input; never add docs separately.
 
-        New/recovery-safe behavior:
-          - Search Process No.
-          - If Dispatch transaction already exists, reuse it.
-          - Otherwise create the Dispatch transaction.
-          - Submit Invoice in the initial transaction.
-          - Add Docs (+) -> E-Invoice -> Submit -> Close.
-          - If Amount > Rs. 50,000:
-                Add Docs (+) -> E-Bill -> Submit -> Close.
-          - Keep DataDoc open for the next queued Bill Submit.
+        The full payment field changes position after selecting Credit/Non-Credit.
+        Do not report a completed bill until a matching Dispatch row is visible.
+        If the result cannot be verified, return manual review (never auto-retry).
         """
         process_no = (process_no or "").strip()
         invoice_no = (invoice_no or "").strip()
         amount = str(amount or "").strip()
-        invoice_path = (invoice_path or "").strip()
-        einvoice_path = (einvoice_path or "").strip()
-        ebill_path = (ebill_path or "").strip()
-
-        if not process_no:
-            return DataDocResult(False, "DataDoc bill submit blocked", "Process No. is required")
-        if not invoice_no:
-            return DataDocResult(False, "DataDoc bill submit blocked", "Invoice No. is required")
-        if not amount:
-            return DataDocResult(False, "DataDoc bill submit blocked", "Amount is required")
-        if not Path(invoice_path).is_file():
-            return DataDocResult(False, "DataDoc bill submit blocked", "Invoice attachment is required")
-        if not einvoice_path or not Path(einvoice_path).is_file():
-            return DataDocResult(False, "DataDoc bill submit blocked", "E-Invoice attachment is required")
-
+        package = Path(zip_path or "")
+        if not re.fullmatch(r"\d{5,9}", process_no):
+            return DataDocResult(False, "DataDoc Bill Submit blocked", "Valid Process No. is required.")
+        if not invoice_no or not re.fullmatch(r"[A-Za-z0-9/._-]{1,80}", invoice_no):
+            return DataDocResult(False, "DataDoc Bill Submit blocked", "Valid Invoice No. is required.")
+        if credit_type not in ("Credit", "Non Credit"):
+            return DataDocResult(False, "DataDoc Bill Submit blocked", "Choose Credit or Non Credit in OMS.")
         try:
-            numeric_amount = float(
-                re.sub(r"[^0-9.]", "", amount) or "0"
-            )
-        except ValueError:
-            return DataDocResult(False, "DataDoc bill submit blocked", "Amount is not numeric")
-
-        require_ebill = numeric_amount > 50000
-
-        if require_ebill and (
-            not ebill_path or not Path(ebill_path).is_file()
-        ):
-            return DataDocResult(
-                False,
-                "DataDoc bill submit blocked",
-                "E-Bill attachment is required for amount above Rs. 50,000",
-            )
-
-        is_non_credit = self._is_non_credit(credit_type)
-        work_name = (
-            "Dispatch - Non Credit"
-            if is_non_credit
-            else "Dispatch - Credit"
-        )
-
+            from decimal import Decimal
+            numeric_amount = Decimal(amount.replace(",", "").replace("₹", "").strip())
+            if not numeric_amount.is_finite() or numeric_amount <= 0:
+                raise ValueError()
+        except Exception:
+            return DataDocResult(False, "DataDoc Bill Submit blocked", "Invoice amount must be positive.")
+        from zipfile import ZipFile, is_zipfile
+        if (package.suffix.lower() != ".zip" or not package.is_file() or
+                package.stat().st_size > 35 * 1024 * 1024 or not is_zipfile(package)):
+            return DataDocResult(False, "DataDoc Bill Submit blocked", "Verified bill ZIP missing or invalid.")
+        with ZipFile(package, "r") as archive:
+            names = archive.namelist()
+            if not names or "Invoice.pdf" not in names or archive.testzip() is not None:
+                return DataDocResult(False, "DataDoc Bill Submit blocked", "ZIP lacks a valid invoice package.")
+            if any(n not in ("Invoice.pdf", "E-Invoice.pdf", "E-Way-Bill.pdf") for n in names):
+                return DataDocResult(False, "DataDoc Bill Submit blocked", "ZIP has unexpected files.")
+        work_name = "Dispatch - Non Credit" if self._is_non_credit(credit_type) else "Dispatch - Credit"
         try:
             if not self.ensure_started():
-                raise RuntimeError("Unable to login/open DataDoc")
-
+                raise RuntimeError("DataDoc Sales login did not complete.")
             if not self._open_process(process_no):
-                raise RuntimeError("Process No. not found/opened")
-
-            # Recovery rule:
-            # if the Dispatch transaction is already present, do NOT create it again.
-            dispatch_link = self._find_dispatch_row_add_docs(work_name)
-
-            if dispatch_link is None:
-                if not self._click_add():
-                    raise RuntimeError("Add button not found")
-
-                if not self._switch_transaction_frame():
-                    raise RuntimeError("Add/Edit form did not open")
-
-                if not self._select_dropdown(
-                    "cphContent_ddlWork",
-                    work_name,
-                ):
-                    raise RuntimeError(
-                        f"{work_name} not found in Work / Time"
-                    )
-
-                self._default_content()
-                if not self._reenter_frame(
-                    "cphContent_txtExtraField",
-                    10.0,
-                ):
-                    # Some ASP.NET postbacks rebuild the frame.
-                    if not self._reenter_frame(
-                        "cphContent_txtExtraField",
-                        10.0,
-                    ):
-                        raise RuntimeError(
-                            "Bill fields did not load after selecting Work / Time"
-                        )
-
-                if is_non_credit:
-                    mapping = {
-                        "cphContent_txtExtraField": invoice_no,
-                        "cphContent_txtExtraField_2": amount,
-                        "cphContent_txtExtraField_3": "yes",
-                    }
-                else:
-                    mapping = {
-                        "cphContent_txtExtraField": "yes",
-                        "cphContent_txtExtraField_2": invoice_no,
-                        "cphContent_txtExtraField_3": amount,
-                    }
-
-                for field_id, value in mapping.items():
-                    if not self._set_text(field_id, value):
-                        raise RuntimeError(f"{field_id} not found")
-
-                if not self._select_dropdown(
-                    "cphContent_ddlNextWork",
-                    "Disp. Detail Send To Client",
-                ):
-                    self._default_content()
-                    if not self._reenter_frame(
-                        "cphContent_ddlNextWork",
-                        8.0,
-                    ):
-                        raise RuntimeError(
-                            "Next Required Work dropdown not found"
-                        )
-                    if not self._select_dropdown(
-                        "cphContent_ddlNextWork",
-                        "Disp. Detail Send To Client",
-                    ):
-                        raise RuntimeError(
-                            "Disp. Detail Send To Client not found"
-                        )
-
-                self._default_content()
-                if not (
-                    self._reenter_frame(
-                        "cphContent_chkNextUser",
-                        4.0,
-                    )
-                    or self._reenter_frame(
-                        "cphContent_Panel1",
-                        8.0,
-                    )
-                ):
-                    raise RuntimeError(
-                        "Next Response User list not found"
-                    )
-
-                if not self._select_only_user("Vivek Pal"):
-                    raise RuntimeError("Vivek Pal not found")
-
-                if not self._attach_file(invoice_path):
-                    raise RuntimeError(
-                        "Invoice attachment input not found"
-                    )
-
-                if not self._click_submit_by_id():
-                    raise RuntimeError("Submit button not found")
-
-                if not self._wait_for_submission(
-                    timeout=20.0
-                ):
-                    raise RuntimeError(
-                        "Initial Bill Submit did not complete"
-                    )
-
-            # At this point the Dispatch transaction exists.
-            # E-Invoice is always added via the transaction's + Add Docs action.
-            self._default_content()
-            self._search_ready(8.0)
-            if not self._add_document_to_process(
-                einvoice_path,
-                work_name,
-            ):
+                raise RuntimeError("Exact Process No. was not found in DataDoc.")
+            # The only safe automatic behavior for an existing matching work row is
+            # to stop and ask for review; do not post another bill or assume success.
+            if self._find_dispatch_row_add_docs(work_name) is not None:
                 raise RuntimeError(
-                    "E-Invoice Add Docs submission failed"
+                    f"A {work_name} transaction already exists. Check DataDoc before retrying; no duplicate was submitted."
                 )
+            if not self._click_add():
+                raise RuntimeError("Process Add button not found.")
+            if not self._switch_transaction_frame():
+                raise RuntimeError("Add/Edit Transaction iframe not found.")
+            if not self._select_dropdown("cphContent_ddlWork", work_name):
+                raise RuntimeError(f"{work_name} is missing from Work/Time.")
 
-            # E-Bill is added through a SECOND fresh Add Docs (+) modal.
-            if require_ebill:
-                self._default_content()
-                self._search_ready(8.0)
-                if not self._add_document_to_process(
-                    ebill_path,
-                    work_name,
-                ):
-                    raise RuntimeError(
-                        "E-Bill Add Docs submission failed"
-                    )
-
+            # DataDoc's ASP.NET postback rebuilds this iframe.
             self._default_content()
-            self._search_ready(8.0)
+            if not self._reenter_frame("cphContent_txtExtraField", 12.0):
+                raise RuntimeError("Bill detail fields did not reload.")
 
-            return DataDocResult(
-                True,
-                "DataDoc Bill Submit Complete",
-                next_work="Disp. Detail Send To Client",
-                next_user="Vivek Pal",
-            )
+            if self._is_non_credit(credit_type):
+                mapping = {
+                    "cphContent_txtExtraField": invoice_no,
+                    "cphContent_txtExtraField_2": amount,
+                    "cphContent_txtExtraField_3": "Yes",
+                }
+            else:
+                mapping = {
+                    "cphContent_txtExtraField": "Yes",
+                    "cphContent_txtExtraField_2": invoice_no,
+                    "cphContent_txtExtraField_3": amount,
+                }
+            for element_id, value in mapping.items():
+                if not self._set_text(element_id, value):
+                    raise RuntimeError("Required DataDoc field is missing: " + element_id)
+            # Re-read live field values before causing the external side effect.
+            for element_id, value in mapping.items():
+                actual = self.driver.find_element(By.ID, element_id).get_attribute("value") or ""
+                if actual.strip().casefold() != str(value).strip().casefold():
+                    raise RuntimeError("DataDoc changed a bill field; refusing to submit.")
 
-        except (RuntimeError, WebDriverException) as exc:
-            return DataDocResult(
-                False,
-                "DataDoc bill submission failed",
-                str(exc) or "Submission failed - retry required",
-                next_work="Disp. Detail Send To Client",
-                next_user="Vivek Pal",
-            )
+            if not self._select_dropdown("cphContent_ddlNextWork", "Disp. Detail Send To Client"):
+                self._default_content()
+                if not self._reenter_frame("cphContent_ddlNextWork", 8.0):
+                    raise RuntimeError("Next Required Work did not load.")
+                if not self._select_dropdown("cphContent_ddlNextWork", "Disp. Detail Send To Client"):
+                    raise RuntimeError("Dispatch next work not found.")
+            self._default_content()
+            if not (self._reenter_frame("cphContent_chkNextUser", 5.0)
+                    or self._reenter_frame("cphContent_Panel1", 8.0)):
+                raise RuntimeError("Next Response User list did not load.")
+            if not self._select_only_user("Vivek Pal"):
+                raise RuntimeError("Required DataDoc next user was not found.")
+
+            # This is the ONLY document attachment for Bill Submit:
+            # Invoice + optional E-Invoice + optional E-Way Bill in one local ZIP.
+            if not self._attach_file(str(package.resolve())):
+                raise RuntimeError("Transaction ZIP attachment input did not accept the package.")
+
+            if not self._click_submit_by_id():
+                raise RuntimeError("DataDoc Submit button not found.")
+            if not self._wait_for_submission(timeout=24.0):
+                raise RuntimeError("Submission result is uncertain; review DataDoc manually.")
+            if not self._confirm_dispatch_bill(work_name, invoice_no):
+                raise RuntimeError("DataDoc row could not be verified after Submit; manual review required.")
+            return DataDocResult(True, "DataDoc bill and ZIP submitted and verified",
+                                 next_work="Disp. Detail Send To Client", next_user="Vivek Pal")
         except Exception as exc:
-            return DataDocResult(
-                False,
-                "DataDoc bill submission failed",
-                str(exc) or "Submission failed - retry required",
-                next_work="Disp. Detail Send To Client",
-                next_user="Vivek Pal",
-            )
+            return DataDocResult(False, "DataDoc Bill Submit requires review",
+                                 str(exc) or "Check DataDoc after uncertain outcome.",
+                                 next_work="Disp. Detail Send To Client", next_user="Vivek Pal")
 
 
     def submit_tracking_proof(
