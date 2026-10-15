@@ -885,6 +885,11 @@ class DataDocAgent:
                 raise RuntimeError("Submission result is uncertain; review DataDoc manually.")
             if not self._confirm_dispatch_bill(work_name, invoice_no):
                 raise RuntimeError("DataDoc row could not be verified after Submit; manual review required.")
+            # Close only the Selenium-controlled DataDoc Chrome session AFTER the
+            # submitted transaction is verified. Never close other Chrome tabs.
+            # The persistent Python worker stays online and starts a fresh session
+            # automatically if another approved bill arrives.
+            self.close()
             return DataDocResult(True, "DataDoc bill and ZIP submitted and verified",
                                  next_work="Disp. Detail Send To Client", next_user="Vivek Pal")
         except Exception as exc:

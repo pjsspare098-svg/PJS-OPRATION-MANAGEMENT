@@ -52,6 +52,7 @@ class DataDocOneZipTests(TestCase):
             package,_=build_bill_zip("291888",{"invoiceDoc":str(invoice)},root)
             a=DataDocAgent()
             a.driver=Mock()
+            selenium_chrome=a.driver
             values={}
             def set_text(key,val):
                 values[key]=val
@@ -77,6 +78,8 @@ class DataDocOneZipTests(TestCase):
                  patch.object(a,"_confirm_dispatch_bill",return_value=True) as confirm:
                 r=a.submit_bill("291888",credit_type,"2627/947","51.35",str(package))
             self.assertTrue(r.success,r.error)
+            selenium_chrome.quit.assert_called_once()
+            self.assertIsNone(a.driver, "Verified submission must release DataDoc Chrome")
             self.assertEqual(len(submit.call_args_list),1)
             attach.assert_called_once_with(str(package.resolve()))
             dropdown.assert_any_call("cphContent_ddlWork","Dispatch - "+credit_type)
