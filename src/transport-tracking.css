@@ -92,3 +92,12 @@
  .ux-capture-bubble{width:48px;height:48px}
  .ux-capture-footer button{flex:1;justify-content:center}
 }
+
+
+/* Manual carrier-result notes, rather than OCR status guesses. */
+.ux-capture-detail-input{display:block;width:100%;min-height:104px;resize:vertical;box-sizing:border-box;padding:12px 13px;border:1px solid #cddff2;border-radius:9px;background:#fff;color:#25456a;font:13px/1.6 inherit;line-height:1.55}
+.ux-capture-detail-input:focus{outline:2px solid #9ab8f5;outline-offset:1px}
+.ux-capture-detail-input::placeholder{color:#93a4b7}
+.ux-track-manual-detail{font-size:11px;line-height:1.55;color:#365774;white-space:pre-wrap;overflow-wrap:anywhere;max-width:340px;border-left:3px solid #8fb3e8;padding:6px 9px;background:#f4f8fe;border-radius:3px 7px 7px 3px}
+.ux-track-manual-detail strong{color:#28507b;font-weight:800}
+@media(max-width:900px){.ux-track-manual-detail{max-width:none;width:100%;box-sizing:border-box}}
