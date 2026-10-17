@@ -107,7 +107,8 @@ export default function DispatchTrackingPage({p}:{p:any}){
   const status=String(r.trackingStatus||r.status||'Pending');
   return <div className='ux-track-status'>
    <Tone value={r.trackingCaptureStatus&&!r.trackingStatus?r.trackingCaptureStatus:status}/>
-   {r.trackingCaptureStatus&&<div className='ux-track-unverified'><AlertTriangle size={12}/> Screenshot OCR: {r.trackingCaptureStatus} · Not carrier-verified</div>}
+   {r.trackingCaptureStatus&&<div className='ux-track-unverified'><AlertTriangle size={12}/> Manual status: {r.trackingCaptureStatus} · Not carrier-verified</div>}
+   {r.trackingCaptureDetail&&<div className='ux-track-manual-detail' title={String(r.trackingCaptureDetail)}><strong>Tracking details:</strong> {String(r.trackingCaptureDetail)}</div>}
    {r.trackingDetail&&<small title={String(r.trackingDetail)}>{String(r.trackingDetail).slice(0,105)}</small>}
    {r.trackingCheckedAt&&<small>Worker checked {new Date(r.trackingCheckedAt).toLocaleString('en-IN')}</small>}
    {r.trackingCaptureAt&&<small>Screenshot {new Date(r.trackingCaptureAt).toLocaleString('en-IN')}</small>}
@@ -116,7 +117,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
  return <>
   <div className='ux-track-heading'>
    <Heading eyebrow='STAGE 05 · CARRIER STATUS' title='Dispatch Tracking'
-    description='Transport: open the carrier site, capture evidence and review OCR status. Shree Maruti: use the existing approved worker.'/>
+    description='Transport: open the carrier site, capture evidence and manually enter the tracking result. Shree Maruti: use the existing approved worker.'/>
    <div className='ux-track-mode-tabs' role='group' aria-label='Tracking mode'>
     {(['Non-trackable','Shree Maruti','Transport'] as Mode[]).map(m=><button key={m} className={mode===m?'active':''} aria-pressed={mode===m} onClick={()=>{setMode(m);setStatusFilter('All');setTransporterFilter('All transporters')}}>{m}<span>{counts[m]}</span></button>)}
    </div>
@@ -125,7 +126,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
    <Stat label='Carrier + LR ready' icon={Truck} value={rows.filter((r:any)=>r.transporter&&r.lr).length} note='Dispatch Tracking processes'/>
    <Stat label='Active worker requests' icon={Clock3} tone='orange' value={active.length} note='Queued or running'/>
    <Stat label='Verified delivered' icon={CheckCircle2} value={delivered} note='Worker-confirmed status only'/>
-   <Stat label='Needs review' icon={AlertTriangle} tone='red' value={issues} note='Exceptions & manual OCR'/>
+   <Stat label='Needs review' icon={AlertTriangle} tone='red' value={issues} note='Exceptions & manual results'/>
   </div>
   {mode==='Shree Maruti'&&<Panel title='Shree Maruti tracking worker' subtitle='Shree Maruti / ARHAM automated carrier lookups'>
    <div className='ux-outlook-worker'><div className={'ux-outlook-worker-dot '+(ready?'is-online':'')}/><div>
@@ -149,7 +150,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
      <button className='ux-track-refresh' onClick={()=>{void refreshWorker();void p.onRefresh?.()}} disabled={loading||busy}><RefreshCw size={15}/> Refresh</button>
     </div>
    </div>
-   {mode==='Transport'&&<div className='ux-track-guidance'><Camera size={17}/> Click <b>Track</b> to open the carrier's official site. A floating screenshot tool opens here in PJS; select the carrier tab in your browser's share picker, or upload a screenshot. OCR is a suggestion, not proof of delivery.</div>}
+   {mode==='Transport'&&<div className='ux-track-guidance'><Camera size={17}/> Click <b>Track</b> to open the carrier's official site. A floating screenshot tool opens here in PJS; select the carrier tab in your browser's share picker, or upload a screenshot. Type the current tracking result yourself. A screenshot and manual entry are not carrier-worker verified.</div>}
    {mode==='Non-trackable'&&<div className='ux-track-guidance'>Non-trackable shipments remain available for manual review and transfer. Dedicated non-trackable workflow is the next phase.</div>}
    <div className='ux-tablewrap ux-track-desktop-table'><table className='ux-table ux-tracking-sheet'><thead><tr>
     <th>Process / Party</th><th>Carrier / LR</th><th>Carrier result</th><th>Transfer To.</th><th>Search Result · Track</th>
