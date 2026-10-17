@@ -80,7 +80,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
   if(!window.confirm('Transfer Process '+r.process+' from Tracking to '+(to==='DataDoc'?'DataDoc Submit':to)+'? This does not submit any bill or email.'))return;
   void onStage(r,to,to==='Check List'?'Needs Review':'Pending');
  }
- function actionBar(r:any){
+ function actionBar(r:any,kind:'all'|'transfer'|'actions'='all'){
   const carrier=transportCarrier(r.transporter);
   const doc=rowDocument(r);
   const latest=mostRecent(recent,r.id);
@@ -89,17 +89,17 @@ export default function DispatchTrackingPage({p}:{p:any}){
   const owner=!r.owner_id||r.owner_id===p.userId;
   const verified=Boolean(r.trackingStatus==='Delivered'&&recent.some(j=>j.process_id===r.id&&j.status==='completed'&&j.result?.verified===true&&j.result?.status==='Delivered'));
   return <div className='ux-track-row-controls'>
-   <div className='ux-track-transfer'><select aria-label={'Transfer destination for '+r.process} value={transfers[r.id]||''} disabled={busy} onChange={e=>setTransfers(v=>({...v,[r.id]:e.target.value}))}>
+   {(kind==='all'||kind==='transfer')&&<div className='ux-track-transfer'><select aria-label={'Transfer destination for '+r.process} value={transfers[r.id]||''} disabled={busy} onChange={e=>setTransfers(v=>({...v,[r.id]:e.target.value}))}>
     <option value=''>Transfer to…</option><option value='Check List'>Check List</option><option value='DataDoc'>DataDoc Submit</option>
-   </select><button disabled={busy||!transfers[r.id]} onClick={()=>transfer(r)}>Transfer</button></div>
-   <div className='ux-track-result-actions'>
+   </select><button disabled={busy||!transfers[r.id]} onClick={()=>transfer(r)}>Transfer</button></div>}
+   {(kind==='all'||kind==='actions')&&<div className='ux-track-result-actions'>
     {doc?<button className='ux-track-proof' onClick={()=>void openEvidence(r)}><FileImage size={14}/> Search result</button>:<span className='ux-track-none'>No screenshot</span>}
     {mode==='Transport'?<button className='ux-track-go' disabled={!carrier||!owner||!p.authenticated||busy} onClick={()=>openCarrier(r)}><ExternalLink size={15}/> Track</button>:
     mode==='Shree Maruti'?<button className='ux-track-go' disabled={busy||!p.authenticated||!owner||!rule.ready||running||r.trackingStatus==='Delivered'} onClick={()=>onQueue(r,'tracking')}>{running?'Queued':r.trackingStatus==='Delivered'?'Delivered':'Auto track'}</button>:
     <button className='ux-track-go' onClick={()=>onEdit(r)}>Edit carrier</button>}
     {mode==='Transport'&&<button className='ux-track-capture' disabled={!owner||!p.authenticated||busy} onClick={()=>setCapture(r)} title='Open screenshot capture tools'><Camera size={15}/> Capture</button>}
     {verified&&<button className='ux-track-verified' onClick={()=>onStage(r,'Delivery Proof','Delivered')}>Delivery Proof</button>}
-   </div>
+   </div>}
   </div>;
  }
  function statusSummary(r:any){
@@ -156,8 +156,8 @@ export default function DispatchTrackingPage({p}:{p:any}){
     const latest=mostRecent(recent,r.id);
     return <tr key={r.id}><td><button className='ux-process-link' onClick={()=>onEdit(r)}>{r.process}</button><small>{r.party}</small></td>
      <td><strong>{r.transporter||'No carrier'}</strong><small>LR {r.lr||'Not entered'}</small></td>
-     <td>{statusSummary(r)}</td><td><div className='ux-track-transfer-cell'>{actionBar(r).props.children[0]}</div></td>
-     <td><div className='ux-track-search-cell'>{actionBar(r).props.children[1]}{mode==='Shree Maruti'&&latest&&<small>{latest.status} · {latest.error_message||latest.result?.detail||'Tracking request'}</small>}</div></td>
+     <td>{statusSummary(r)}</td><td><div className='ux-track-transfer-cell'>{actionBar(r,'transfer')}</div></td>
+     <td><div className='ux-track-search-cell'>{actionBar(r,'actions')}{mode==='Shree Maruti'&&latest&&<small>{latest.status} · {latest.error_message||latest.result?.detail||'Tracking request'}</small>}</div></td>
     </tr>
    }):<tr><td colSpan={5}><Empty icon={Truck} title='No matching tracking records' help={rows.length?'Try another transporter or status filter.':'Move a process to Dispatch Tracking after confirming the client email was sent.'}/></td></tr>}</tbody></table></div>
    <div className='ux-track-mobile-list'>{selected.length?selected.map((r:any)=><article key={r.id} className='ux-track-mobile-card'>
