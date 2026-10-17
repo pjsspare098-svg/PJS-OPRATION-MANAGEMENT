@@ -1,5 +1,6 @@
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
-import {TRANSPORT_CARRIERS,MANUAL_CARRIER_URLS,transportCarrier,extractTrackingStatus} from '../src/transportTracking.ts';
+import {TRANSPORT_CARRIERS,MANUAL_CARRIER_URLS,transportCarrier,CAPTURE_STATUSES} from '../src/transportTracking.ts';
 assert.equal(TRANSPORT_CARRIERS.length,8);
 for(const name of TRANSPORT_CARRIERS){
  assert.equal(transportCarrier(name),name);
@@ -10,12 +11,17 @@ for(const [alias,expected] of [['TCI Express Ltd','TCI EXPRESS'],['TCI FREIGHT',
 }
 assert.equal(transportCarrier('SHREE MARUTI'),null,'Automated Shree Maruti is not a manual transport');
 assert.equal(transportCarrier('Unlisted transporter'),null);
-assert.equal(extractTrackingStatus('Shipment Status: Out for Delivery').status,'Out for Delivery');
-assert.equal(extractTrackingStatus('Current Status: Delivered').status,'Delivered');
-assert.equal(extractTrackingStatus('Current Status: Undelivered').status,'Undelivered');
-assert.equal(extractTrackingStatus('Current Status: In Transit\nHistory: Delivered at checkpoint').status,'In Transit');
-assert.equal(extractTrackingStatus('History: Delivered at origin').status,'Needs Review');
-assert.equal(extractTrackingStatus('Current Status: In Transit\nLatest Status: Delivered').status,'Needs Review');
-assert.equal(extractTrackingStatus('Shipment Status: RTO').status,'RTO');
-assert.equal(extractTrackingStatus('Not Found').status,'Needs Review','Never infer status from a page without a current status label');
-console.log('PASS: eight manual carrier portals and safe screenshot OCR status suggestions');
+assert.deepEqual(CAPTURE_STATUSES,[
+ 'Needs Review','Pending','In Transit','Out for Delivery','Delivered','Undelivered','RTO','Returned','Cancelled','Delayed','Address Issue','Not Found'
+]);
+const capture=readFileSync(new URL('../src/TransportTrackingCapture.tsx',import.meta.url),'utf8');
+const sheet=readFileSync(new URL('../src/DispatchTrackingPage.tsx',import.meta.url),'utf8');
+assert.ok(capture.includes('Tracking result details'));
+assert.ok(capture.includes("p_detail:resultDetails.trim().slice(0,600)"),'Save typed notes against the same process');
+assert.ok(capture.includes("disabled={!file||!resultDetails.trim()||busy}"),'Screenshot and typed result are required');
+assert.ok(capture.includes('Carrier status (manual entry)'));
+assert.ok(!capture.includes('recognize('),'Tracking screenshots must never trigger OCR');
+assert.ok(!capture.includes('extractTrackingStatus'),'No automatic status guesses');
+assert.ok(sheet.includes('r.trackingCaptureDetail'),'Typed result must be shown on tracking sheet');
+assert.ok(sheet.includes('Tracking details:'),'Tracking result label visible in carrier row');
+console.log('PASS: eight manual carrier portals; manual status and details saved and displayed without OCR');
