@@ -238,6 +238,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
    </select>
   </label>
   <button type='button' className='ux-transfer-action' disabled={busy||Boolean(scanBusy)||!transferAllowed} onClick={()=>void submit(transferTo as WorkflowStage)}>Save &amp; Transfer</button>
+  {transferTo&&transferIssues.length>0&&<small className='ux-transfer-warning' role='status'>{transferIssues.join('. ')}</small>}
  </div>
  <button className='ux-secondary' onClick={onClose} disabled={busy}>Cancel</button>
  <button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button>
