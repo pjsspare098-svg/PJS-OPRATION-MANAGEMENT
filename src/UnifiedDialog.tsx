@@ -3,6 +3,8 @@ import {X,Upload,FileText,Check,ChevronDown,FileCheck2,Settings2,ExternalLink,Al
 import {cloud} from './cloud';
 import {displayField} from './documentFields';
 import {salesPeople,productNames} from './processOptions';
+import {transferDestinations,stageDisplayNames,processTransferIssues} from './processTransfer.ts';
+import {normalizedStage,type WorkflowStage} from './workflowStages.ts';
 import {mergeDocumentScans,safeUpdates,type Candidate,type ScannedDocument} from './documentMerge';
 export const blankProcess=()=>({process:'',party:'',so:'',productName:'',stage:'Universal Process',status:'Review',invoice:'',invoiceDate:'',credit:'Credit',amount:'',sales:'',ready:'',po:'',poDate:'',payment:'',einvoice:'',ebill:'',transporter:'',lr:'',courierDate:'',weight:'',trackingStatus:'',exceptionReason:'',documents:[]});
 const sections:{label:string;fields:[string,string,string?][]}[]=[
@@ -10,10 +12,11 @@ const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Box Weight (Kgs)'],['transporter','Courier / Transporter'],['lr','Doc No. / LR / Docket No.'],['courierDate','Courier Date','date'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
 ];
 export const documentKinds:[string,string][]= [['pickDoc','Pick Slip'],['invoiceDoc','Invoice'],['einvoiceDoc','E-Invoice'],['ebillDoc','E-Way Bill'],['lrDoc','LR / Docket'],['emailDoc','Outlook Email (.eml)'],['proofDoc','Delivery Proof'],['trackingShotDoc','Tracking Search Screenshots']];
-export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],onDelete,onCancelEmailJob,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];onDelete:(r:any)=>Promise<void>;onCancelEmailJob?:(job:any)=>Promise<void>;onClose:()=>void;onSave:(data:any,files:Record<string,File>)=>Promise<void|{saved:any;failed:string[];details:string}>}){
+export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],exceptions=[],onDelete,onCancelEmailJob,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];exceptions?:any[];onDelete:(r:any)=>Promise<void>;onCancelEmailJob?:(job:any)=>Promise<void>;onClose:()=>void;onSave:(data:any,files:Record<string,File>,transferTo?:WorkflowStage)=>Promise<void|{saved:any;failed:string[];details:string;transferFailed?:string}>}){
  const scrollRef=useRef<HTMLDivElement>(null);
  const [draft,setDraft]=useState<any>({...blankProcess(),...record});
  const [files,setFiles]=useState<Record<string,File>>({});
+ const [transferTo,setTransferTo]=useState<WorkflowStage|''>('');
  const [sourcePending,setSourcePending]=useState(Boolean(sourceFile));
  const [deleteOpen,setDeleteOpen]=useState(false);
  const [deleteInput,setDeleteInput]=useState('');
@@ -82,7 +85,12 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   setFiles(old=>({...old,[kind]:file}));
   if(['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(kind))void scan(kind,file);
  };
- async function submit(moveToEmail=false){
+ async function submit(destination?:WorkflowStage){
+  if(destination){
+   const issues=processTransferIssues(draft,destination,jobs,exceptions);
+   if(issues.length){setError(issues.join('. '));return}
+   if(!window.confirm('Save and transfer Process '+draft.process+' from '+normalizedStage(draft)+' to '+destination+'? This only moves the record: it will NOT submit to DataDoc, send email or start carrier tracking.'))return;
+  }
   if(!draft.process?.trim()||!draft.party?.trim()||!draft.so?.trim()){
     const missing=[!draft.process?.trim()?'Process No.':'',!draft.party?.trim()?'Party Name':'',!draft.so?.trim()?'SO No.':''].filter(Boolean).join(', ');
     setError('Please complete '+missing+' above before saving.');
@@ -90,10 +98,17 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   }
   setBusy(true);setError('');
   try{
-    const payload=moveToEmail?{...draft,stage:'Email to Client',status:'Ready for Email'}:draft;
-    const result=await onSave(payload,sourcePending&&sourceFile?{...files,pickDoc:sourceFile}:files);
+    const result=await onSave(draft,sourcePending&&sourceFile?{...files,pickDoc:sourceFile}:files,destination);
+    if(result?.transferFailed){
+      // The process and attachments are saved, but routing was rejected;
+      // leave the editor open and never upload those files a second time.
+      setFiles({});setSourcePending(false);
+      setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,stage:result.saved.stage||old.stage,status:result.saved.status||old.status}));
+      setError('Process data and attachments saved, but transfer was not completed: '+result.transferFailed+'. Reopen the process after checking the issue.');
+      return;
+    }
     if(result&&result.failed.length){
-      setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,stage:moveToEmail?'Email to Client':old.stage,status:moveToEmail?'Ready for Email':old.status,documents:result.saved.documents||old.documents}));
+      setDraft((old:any)=>({...old,id:result.saved.id,team_id:result.saved.team_id,stage:old.stage,status:old.status,documents:result.saved.documents||old.documents}));
       setFiles(old=>Object.fromEntries(Object.entries(old).filter(([kind])=>result.failed.includes(kind))));
       setSourcePending(result.failed.includes('pickDoc'));
       setError('Process saved, but these documents still need uploading: '+result.details+'. Click Save again to retry only failed files.');
@@ -110,6 +125,9 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   finally{setBusy(false)}
  }
  const canDelete=Boolean(!demo&&draft.id&&draft.owner_id===userId&&!draft.team_id);
+ const currentStage=normalizedStage(draft);
+ const transferIssues=transferTo?processTransferIssues(draft,transferTo,jobs,exceptions):[];
+ const transferAllowed=Boolean(transferTo&&!transferIssues.length);
  const deletionBlockers=(jobs||[]).filter((job:any)=>job.process_id===draft.id&&['queued','running'].includes(job.status));
  const cancellableOutlook=deletionBlockers.find((job:any)=>job.job_type==='email_reply'&&job.status==='queued');
  const deleteReason=demo?'Sign in to delete cloud processes.':draft.team_id?'Shared team processes cannot be deleted here; ask a team administrator.':draft.id&&draft.owner_id!==userId?'Only the process owner can delete this record.':'';
@@ -209,6 +227,20 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  </div>}
  {demo&&<div className='ux-preview-warning'>No-login local mode: only process fields are saved on this browser. Original PDFs and other document files are not stored.</div>}
  {error&&<div className='ux-auth-error' role='alert'>{error}</div>}
- </div><footer className='ux-drawer-footer'>{Boolean(draft.id)&&!canDelete&&<span className='ux-deletion-unavailable'>{deleteReason||'Deletion unavailable for this record.'}</span>}{canDelete&&<button className='ux-master-delete-button' disabled={busy} onClick={()=>{setDeleteOpen(true);setDeleteInput('')}}><Trash2 size={15}/> Delete Process</button>}<button className='ux-secondary' onClick={onClose}>Cancel</button>{Boolean(draft.id)&&draft.stage!=='Email to Client'&&<button className='ux-secondary ux-email-move' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit(true)}>Save &amp; Move to Email</button>}<button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button></footer>
+ </div><footer className='ux-drawer-footer'>
+ {Boolean(draft.id)&&!canDelete&&<span className='ux-deletion-unavailable'>{deleteReason||'Deletion unavailable for this record.'}</span>}
+ {canDelete&&<button className='ux-master-delete-button' disabled={busy} onClick={()=>{setDeleteOpen(true);setDeleteInput('')}}><Trash2 size={15}/> Delete Process</button>}
+ <div className='ux-transfer-footer'>
+  <label htmlFor='process-transfer-destination'>Transfer Process
+   <select id='process-transfer-destination' aria-label='Transfer Process to workflow page' value={transferTo} disabled={busy||Boolean(scanBusy)} onChange={e=>setTransferTo(e.target.value as WorkflowStage|'')}>
+    <option value=''>Choose destination…</option>
+    {transferDestinations.map(stage=><option key={stage} value={stage} disabled={stage===currentStage}>{stageDisplayNames[stage]}{stage===currentStage?' (current)':''}</option>)}
+   </select>
+  </label>
+  <button type='button' className='ux-transfer-action' disabled={busy||Boolean(scanBusy)||!transferAllowed} onClick={()=>void submit(transferTo as WorkflowStage)}>Save &amp; Transfer</button>
+ </div>
+ <button className='ux-secondary' onClick={onClose} disabled={busy}>Cancel</button>
+ <button className='ux-primary' disabled={busy||Boolean(scanBusy)} onClick={()=>void submit()}><Check size={17}/>{busy?'Saving…':demo?'Save locally':'Save process & documents'}</button>
+ </footer>
  </section></div>
 }
