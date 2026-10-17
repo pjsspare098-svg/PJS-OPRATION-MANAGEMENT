@@ -95,3 +95,27 @@ The launcher never turns on `PJS_ENABLE_LIVE_DATADOC` or `PJS_ENABLE_OUTLOOK_DRA
 Refresh **Control Tower → System readiness** to see real Supabase heartbeats for both workers. It will show **Offline** if a heartbeat was not received recently, **Paused** if a worker is configured but execution is disabled, or **Online/Busy** when its actual heartbeat reports it. The Carrier Tracking adapter still requires a separate authenticated queue integration and is not an always-online worker.
 
 If configured DataDoc and Outlook both require automatic startup after Windows login, use the existing `install_autostart.ps1` for DataDoc, and configure the Outlook draft worker separately using a per-user interactive desktop task after a supervised test. Do not run Outlook under SYSTEM. Keep all keys in `worker/.env` locally.
+
+
+## DataDoc Tracking Proof (separate authorized Windows worker)
+
+This is **not** the DataDoc ZIP bill submit. Open **DataDoc → Delivery Proof** in PJS. Processes in **Dispatch Tracking** with a saved tracking screenshot also appear. Choose an exact saved screenshot, review the credit category and Sales Person, and click **Approve & Queue Tracking Proof**. You are authorizing a **real DataDoc Submit**, not just an upload preview.
+
+- Work/Time: `Original Doc. And Mtrl Rcvd. Conf. - India GST`.
+- Credit: Next Required Work `Credit`, response user selected from the salesperson.
+- Non Credit + Deepa Bisht: Next Required Work `Close - Client Spares`, response user `Deepa Bisht` ONLY.
+- Non Credit + Ankita Dahake: `Close - Client - Pump` or the verified `Close - Client Pump` alias, response user `Ankita Dahake` ONLY.
+- Unmapped Non Credit salespeople require operator review; they are **not** silently skipped.
+- The worker clears pre-selected users, selects the intended response user, attaches only that process's saved JPG/PNG screenshot, clicks Submit once, verifies the Work/Time transaction in DataDoc and closes only its own Selenium browser after confirmed success.
+- Failed/uncertain submissions are **never retried automatically**, because DataDoc may already contain a partial or complete transaction. Verify manually before any further action.
+- It does not alter the process's actual delivery status or complete the workflow automatically.
+
+### Setup on the DataDoc-connected Windows machine
+
+1. Update the entire `worker/` directory from GitHub and install `requirements.txt` using Python 3.12+.
+2. Keep existing `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PJS_OFFICE_OWNER_USER_ID` and DataDoc credentials in the local `worker/.env`. Never copy them to GitHub or Vercel.
+3. Add `PJS_ENABLE_LIVE_DATADOC_PROOF=0` and `PJS_PROOF_POLL_SECONDS=20`. Running `python start_worker.py datadoc_proof_worker.py` in this state shows a **paused** heartbeat and will not claim proof jobs.
+4. After manually checking one known process, its salesperson and actual DataDoc Work/Time labels, set `PJS_ENABLE_LIVE_DATADOC_PROOF=1` **locally**, restart the worker, and watch the first approved test submission. Confirm the screenshot and transaction in DataDoc yourself.
+5. `START_OFFICE_WORKERS.bat` can launch the proof worker alongside other workers without enabling any live switch. The PJS website cannot access the local DataDoc address by itself.
+
+Logs: `worker/logs/datadoc-proof.log`. Never reset a `running` or `failed` job to `queued` until the exact DataDoc transaction is reconciled.
