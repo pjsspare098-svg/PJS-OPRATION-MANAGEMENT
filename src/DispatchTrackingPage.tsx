@@ -1,3 +1,4 @@
+import './transport-tracking.css';
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {AlertTriangle,Camera,CheckCircle2,Clock3,ExternalLink,FileImage,RefreshCw,Truck} from 'lucide-react';
 import {supabase} from './independentClient';
