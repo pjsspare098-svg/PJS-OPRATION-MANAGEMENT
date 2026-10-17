@@ -135,7 +135,7 @@ export const cloud={
   async upload(id:string,kind:string,file:File,verification?:{verifiedProcessNo?:string;extractedProcessNo?:string}){
     validFile(file);
     if(!cloudConfigured||!supabase)throw Error('Cloud storage not configured. Original document has not been saved.');
-    if(!['pickDoc','invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc','proofDoc','donePickDoc'].includes(kind))throw Error('Invalid document type');
+    if(!['pickDoc','invoiceDoc','einvoiceDoc','ebillDoc','lrDoc','emailDoc','proofDoc','donePickDoc','trackingShotDoc'].includes(kind))throw Error('Invalid document type');
     if(kind==='emailDoc'&&!/\.eml$/i.test(file.name))throw Error('Outlook attachments must be .eml');
     if(kind!=='emailDoc'&&/\.eml$/i.test(file.name))throw Error('Only the Outlook Email field accepts .eml files');
     const user=await identity();
@@ -149,9 +149,9 @@ export const cloud={
     const path=user.id+'/'+id+'/'+crypto.randomUUID()+'-'+name;
     const {error:storageError}=await supabase.storage.from('oms-documents').upload(path,file,{contentType:kind==='emailDoc'?'message/rfc822':file.type,upsert:false});
     if(storageError)throw storageError;
-    const {error:dbError}=await supabase.from('oms_documents').insert({process_id:id,user_id:user.id,kind,name,path,extracted_process_no:kind==='donePickDoc'?verification?.extractedProcessNo||null:null});
+    const {data:added,error:dbError}=await supabase.from('oms_documents').insert({process_id:id,user_id:user.id,kind,name,path,extracted_process_no:kind==='donePickDoc'?verification?.extractedProcessNo||null:null}).select('id').single();
     if(dbError){await supabase.storage.from('oms-documents').remove([path]);throw dbError}
-    return {path};
+    return {path,documentId:added?.id};
   },
   async open(id:string,docId:string){
     const tab=window.open('about:blank','_blank');
