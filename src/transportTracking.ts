@@ -18,7 +18,7 @@ export function transportCarrier(value:unknown):TransportCarrier|null{
  if(!normalized)return null;
  if(/\bTCI\s+EXPRESS\b/.test(normalized))return 'TCI EXPRESS';
  if(/\bTCI\s+FREIGHT\b/.test(normalized))return 'TCI FREIGHT';
- if(/\bV\s*EXPRESS\b|\bVXPRESS\b/.test(normalized))return 'V EXPRESS';
+ if(/\bV\s*EXPRESS\b|\bV\s*XPRESS\b|\bVXPRESS\b/.test(normalized))return 'V EXPRESS';
  if(/\bV\s*TRANS\b|\bVTRANS\b/.test(normalized))return 'V TRANS';
  if(/\bDTDC\b/.test(normalized))return 'DTDC';
  if(/\bACPL\b/.test(normalized))return 'ACPL';
@@ -33,7 +33,7 @@ export type CaptureStatus=typeof CAPTURE_STATUSES[number];
  */
 export function extractTrackingStatus(input:unknown):{status:CaptureStatus;detail:string}{
  const lines=String(input??'').replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
- const labelled=lines.filter(line=>/\b(?:current\s+status|latest\s+status|shipment\s+status|consignment\s+status|delivery\s+status|tracking\s+status|present\s+status|status\s*[:\-])\b/i.test(line));
+ const labelled=lines.filter(line=>/\b(?:current\s+status|latest\s+status|shipment\s+status|consignment\s+status|delivery\s+status|tracking\s+status|present\s+status)\b|\bstatus\s*[:\-]/i.test(line));
  const patterns:[CaptureStatus,RegExp][]=[
   ['Not Found',/\b(?:not\s+found|no\s+record|no\s+result)\b/i],
   ['Undelivered',/\b(?:undelivered|not\s+delivered|delivery\s+failed)\b/i],
