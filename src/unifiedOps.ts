@@ -70,6 +70,17 @@ export const ops={
     try{await ops.audit(r,'Job queued · '+type,{jobId:data.id,worker:type==='bill_submit'?'approved_office_auto_queue':'manual_worker_pending'});}catch(e){console.warn('Job queued successfully but activity log could not be written',e)}
     return data as Job;
   },
+  async approveTrackingProof(record:any,documentId:string){
+    const u=await currentUser();
+    if(!record?.id||record.owner_id!==u.id)throw Error('Only the process owner can approve a real DataDoc proof submission.');
+    if(!documentId)throw Error('Select one saved tracking screenshot.');
+    const {data,error}=await supabase!.rpc('oms_approve_datadoc_tracking_proof',{
+      p_process_id:record.id,p_document_id:documentId,p_acknowledged:true
+    });
+    if(error)throw error;
+    if(!data)throw Error('The proof request was not queued; refresh and check its status.');
+    return data as string;
+  },
   async cancelEmailJob(job:Job){
     const u=await currentUser();
     if(job.job_type!=='email_reply'||job.status!=='queued')throw Error('Only waiting Outlook draft requests can be cancelled');

@@ -15,10 +15,11 @@ BASE = Path(__file__).resolve().parent
 EXPECTED_URL = "https://tbkytdktututiyeoqkwa.supabase.co"
 MODULES = (
     "carriers", "tracking_agent", "dispatch_tracking_worker",
-    "independent_worker", "outlook_draft_worker", "start_worker",
+    "independent_worker", "outlook_draft_worker", "datadoc_proof_worker", "start_worker",
 )
 SWITCHES = ("PJS_ENABLE_LIVE_DATADOC", "PJS_ENABLE_OUTLOOK_DRAFT",
-            "PJS_ENABLE_LIVE_TRACKING", "PJS_ENABLE_LIVE_DATADOC_EMAIL")
+            "PJS_ENABLE_LIVE_TRACKING", "PJS_ENABLE_LIVE_DATADOC_EMAIL",
+            "PJS_ENABLE_LIVE_DATADOC_PROOF")
 
 
 def preflight() -> int:

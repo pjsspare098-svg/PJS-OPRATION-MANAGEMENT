@@ -16,6 +16,7 @@ ALLOWED = {
     "independent_worker.py",
     "outlook_draft_worker.py",
     "dispatch_tracking_worker.py",
+    "datadoc_proof_worker.py",
 }
 
 
@@ -51,7 +52,7 @@ def acquire_worker_lock(entry: str):
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] not in ALLOWED:
-        raise SystemExit("Usage: python start_worker.py [independent_worker.py | outlook_draft_worker.py | dispatch_tracking_worker.py]")
+        raise SystemExit("Usage: python start_worker.py [independent_worker.py | outlook_draft_worker.py | dispatch_tracking_worker.py | datadoc_proof_worker.py]")
     entry = sys.argv[1]
     sys.path.insert(0, str(BASE))
     try:
