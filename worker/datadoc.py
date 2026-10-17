@@ -38,7 +38,7 @@ class DataDocAgent:
       Deepa  -> Close - Client Spares -> Deepa Bisht
       Ankita -> Close - Client - Pump (fallback Close - Client Pump)
                 -> Ankita Dahake
-      Other sales people are skipped, matching the VBA behavior.
+      Other Non-Credit sales people require manual review; never mark as skipped/success.
     """
 
     WORK_NAME = "Original Doc. And Mtrl Rcvd. Conf. - India GST"
@@ -905,146 +905,92 @@ class DataDocAgent:
         sales_person: str,
         attachment_path: str,
     ) -> DataDocResult:
+        """Submit ONE explicitly approved proof, then confirm it in DataDoc history.
+
+        No automatic retry is permitted after an external Submit click. An uncertain
+        result is a failed job requiring manual portal reconciliation, not requeueing.
+        """
         process_no = (process_no or "").strip()
         sales_person = (sales_person or "").strip()
-
-        if not process_no:
-            return DataDocResult(False, "DataDoc tracking submit blocked", "Process No. is required")
-
-        is_non_credit = self._is_non_credit(credit_type)
-
-        # Preserve the VBA rule: unsupported Non-Credit sales people are completely ignored.
-        if is_non_credit and not (self._is_deepa(sales_person) or self._is_ankita(sales_person)):
-            return DataDocResult(
-                True,
-                f"Skipped unsupported Non-Credit salesperson: {sales_person or 'blank'}",
-                skipped=True,
-            )
-
-        if not Path(attachment_path).is_file():
-            return DataDocResult(
-                False,
-                "DataDoc tracking submit blocked",
-                f"Attachment not found for Process No. {process_no}",
-            )
-
+        credit_type = (credit_type or "").strip()
+        if not re.fullmatch(r"[0-9]{5,9}", process_no):
+            return DataDocResult(False, "Tracking proof blocked", "Invalid Process No.")
+        if credit_type not in ("Credit", "Non Credit") or not sales_person:
+            return DataDocResult(False, "Tracking proof blocked", "Credit type and Sales Person are required")
+        non_credit = self._is_non_credit(credit_type)
+        if non_credit and not (self._is_deepa(sales_person) or self._is_ankita(sales_person)):
+            return DataDocResult(False, "Tracking proof blocked",
+                                 "Non Credit next work is not configured for this salesperson")
+        image = Path(attachment_path)
+        if not image.is_file() or image.suffix.lower() not in (".png", ".jpg", ".jpeg"):
+            return DataDocResult(False, "Tracking proof blocked", "JPG or PNG screenshot not found")
+        next_work = ""
+        next_user = ""
+        submit_clicked = False
         try:
             if not self.ensure_started():
-                return DataDocResult(False, "Unable to login/open DataDoc", "DataDoc global search did not load")
+                raise RuntimeError("DataDoc global process search did not load")
+            if not self._search_ready(10.0) or not self._open_process(process_no):
+                raise RuntimeError("Exact process not found in DataDoc")
+            # Treat a preexisting matching Work/Time as possibly already submitted.
+            # Do NOT create another transaction until an operator inspects the portal.
+            if self._find_dispatch_row_add_docs(self.WORK_NAME) is not None:
+                raise RuntimeError("Tracking proof Work/Time already exists in DataDoc; review duplicate")
+            if not self._click_add() or not self._switch_transaction_frame():
+                raise RuntimeError("Add/Edit Transactions form did not open")
+            if not self._select_dropdown("cphContent_ddlWork", self.WORK_NAME):
+                raise RuntimeError("Required Work/Time option not found")
+            if not self._reenter_frame("cphContent_ddlNextWork"):
+                raise RuntimeError("Next Required Works field did not reload")
+            if not non_credit:
+                next_work = "Credit"
+                if not self._select_dropdown("cphContent_ddlNextWork", next_work):
+                    raise RuntimeError("Credit Next Required Work is unavailable")
+            elif self._is_deepa(sales_person):
+                next_work = "Close - Client Spares"
+                next_user = "Deepa Bisht"
+                if not self._select_dropdown("cphContent_ddlNextWork", next_work):
+                    raise RuntimeError("Close - Client Spares option not found")
+            else:
+                next_work = "Close - Client - Pump"
+                next_user = "Ankita Dahake"
+                if not self._select_dropdown("cphContent_ddlNextWork", next_work):
+                    next_work = "Close - Client Pump"
+                    if not self._select_dropdown("cphContent_ddlNextWork", next_work):
+                        raise RuntimeError("Close - Client Pump option not found")
+            if not (self._reenter_frame("cphContent_chkNextUser") or
+                    self._reenter_frame("cphContent_Panel1")):
+                raise RuntimeError("Next Response User list did not load")
+            if not non_credit:
+                ok, resolved = self._select_credit_salesperson(sales_person)
+                if not ok or not resolved:
+                    raise RuntimeError("Sales Person could not be uniquely selected")
+                next_user = resolved
+            elif not self._select_only_user(next_user):
+                raise RuntimeError("Requested Sales Person was not selected as sole response user")
+            if not self._attach_file(str(image.resolve())):
+                raise RuntimeError("Tracking screenshot file input did not accept attachment")
+            if not self._click_submit():
+                raise RuntimeError("DataDoc Submit control missing or not clickable")
+            submit_clicked = True
+            if not self._wait_for_submission(timeout=25.0):
+                raise RuntimeError("Submit clicked but modal did not confirm completion")
+            # Modal disappearance alone is not proof of success; demand a matching
+            # transaction row in the current process's DataDoc history.
+            verified_until = time.monotonic() + 18.0
+            verified = False
+            while time.monotonic() < verified_until:
+                if self._find_dispatch_row_add_docs(self.WORK_NAME) is not None:
+                    verified = True
+                    break
+                time.sleep(0.3)
+            if not verified:
+                raise RuntimeError("No matching new transaction row confirmed after Submit")
+            self.close()  # Selenium browser only; never closes the operator's Chrome.
+            return DataDocResult(True, "Tracking proof submitted and confirmed in DataDoc",
+                                 next_work=next_work,next_user=next_user)
         except Exception as exc:
-            return DataDocResult(False, "Unable to login/open DataDoc", str(exc))
-
-        last_error = None
-        last_next_work = None
-        last_next_user = None
-
-        for attempt in range(1, 3):
-            try:
-                if not self._search_ready(10.0):
-                    last_error = "DataDoc global search not available"
-                    raise RuntimeError(last_error)
-
-                if not self._open_process(process_no):
-                    last_error = "Process No. not found/opened"
-                    raise RuntimeError(last_error)
-
-                if not self._click_add():
-                    last_error = "Add button not found"
-                    raise RuntimeError(last_error)
-
-                if not self._switch_transaction_frame():
-                    last_error = "Add/Edit form did not open"
-                    raise RuntimeError(last_error)
-
-                if not self._select_dropdown("cphContent_ddlWork", self.WORK_NAME):
-                    last_error = f"{self.WORK_NAME} not found"
-                    raise RuntimeError(last_error)
-
-                if not self._reenter_frame("cphContent_ddlNextWork"):
-                    last_error = "Next Required Work did not load"
-                    raise RuntimeError(last_error)
-
-                if not is_non_credit:
-                    last_next_work = "Credit"
-                    if not self._select_dropdown("cphContent_ddlNextWork", last_next_work):
-                        last_error = "Credit not found in Next Required Work"
-                        raise RuntimeError(last_error)
-
-                    if not self._reenter_frame("cphContent_chkNextUser"):
-                        last_error = "Next Response User list did not load"
-                        raise RuntimeError(last_error)
-
-                    ok, selected_user = self._select_credit_salesperson(sales_person)
-                    if not ok:
-                        last_error = f"Sales Person not found in DataDoc: {sales_person}"
-                        raise RuntimeError(last_error)
-                    last_next_user = selected_user
-
-                elif self._is_deepa(sales_person):
-                    last_next_work = "Close - Client Spares"
-                    last_next_user = "Deepa Bisht"
-
-                    if not self._select_dropdown("cphContent_ddlNextWork", last_next_work):
-                        last_error = "Close - Client Spares not found"
-                        raise RuntimeError(last_error)
-
-                    if not self._reenter_frame("cphContent_chkNextUser"):
-                        last_error = "Next Response User list did not load"
-                        raise RuntimeError(last_error)
-
-                    if not self._select_only_user(last_next_user):
-                        last_error = "Deepa Bisht not found"
-                        raise RuntimeError(last_error)
-
-                elif self._is_ankita(sales_person):
-                    last_next_work = "Close - Client - Pump"
-                    last_next_user = "Ankita Dahake"
-
-                    if not self._select_dropdown("cphContent_ddlNextWork", last_next_work):
-                        if not self._select_dropdown("cphContent_ddlNextWork", "Close - Client Pump"):
-                            last_error = "Close - Client - Pump not found"
-                            raise RuntimeError(last_error)
-                        last_next_work = "Close - Client Pump"
-
-                    if not self._reenter_frame("cphContent_chkNextUser"):
-                        last_error = "Next Response User list did not load"
-                        raise RuntimeError(last_error)
-
-                    if not self._select_only_user(last_next_user):
-                        last_error = "Ankita Dahake not found"
-                        raise RuntimeError(last_error)
-
-                if not self._attach_file(attachment_path):
-                    last_error = "Unable to attach Process No. file"
-                    raise RuntimeError(last_error)
-
-                if not self._click_submit():
-                    last_error = "Submit button not found"
-                    raise RuntimeError(last_error)
-
-                if not self._wait_for_submission():
-                    last_error = "Submit did not complete"
-                    raise RuntimeError(last_error)
-
-                return DataDocResult(
-                    True,
-                    "Tracking proof submitted to DataDoc",
-                    next_work=last_next_work,
-                    next_user=last_next_user,
-                )
-
-            except (RuntimeError, WebDriverException) as exc:
-                last_error = str(exc) or last_error or "Submission failed - retry required"
-            except Exception as exc:
-                last_error = str(exc) or "Submission failed - retry required"
-
-            if attempt < 2:
-                self._retry_reset()
-
-        return DataDocResult(
-            False,
-            "Tracking proof submission failed",
-            last_error or "Submission failed - retry required",
-            next_work=last_next_work,
-            next_user=last_next_user,
-        )
+            prefix = "Submit may have completed; " if submit_clicked else ""
+            return DataDocResult(False,"DataDoc tracking proof needs review",
+                                 prefix + str(exc) + ". Check DataDoc before any manual retry.",
+                                 next_work=next_work or None,next_user=next_user or None)
