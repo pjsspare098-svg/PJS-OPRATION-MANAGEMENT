@@ -45,7 +45,7 @@ try {
 } catch {
   throw 'Cannot verify existing Python processes. No workers started; check Windows WMI/CIM access.'
 }
-foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispatch_tracking_worker.py')) {
+foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispatch_tracking_worker.py', 'datadoc_proof_worker.py')) {
   if (-not (Test-Path (Join-Path $PSScriptRoot $worker))) { throw "Missing $worker" }
   $workerPath = Join-Path $PSScriptRoot $worker
   $pattern = '(^|[\\/\s"''])(?:' + [regex]::Escape($worker) + ')(?=$|[\s"''])'
@@ -63,4 +63,4 @@ foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispa
   Write-Host "Started $worker. Check Control Tower for a fresh heartbeat."
 }
 Write-Host 'Safety flags were not modified. Disabled workers should report PAUSED.'
-Write-Host 'Logs: worker\logs\datadoc-worker.log, outlook-draft-worker.log, dispatch-tracking.log'
+Write-Host 'Logs: worker\logs\datadoc-worker.log, outlook-draft-worker.log, dispatch-tracking.log, datadoc-proof.log'
