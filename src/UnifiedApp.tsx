@@ -7,6 +7,8 @@ import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type 
 import {teamsApi} from './teamOps';
 import {agentApi} from './agentApi';
 import {canCloseProcess,checkBill} from './businessRules';
+import {processTransferIssues,transferStageStatus} from './processTransfer.ts';
+import type {WorkflowStage} from './workflowStages.ts';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
 import UnifiedLogin from './UnifiedLogin';
 import DonePickListUpload from './DonePickListUpload';
@@ -109,25 +111,55 @@ export default function UnifiedApp(){
     setPickFile(file);setDialog(true);setBusy(false);
   }
  }
- async function onSave(r:any,files:Record<string,File>){
+ async function onSave(r:any,files:Record<string,File>,transferTo?:WorkflowStage){
   const process=String(r.process||'').trim(),party=String(r.party||'').trim(),so=String(r.so||'').trim();
   if(!process||!party||!so)throw Error('Process No., Party Name and SO No. are required.');
   if(records.some(x=>x.process===process&&x.id!==r.id))throw Error('Process No. already exists: '+process);
-  if(demo){saveDemo({...r,process,party,so});setRecords(mockRecords());setDialog(false);setPickFile(null);onNotice('Saved on this browser only. Uploaded PDF bytes were NOT stored. No cloud data was changed.');return}
-  const saved=await ops.save({...r,process,party,so,team_id:r.id?r.team_id:(r.team_id||activeTeam||null),stage:r.stage||'Universal Process',status:r.status||'Review'},r.id&&r.stage==='Email to Client'?'Moved to Email to Client':r.id?'Process updated':'Process created');
+  const current=records.find(x=>x.id===r.id);
+  if(r.id&&!current&&!demo)throw Error('Process is no longer in the current workspace. Refresh before saving.');
+  if(transferTo){
+   const issues=processTransferIssues({...r,stage:current?.stage||r.stage},transferTo,jobs,exceptions);
+   if(issues.length)throw Error('Cannot transfer: '+issues.join('. '));
+  }
+  const unchangedStage=current?.stage||r.stage||'Universal Process';
+  const unchangedStatus=current?.status||r.status||'Review';
+  // Save fields and attachments before changing stage: failed uploads do not
+  // route a partially saved process into downstream workflow.
+  const base={...r,process,party,so,stage:unchangedStage,status:unchangedStatus};
+  if(demo){
+   saveDemo({...base,stage:transferTo||unchangedStage,status:transferTo?transferStageStatus(transferTo):unchangedStatus});
+   setRecords(mockRecords());setDialog(false);setPickFile(null);
+   if(transferTo)onGoto(transferTo==='Complete'||transferTo==='Delivery Proof'?'Data Store':transferTo);
+   onNotice('Saved in this browser'+(transferTo?' and moved to '+transferTo:'')+'. Uploaded document files were NOT stored.');
+   return;
+  }
+  const saved=await ops.save({...base,team_id:r.id?r.team_id:(r.team_id||activeTeam||null)},r.id?'Process updated':'Process created');
   const failures:{kind:string;message:string}[]=[];
   for(const [kind,file] of Object.entries(files)){
-    try{await cloud.upload(saved.id,kind,file)}
-    catch(e:any){failures.push({kind,message:String(e?.message||'Upload failed')})}
+   try{await cloud.upload(saved.id,kind,file)}
+   catch(e:any){failures.push({kind,message:String(e?.message||'Upload failed')})}
+  }
+  if(failures.length){
+   await refresh();
+   onNotice('Process '+process+' saved, but '+failures.length+' attachment(s) failed. Transfer has NOT been performed; retry missing files.');
+   return {saved,failed:failures.map(f=>f.kind),details:failures.map(f=>f.kind+': '+f.message).join('; ')};
+  }
+  if(transferTo){
+   try{
+    await ops.stage(saved,transferTo,transferStageStatus(transferTo));
+   }catch(e:any){
+    await refresh();
+    return {saved,failed:[],details:'',transferFailed:String(e?.message||'Stage update failed')};
+   }
   }
   await refresh();
-  if(failures.length){
-    onNotice('Process '+process+' was saved, but '+failures.length+' attachment(s) failed. Keep this window open and retry the missing file(s).');
-    return {saved,failed:failures.map(f=>f.kind),details:failures.map(f=>f.kind+': '+f.message).join('; ')};
-  }
   setDialog(false);setPickFile(null);
-  if(r.stage==='Email to Client')onGoto('Email to Client');
-  onNotice('Process '+process+(r.stage==='Email to Client'?' moved to Email to Client.':' saved.')+' '+Object.keys(files).length+' attachment(s) saved successfully.');
+  if(transferTo){
+   onGoto(transferTo==='Complete'||transferTo==='Delivery Proof'?'Data Store':transferTo);
+   onNotice('Process '+process+' transferred to '+transferTo+'. All original documents are preserved. No bill, email or tracking automation was started.');
+  }else{
+   onNotice('Process '+process+' saved. '+Object.keys(files).length+' attachment(s) saved successfully.');
+  }
  }
  async function onDeleteProcess(r:any){
   if(!authenticated)throw Error('Sign in before deleting a process.');
@@ -256,6 +288,6 @@ export default function UnifiedApp(){
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
-  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} onCancelEmailJob={onCancelEmailJob} onDelete={onDeleteProcess} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
+  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} onCancelEmailJob={onCancelEmailJob} exceptions={exceptions} onDelete={onDeleteProcess} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
  </UnifiedShell>;
 }

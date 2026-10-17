@@ -132,3 +132,25 @@
 .ux-worker-error{display:flex;align-items:center;gap:8px;font-size:11px;color:#9f621b}
 .ux-worker-error button{cursor:pointer;border:0;background:transparent;color:#295ba6;display:flex;gap:4px}
 .ux-readiness small a{color:#295ba6;text-decoration:underline}
+
+
+/* Universal Process: safe, explicit workflow transfer. Existing Save stays independent. */
+.ux-transfer-footer{display:flex;align-items:flex-end;gap:7px;flex-wrap:wrap;min-width:0}
+.ux-transfer-footer label{display:grid;gap:5px;color:#4b6888;font-weight:850;font-size:10px}
+.ux-transfer-footer select{min-width:178px;max-width:216px;min-height:40px;border:1px solid #cad9ec;border-radius:9px;background:#fff;color:#29496b;font-size:11px;font-weight:700;padding:7px 9px;cursor:pointer}
+.ux-transfer-footer select:focus{outline:2px solid #9ab4f6;outline-offset:1px}
+.ux-transfer-action{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 12px;font-size:11px;font-weight:850;border:1px solid #b0dcc5;border-radius:9px;background:#e9f8ef;color:#18664f;cursor:pointer}
+.ux-transfer-action:hover:not(:disabled){background:#d7f3e4}
+.ux-transfer-action:disabled{opacity:.55;cursor:not-allowed}
+.ux-transfer-warning{flex:1 0 100%;font-size:10px;color:#98612b;line-height:1.5;margin:0;max-width:420px}
+@media(max-width:760px){
+ .ux-transfer-footer{order:-1;width:100%;display:flex}
+ .ux-transfer-footer label{flex:1;min-width:145px}
+ .ux-transfer-footer select{max-width:100%;width:100%}
+ .ux-transfer-action{min-width:125px}
+}
+@media(max-width:480px){
+ .ux-transfer-footer{gap:6px}
+ .ux-transfer-footer select{min-width:0}
+ .ux-drawer-footer>.ux-primary,.ux-drawer-footer>.ux-secondary{flex:1}
+}
