@@ -1,0 +1,94 @@
+/* Independent OMS: transport tracking sheet (desktop table + mobile cards). */
+.ux-track-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.ux-track-heading .ux-page-heading{flex:1;min-width:270px}
+.ux-track-mode-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.ux-track-mode-tabs button{border:1px solid #d7e2f2;border-radius:10px;padding:11px 13px;background:#fff;color:#53708f;font-size:12px;font-weight:800;display:flex;align-items:center;gap:9px;cursor:pointer;min-height:42px}
+.ux-track-mode-tabs button.active{background:#3567e6;color:white;border-color:#3567e6;box-shadow:0 4px 16px #3567e626}
+.ux-track-mode-tabs span{border-radius:20px;background:#eef3fb;color:#50719e;padding:3px 7px;font-size:10px}
+.ux-track-mode-tabs button.active span{background:#ffffff30;color:#fff}
+.ux-track-search-toolbar>.ux-searchbar{margin:0}
+.ux-track-filter-line{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:0 18px 15px}
+.ux-track-filter-line label{display:flex;align-items:center;gap:10px;color:#526d8d;font-size:12px;font-weight:800}
+.ux-track-filter-line select,.ux-track-transfer select{max-width:210px;min-height:37px;padding:7px 10px;border-radius:9px;background:#fff;border:1px solid #d5e1f2;color:#284769;font-size:12px}
+.ux-track-filter-line .ux-track-refresh{border:1px solid #d5e1f2;border-radius:9px;background:#fff;color:#3e6494;display:flex;align-items:center;gap:7px;padding:9px 12px;font-weight:800;font-size:12px;cursor:pointer}
+.ux-track-guidance{display:flex;align-items:flex-start;gap:8px;margin:0 16px 16px;padding:13px 14px;border-radius:10px;background:#eff6ff;color:#4c6889;font-size:12px;line-height:1.65;border:1px solid #d8e7ff}
+.ux-track-guidance svg{flex-shrink:0;margin-top:2px}
+.ux-tracking-sheet{min-width:1060px}
+.ux-tracking-sheet th:nth-child(1){width:18%}
+.ux-tracking-sheet th:nth-child(2){width:17%}
+.ux-tracking-sheet th:nth-child(3){width:22%}
+.ux-tracking-sheet th:nth-child(4){width:18%}
+.ux-tracking-sheet th:nth-child(5){width:25%}
+.ux-tracking-sheet td{padding:15px 13px}
+.ux-tracking-sheet td>strong{max-width:initial}
+.ux-track-status{display:grid;align-content:start;justify-items:start;gap:6px}
+.ux-track-status small{display:block;font-size:10px;color:#7185a0;line-height:1.45}
+.ux-track-unverified{display:flex;align-items:center;gap:4px;color:#996520;font-size:10px;line-height:1.4}
+.ux-track-unverified svg{flex-shrink:0}
+.ux-track-transfer{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ux-track-transfer select{min-width:120px;max-width:160px}
+.ux-track-transfer button,.ux-track-result-actions button{min-height:33px;border-radius:8px;padding:7px 10px;border:1px solid #d6e3f1;background:#fff;color:#365e8c;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.ux-track-transfer button:disabled,.ux-track-result-actions button:disabled{opacity:.48;cursor:not-allowed}
+.ux-track-result-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.ux-track-result-actions .ux-track-go{background:#3568e8;border-color:#3568e8;color:#fff}
+.ux-track-result-actions .ux-track-capture{border-color:#b8dded;background:#e9f8ff;color:#16738b}
+.ux-track-result-actions .ux-track-verified{background:#e9faf1;border-color:#aadbc4;color:#167355}
+.ux-track-none{font-size:10px;color:#8b9bb3}
+.ux-track-search-cell>small{margin-top:6px;display:block;overflow-wrap:anywhere}
+.ux-track-mobile-list{display:none}
+.ux-tracking-overlay{position:fixed;z-index:240;inset:0;background:#0d1d32ab;display:flex;align-items:center;justify-content:center;padding:16px}
+.ux-tracking-capture-panel{background:#fff;border-radius:17px;width:min(620px,100%);max-height:min(90vh,900px);overflow-y:auto;box-shadow:0 22px 70px #05172a60;padding:22px;color:#183754;display:grid;gap:14px}
+.ux-tracking-capture-panel>header{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.ux-tracking-capture-panel>header small{font-size:10px;font-weight:850;color:#5179b3;letter-spacing:1px}
+.ux-tracking-capture-panel>header h3{font-size:22px;margin:5px 0;color:#193659}
+.ux-tracking-capture-panel>header p{margin:0;color:#8293a9;font-size:12px}
+.ux-tracking-capture-panel>header button{border:0;background:#eef4fb;border-radius:8px;padding:9px;cursor:pointer}
+.ux-capture-intro{display:flex;align-items:start;gap:10px;padding:12px;border:1px solid #eed6ab;border-radius:9px;background:#fff7e9;color:#805e2e;font-size:12px;line-height:1.55}
+.ux-capture-intro svg{flex-shrink:0}
+.ux-capture-actions{display:flex;flex-wrap:wrap;gap:9px}
+.ux-capture-actions button,.ux-capture-footer button{border:1px solid #ceddf1;background:#f3f8ff;color:#345a87;border-radius:9px;padding:11px 14px;display:inline-flex;gap:7px;align-items:center;font-size:12px;font-weight:800;cursor:pointer}
+.ux-capture-actions button:disabled,.ux-capture-footer button:disabled{opacity:.6;cursor:wait}
+.ux-capture-image{display:grid;gap:5px;justify-items:start;min-width:0}
+.ux-capture-image img{max-width:100%;max-height:255px;object-fit:contain;background:#f2f6fb;border-radius:9px;border:1px solid #d7e2f2}
+.ux-capture-image small{color:#7890ac;font-size:11px}
+.ux-capture-status{display:grid;gap:7px;font-size:12px;font-weight:800;color:#3c6187}
+.ux-capture-status select{padding:11px;border:1px solid #cddff2;border-radius:8px;background:white;color:#25456a;font-size:14px}
+.ux-capture-detail{color:#617c98;line-height:1.5}
+.ux-capture-error{font-size:12px;padding:12px;background:#fff0f1;border:1px solid #ffccd0;border-radius:9px;color:#ae3946}
+.ux-capture-footer{display:flex;justify-content:flex-end;gap:8px}
+.ux-capture-footer .primary{background:#3568e8;color:#fff;border-color:#3568e8}
+.ux-capture-float{position:fixed;z-index:242;right:30px;bottom:26px;display:flex;flex-direction:column-reverse;align-items:flex-end;gap:9px}
+.ux-capture-bubble{width:56px;height:56px;border:0;border-radius:50%;background:#3568e8;color:white;display:grid;place-items:center;box-shadow:0 8px 26px #3568e86a;cursor:pointer}
+.ux-capture-bubble-menu{display:grid;gap:5px;padding:12px;background:#fff;border:1px solid #d7e5f4;border-radius:11px;box-shadow:0 12px 30px #102b4c3a}
+.ux-capture-bubble-menu strong{color:#395b7c;font-size:12px;padding:3px 8px}
+.ux-capture-bubble-menu button{display:flex;align-items:center;gap:7px;text-align:left;border:0;background:#fff;color:#345a88;padding:9px;font-size:12px;cursor:pointer;border-radius:6px}
+.ux-capture-bubble-menu button:hover{background:#edf4fe}
+.ux-capture-bubble-menu button:disabled{opacity:.5}
+@media(max-width:900px){
+ .ux-track-heading{display:block}
+ .ux-track-mode-tabs{margin:10px 0 14px}
+ .ux-track-mode-tabs button{flex:1;justify-content:center}
+ .ux-track-desktop-table{display:none}
+ .ux-track-mobile-list{display:grid;gap:11px;padding:14px}
+ .ux-track-mobile-card{border:1px solid #e0e8f4;background:white;border-radius:12px;padding:14px;display:grid;gap:10px;box-shadow:0 4px 14px #1a3f7010}
+ .ux-track-mobile-card header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+ .ux-track-mobile-card header button{border:0;background:transparent;color:#275fc2;font-weight:900;font-size:16px;cursor:pointer}
+ .ux-track-mobile-card header strong{color:#2e4c6a;font-size:12px}
+ .ux-track-mobile-card>p{font-size:12px;color:#71839a;margin:0}
+ .ux-track-mobile-card .ux-track-row-controls{display:grid;gap:10px;border-top:1px solid #eaf0f8;padding-top:10px}
+ .ux-track-transfer select{flex:1;max-width:initial}
+ .ux-track-mobile-empty{padding:28px;text-align:center;color:#7790ae;font-size:13px}
+ .ux-track-filter-line{padding:12px;gap:10px}
+ .ux-track-filter-line label{flex:1;min-width:160px;display:grid;gap:5px}
+ .ux-track-filter-line select{max-width:initial}
+ .ux-track-guidance{margin:0 12px 10px}
+}
+@media(max-width:550px){
+ .ux-track-mode-tabs button{font-size:11px;padding:9px 5px;gap:4px;min-height:44px}
+ .ux-track-mode-tabs span{padding:2px 5px}
+ .ux-track-result-actions button{flex:1}
+ .ux-tracking-capture-panel{padding:15px;max-height:85vh}
+ .ux-capture-float{bottom:15px;right:15px}
+ .ux-capture-bubble{width:48px;height:48px}
+ .ux-capture-footer button{flex:1;justify-content:center}
+}
