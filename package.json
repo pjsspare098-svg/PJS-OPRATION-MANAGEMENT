@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test:pick-slip && npm run test:done-pick && npm run test:migration && npm run test:business && npm run test:process-options && npm run test:email-workflow && npm run test:workflow-stages && npm run test:lr && npm run test:excel && npm run test:document-fields && npm run test:done-pick-albums && npm run test:document-merge && npm run test:agent && npm run test:carrier && npm run test:website-start && npm run test:settings && npm run test:transport && npm run test:transfer && npm run test:datadoc-proof && npm run test:responsive && vite build",
+    "build": "npm run test:pick-slip && npm run test:done-pick && npm run test:migration && npm run test:business && npm run test:process-options && npm run test:email-workflow && npm run test:workflow-stages && npm run test:lr && npm run test:excel && npm run test:document-fields && npm run test:done-pick-albums && npm run test:document-merge && npm run test:agent && npm run test:carrier && npm run test:website-start && npm run test:settings && npm run test:transport && npm run test:transfer && npm run test:datadoc-proof && npm run test:responsive && npm run test:settings-v2 && vite build",
     "preview": "vite preview",
     "test:done-pick": "node --experimental-strip-types tests/donePickReader.test.mjs",
     "test:pick-slip": "node --experimental-strip-types tests/pickSlipReader.test.mjs",
@@ -26,7 +26,8 @@
     "test:datadoc-proof": "node --experimental-strip-types tests/datadocProof.test.mjs",
     "test:website-start": "node tests/websiteWorkerLaunch.test.mjs",
     "test:settings": "node tests/settingsFunctionality.test.mjs",
-    "test:responsive": "node tests/responsiveUi.test.mjs"
+    "test:responsive": "node tests/responsiveUi.test.mjs",
+    "test:settings-v2": "node --experimental-strip-types tests/settingsV2.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
