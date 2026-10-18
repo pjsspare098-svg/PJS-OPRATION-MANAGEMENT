@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 const shell=readFileSync('src/UnifiedShell.tsx','utf8');
 const app=readFileSync('src/UnifiedApp.tsx','utf8');
 const styles=readFileSync('src/responsive-redesign.css','utf8');
+const prefs=readFileSync('src/settingsV2Preferences.ts','utf8');
 
 for(const [section,label] of [
  ['Control Tower','Home'],
@@ -11,9 +12,11 @@ for(const [section,label] of [
  ['Data Store','Documents'],
  ['Dispatch Tracking','Tracking']
 ]){
- assert.ok(shell.includes("page:'"+section+"',label:'"+label+"'"),label+' must navigate to existing workflow');
+ assert.ok(prefs.includes("'"+section+"'"),section+' must remain a valid mobile destination');
+ assert.ok(shell.includes("'"+section+"':'"+label+"'"),label+' must retain a readable label');
 }
 assert.match(shell,/aria-label='Mobile primary navigation'/,'mobile navigation must have an accessible label');
+assert.match(shell,/phoneNav\.map\(page=>/,'mobile navigation must follow saved preferences');
 assert.match(shell,/aria-current=\{page===id\?'page':undefined\}/,'active page must be announced');
 assert.match(shell,/aria-controls='oms-sidebar'/,'More menu must identify the sidebar');
 assert.match(shell,/onClick=\{\(\)=>go\(id\)\}/,'navigation must use existing onPage callback');
