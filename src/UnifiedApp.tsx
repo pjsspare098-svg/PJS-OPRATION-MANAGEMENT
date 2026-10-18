@@ -19,6 +19,7 @@ import UnifiedStagePagesB from './UnifiedStagePagesB';
 import './excel-lr.css';
 import './unified.css';
 import './unified-extra.css';
+import './responsive-redesign.css';
 
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){

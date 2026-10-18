@@ -1,0 +1,146 @@
+/* PJS OMS responsive redesign, phase 1. Visual-only: no workflow or data mutations. */
+.ux-skip-link{position:fixed;top:-70px;left:14px;z-index:100;background:#fff;color:#1c4eaa;border:2px solid #3868ef;border-radius:10px;padding:12px 16px;font-weight:800}
+.ux-skip-link:focus{top:12px}
+.ux-mobile-bottom-nav,.ux-mobile-page-title{display:none}
+.ux-shell{--ux-border:#e0e8f3}
+.ux-sidebar{width:264px}
+.ux-nav-btn{font-size:13px;line-height:1.35;min-height:43px}
+.ux-nav-heading{font-size:10px}
+.ux-worker-card small,.ux-account small{font-size:11px}
+.ux-topbar{box-shadow:0 2px 20px #1d385908}
+.ux-crumb,.ux-crumb strong{font-size:13px}
+.ux-content{max-width:1620px}
+.ux-page-heading p,.ux-hero p{font-size:13px}
+.ux-panel-title h2{font-size:17px}
+.ux-panel-title p{font-size:12px;line-height:1.55}
+.ux-stat>div>span{font-size:12px}
+.ux-stat>small{font-size:11px}
+.ux-step>b{font-size:12px}
+.ux-step>small{font-size:11px}
+.ux-recent-name strong{font-size:13px}
+.ux-recent-name small{font-size:11px}
+.ux-readiness strong{font-size:12px}
+.ux-readiness small{font-size:11px;line-height:1.5}
+.ux-button,.ux-primary,.ux-secondary{font-size:12px;min-height:40px}
+.ux-table th{font-size:11px}
+.ux-table td,.ux-table td strong{font-size:12px}
+.ux-table td small{font-size:11px}
+.ux-process-card-title strong{font-size:15px}
+.ux-process-card-title small{font-size:12px}
+.ux-content button:focus-visible,.ux-topbar button:focus-visible,.ux-sidebar button:focus-visible,.ux-mobile-bottom-nav button:focus-visible{outline:3px solid #79a5ff;outline-offset:2px}
+@media(min-width:761px){
+ .ux-sidebar{width:264px}
+ .ux-nav-btn:hover{transform:translateX(2px)}
+ .ux-panel,.ux-stat,.ux-process-card{box-shadow:0 5px 20px #21456b08}
+}
+@media(min-width:761px) and (max-width:1350px){.ux-sidebar{width:235px}}
+@media(max-width:760px){
+ :root{--pjs-mobile-nav-height:69px}
+ html{scroll-padding-top:76px}
+ body{overflow-x:hidden}
+ .ux-shell{display:block;min-height:100dvh}
+ .ux-main{width:100%;min-height:100dvh;min-width:0}
+ .ux-sidebar{width:min(330px,88vw);height:100dvh;max-height:100dvh;box-shadow:10px 0 50px #091c3666}
+ .ux-brand{min-height:82px;padding:17px 18px}
+ .ux-side-menu{padding:17px 12px}
+ .ux-nav-heading{font-size:11px;margin:0 12px 8px}
+ .ux-nav-btn{font-size:15px;min-height:49px;padding:12px 14px;gap:13px;margin:2px 0}
+ .ux-worker-card b,.ux-account b{font-size:13px}
+ .ux-worker-card small,.ux-account small{font-size:12px;line-height:1.5}
+ .ux-topbar{height:68px;padding:0 14px;gap:8px;z-index:12}
+ .ux-crumb{gap:10px;min-width:0;flex:1}
+ .ux-crumb>span,.ux-crumb>svg,.ux-desktop-page-title{display:none}
+ .ux-mobile-page-title{display:block;font-size:17px!important;line-height:1.2;color:#1c385e!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .ux-mobile-menu,.ux-mobile-close{min-width:44px;min-height:44px;color:#304e75;display:grid;place-items:center}
+ .ux-mobile-close{color:#dce7f6}
+ .ux-top-actions{gap:3px;flex-shrink:0}
+ .ux-top-actions button{min-width:42px;min-height:44px;display:grid;place-items:center}
+ .ux-top-actions button:nth-child(3){display:grid}
+ .ux-online{display:none}
+ .ux-top-avatar{width:33px;height:33px;border-radius:50%;font-size:13px}
+ .ux-content{padding:15px 14px calc(var(--pjs-mobile-nav-height) + env(safe-area-inset-bottom) + 38px);min-height:calc(100dvh - 68px)}
+ .ux-context-strip{font-size:12px;line-height:1.5;padding:10px 12px;gap:9px;border-radius:12px;margin-bottom:17px;align-items:flex-start}
+ .ux-context-strip svg{min-width:17px;flex-shrink:0;margin-top:2px}
+ .ux-page-heading{gap:14px;margin-bottom:20px}
+ .ux-page-heading h1{font-size:27px;line-height:1.15;letter-spacing:-.7px}
+ .ux-page-heading p{font-size:14px;line-height:1.55}
+ .ux-page-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .ux-page-actions>*{min-width:0;white-space:normal;min-height:48px}
+ .ux-hero{min-height:0;padding:22px 19px;border-radius:18px;margin-bottom:16px}
+ .ux-hero h1{font-size:27px;line-height:1.25;letter-spacing:-.75px}
+ .ux-hero p{font-size:14px;line-height:1.55}
+ .ux-kicker{font-size:11px;letter-spacing:1px}
+ .ux-hero-buttons{display:grid;grid-template-columns:1fr;gap:9px;width:100%}
+ .ux-hero-buttons>*{width:100%;min-height:48px;white-space:normal;text-align:center;font-size:14px}
+ .ux-stats,.ux-stats.compact{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
+ .ux-stat{min-width:0;padding:15px 13px;min-height:118px;border-radius:14px}
+ .ux-stat>div{gap:5px;margin-bottom:10px}
+ .ux-stat>div>span{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+ .ux-stat strong{font-size:29px}
+ .ux-stat>small{font-size:11px;line-height:1.35}
+ .ux-stat-symbol{width:31px;height:31px;flex-shrink:0}
+ .ux-panel{border-radius:15px;margin-bottom:16px}
+ .ux-panel-title{padding:17px 15px 14px;gap:10px}
+ .ux-panel-title h2{font-size:17px;line-height:1.3}
+ .ux-panel-title p{font-size:12px;line-height:1.5}
+ .ux-journey{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 14px 17px}
+ .ux-step{margin:0;border-radius:11px!important;padding:13px 12px;min-height:90px}
+ .ux-step>b{font-size:13px;line-height:1.3;margin-top:8px}
+ .ux-step>small{font-size:11px;line-height:1.4}
+ .ux-two-col{grid-template-columns:minmax(0,1fr);gap:0}
+ .ux-recent{padding:14px 12px;gap:10px;min-height:70px}
+ .ux-recent-icon{width:38px;height:38px}
+ .ux-recent-name strong{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+ .ux-recent-name strong span{display:block;margin-top:2px}
+ .ux-recent-name small{font-size:12px;line-height:1.3}
+ .ux-recent .ux-tone{display:none}
+ .ux-readiness{padding:0 14px 12px}
+ .ux-readiness>div{gap:9px;padding:14px 0;flex-wrap:wrap}
+ .ux-readiness strong{font-size:13px}
+ .ux-readiness small{font-size:12px}
+ .ux-readiness b{font-size:11px}
+ .ux-ready-icon{width:38px;height:38px}
+ .ux-tablewrap{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .ux-tablewrap::before{content:'Swipe sideways to view all columns';display:block;padding:9px 14px;color:#496890;background:#f5f9ff;font-size:12px;font-weight:700}
+ .ux-table th,.ux-table td{padding:13px 12px}
+ .ux-table th{font-size:12px}
+ .ux-table td,.ux-table td strong{font-size:13px}
+ .ux-table td small{font-size:12px}
+ .ux-table .ux-button{font-size:12px;min-height:40px}
+ .ux-searchbar{min-height:52px;padding:12px 13px}
+ .ux-searchbar input{font-size:16px}
+ .ux-searchbar small{font-size:12px}
+ .ux-process-card{padding:16px;border-radius:14px}
+ .ux-process-card-title strong{font-size:16px}
+ .ux-process-card-title small,.ux-attachment-line small{font-size:12px}
+ .ux-row-actions .ux-button{min-height:44px;font-size:13px}
+ .ux-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .ux-tabs button{min-height:48px;font-size:13px;padding:11px 12px;white-space:normal}
+ .ux-callout,.ux-alert{font-size:13px;line-height:1.5}
+ .ux-field,.ux-field input,.ux-field select,.ux-field textarea{font-size:14px}
+ .ux-field input,.ux-field select,.ux-field textarea{min-height:46px}
+ .ux-field input,.ux-field select,.ux-field textarea,.ux-login-card input,.ux-searchbar input{font-size:16px}
+ .ux-drawer-header h2{font-size:23px}
+ .ux-drawer-footer{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+ .ux-button,.ux-primary,.ux-secondary{min-height:44px;font-size:13px;line-height:1.3}
+ .ux-footer{font-size:11px}
+ .ux-mobile-bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(var(--pjs-mobile-nav-height) + env(safe-area-inset-bottom));padding:5px 7px calc(5px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #dfe8f3;box-shadow:0 -7px 30px #152e4b1a;z-index:30;justify-content:space-around;align-items:stretch}
+ .ux-mobile-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;flex:1;border:0;border-radius:11px;background:transparent;color:#627894;padding:5px 3px;font-size:11px;font-weight:750;line-height:1.2}
+ .ux-mobile-tab span{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .ux-mobile-tab.active{background:#eaf2ff;color:#245ac4}
+ .ux-mobile-tab:active{background:#dceafd}
+ .ux-mobile-scrim{z-index:34}
+ .ux-sidebar.mobile-open{z-index:35}
+}
+@media(max-width:360px){
+ .ux-topbar{padding:0 8px}
+ .ux-top-actions button{min-width:38px}
+ .ux-top-avatar{display:none}
+ .ux-content{padding-left:11px;padding-right:11px}
+ .ux-mobile-tab{font-size:10px}
+ .ux-hero h1{font-size:25px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ux-sidebar,.ux-nav-btn{transition:none!important}
+ .ux-mobile-tab:active{transition:none}
+}
