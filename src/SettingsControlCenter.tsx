@@ -1,8 +1,9 @@
 import {useEffect,useState} from 'react';
+import SettingsPersonalization from './SettingsPersonalization';
 import {
   Activity,AlertTriangle,ArrowRight,Bell,Camera,CheckCircle2,ClipboardCheck,Clock3,
   Database,DatabaseBackup,Download,LayoutDashboard,
-  Palette,Save,ScanText,Server,ShieldCheck,Truck,Users,Workflow
+  Palette,Save,ScanText,Server,ShieldCheck,Truck,Users,Workflow,Smartphone,PanelsTopLeft
 } from 'lucide-react';
 import {Button,Heading} from './UnifiedKit';
 import TeamWorkspace from './TeamWorkspace';
@@ -14,20 +15,23 @@ import PdfOcrTestBench from './PdfOcrTestBench';
 import {ops,type Preferences} from './unifiedOps';
 import './settings-control-center.css';
 
-type Tab='overview'|'worker'|'automation'|'users'|'dispatch'|'pdf'|'camera'|'alerts'|'backup'|'security'|'appearance';
+type Tab='overview'|'appearance'|'mobile'|'dashboard'|'alerts'|'automation'|'camera'|'security'|'backup'|'worker'|'users'|'dispatch'|'pdf';
 const tabs=[
-  {id:'overview',label:'Overview',icon:LayoutDashboard},
-  {id:'worker',label:'Office Worker',icon:Server},
-  {id:'automation',label:'Automation',icon:Workflow},
+  {id:'overview',label:'Settings Home',icon:LayoutDashboard},
+  {id:'appearance',label:'Appearance & Accessibility',icon:Palette},
+  {id:'mobile',label:'Android Navigation',icon:Smartphone},
+  {id:'dashboard',label:'Dashboard Layout',icon:PanelsTopLeft},
+  {id:'alerts',label:'Smart Notifications',icon:Bell},
+  {id:'automation',label:'Automation Control',icon:Workflow},
+  {id:'camera',label:'Camera & Documents',icon:Camera},
+  {id:'security',label:'Security & Account',icon:ShieldCheck},
+  {id:'backup',label:'Data & Backup',icon:DatabaseBackup},
+  {id:'worker',label:'Office Worker Monitor',icon:Server},
   {id:'users',label:'Users & Roles',icon:Users},
   {id:'dispatch',label:'Dispatch Rules',icon:Truck},
-  {id:'pdf',label:'PDF / OCR',icon:ScanText},
-  {id:'camera',label:'Camera & Photos',icon:Camera},
-  {id:'alerts',label:'Notifications',icon:Bell},
-  {id:'backup',label:'Backup & Recovery',icon:DatabaseBackup},
-  {id:'security',label:'Security & Audit',icon:ShieldCheck},
-  {id:'appearance',label:'Appearance',icon:Palette},
+  {id:'pdf',label:'PDF / OCR Test Bench',icon:ScanText},
 ] as const;
+const settingsEight=['appearance','mobile','dashboard','alerts','automation','camera','security','backup'] as const;
 
 function SectionHeader({title,description,badge}:{title:string;description:string;badge?:string}){
   return <div className='sc-section-head'><div><h2>{title}</h2><p>{description}</p></div>{badge&&<span className='sc-chip'>{badge}</span>}</div>;
@@ -89,16 +93,16 @@ export default function SettingsControlCenter({p}:{p:any}){
   const waiting=jobs.filter((j:any)=>j.status==='queued').length;
   const failed=jobs.filter((j:any)=>j.status==='failed').length;
   return <div className='sc-root'>
-    <Heading eyebrow='ADMINISTRATION / INDEPENDENT WORKSPACE' title='Settings Control Center'
-      description='Manage operations safely. Active settings are separated from planned integrations; existing cloud records stay unchanged.'/>
+    <Heading eyebrow='PERSONALIZATION / ADMINISTRATION' title='Settings 2.0'
+      description='Eight organized sections for phone, desktop and operations. Working preferences are separate from features that still require backend setup.'/>
     <div className='sc-hero'>
       <div><strong><ShieldCheck size={17}/> Independent OMS</strong><p>Protected cloud workspace. The original PJS Delivery Control database is not used here.</p></div>
       <div className='sc-hero-status'><Status tone={demo?'warning':'good'}>{demo?'Local demo':'Authenticated cloud'}</Status><Status>View live worker status below</Status></div>
     </div>
     <div className='sc-layout'>
       <nav aria-label='Settings sections' className='sc-navigation'>
-        <div className='sc-nav-label'>WORKSPACE SETTINGS</div>
-        {tabs.map(({id,label,icon:Icon})=><button key={id} className={'sc-nav-link '+(tab===id?'selected':'')} onClick={()=>switchTab(id)} aria-current={tab===id?'page':undefined}><Icon size={16}/><span>{label}</span>{id==='dispatch'&&<span className='sc-nav-dot'/>}</button>)}
+        <div className='sc-nav-label'>SETTINGS 2.0</div>
+        {tabs.map(({id,label,icon:Icon})=><div className='sc-nav-item' key={id}>{id==='worker'&&<div className='sc-nav-label sc-nav-advanced'>EXISTING OPERATIONS</div>}<button className={'sc-nav-link '+(tab===id?'selected':'')} onClick={()=>switchTab(id)} aria-current={tab===id?'page':undefined}><Icon size={17}/><span>{label}</span>{id==='dispatch'&&<span className='sc-nav-dot'/>}</button></div>)}
       </nav>
       <div className='sc-main'>
         {tab==='overview'&&<>
@@ -112,11 +116,14 @@ export default function SettingsControlCenter({p}:{p:any}){
             </div>
           </section>
           <section className='sc-card'>
-            <SectionHeader title='Configure your workspace' description='Open a category to review its controls and implementation status.'/>
-            <div className='sc-overview-grid'>{tabs.filter(t=>t.id!=='overview').map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={19}/><strong>{label}</strong><ArrowRight size={15}/></button>)}</div>
+            <SectionHeader title='Your eight Settings 2.0 sections' description='Appearance, Android, Dashboard, Alerts, Automation, Camera, Security and Backup. Controls are labeled live or planned.' badge='8 SECTIONS'/>
+            <div className='sc-overview-grid'>{tabs.filter(t=>(settingsEight as readonly string[]).includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={21}/><strong>{label}</strong><ArrowRight size={16}/></button>)}</div>
           </section>
+          <section className='sc-card'><SectionHeader title='Existing operational settings' description='Keep using the current Office Worker, Users & Roles, Dispatch Rules and PDF/OCR controls without losing any functionality.' badge='PRESERVED'/><div className='sc-overview-grid'>{tabs.filter(t=>['worker','users','dispatch','pdf'].includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={19}/><strong>{label}</strong><ArrowRight size={15}/></button>)}</div></section>
           <Note>Office agents are monitored live; start/pause requires the authorized Windows PC. In-app notifications and user-scoped process deletion are connected. Managed database backups and outbound messaging remain separately administered.</Note>
         </>}
+        {tab==='mobile'&&<SettingsPersonalization section='mobile'/>}
+        {tab==='dashboard'&&<SettingsPersonalization section='dashboard'/>}
         {tab==='dispatch'&&<section className='sc-card'>
           <SectionHeader title='Dispatch rules' description='Existing user-specific rules, stored in independent Supabase.' badge='LIVE SETTINGS'/>
           <div className='sc-fields'>
@@ -182,7 +189,7 @@ export default function SettingsControlCenter({p}:{p:any}){
           <section className='sc-card'><SectionHeader title='Notifications & alerts' description='Pending task review is available; automatic outbound notifications are not configured.' badge='PARTIALLY AVAILABLE'/>
             <SettingRow title='Pending process checks' description='Existing completeness checks can be opened from the workspace.' right={<Status tone='good'>Available</Status>}/>
             <SettingRow title='Email, SMS or WhatsApp delivery' description='Requires server-side delivery integration and opt-in settings.' right={<Status>Not configured</Status>}/>
-            <div className='sc-actions'><Button onClick={()=>onGoto('Pending Task Review')}>Open pending tasks <ArrowRight size={15}/></Button></div>
+            <div className='sc-actions'><Button onClick={()=>onGoto('AI Command Center')}>Open pending tasks <ArrowRight size={15}/></Button></div>
           </section>
           <SettingsNotifications authenticated={authenticated&&!demo}/>
           <Planned title='External notification delivery' items={['Email / SMS / WhatsApp providers and verified consent','Quiet hours and notification digest','Rate limits and escalation routing']}/>
@@ -217,6 +224,7 @@ export default function SettingsControlCenter({p}:{p:any}){
             <div className='sc-fields'><label className='ux-field'>Color scheme<select value={theme} onChange={e=>setTheme(e.target.value==='dark'?'dark':'light')}><option value='light'>Light</option><option value='dark'>Dark</option></select></label>
               <label className='ux-field'>Initial page after sign-in<select value={landing} onChange={e=>setLanding(e.target.value as typeof landing)}>{(['Control Tower','Universal Process','DataDoc','Dispatch Tracking'] as const).map(v=><option key={v}>{v}</option>)}</select></label></div>
           </section>
+          <SettingsPersonalization section='appearance'/>
           <Planned title='Advanced appearance' items={['Per-table column visibility','Cloud-synced preferences between devices']}/>
         </>}
       </div>
