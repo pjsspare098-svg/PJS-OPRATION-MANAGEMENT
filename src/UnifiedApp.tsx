@@ -20,6 +20,8 @@ import './excel-lr.css';
 import './unified.css';
 import './unified-extra.css';
 import './responsive-redesign.css';
+import './settings-v2.css';
+import {applySettingsV2,readSettingsV2,SETTINGS_V2_EVENT} from './settingsV2Preferences';
 
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
@@ -35,6 +37,11 @@ export default function UnifiedApp(){
  const [importIssue,setImportIssue]=useState('');
  const picker=useRef<HTMLInputElement>(null);
  useEffect(()=>{document.documentElement.dataset.omsTheme=localStorage.getItem('pjs_oms_appearance_theme_v1')==='dark'?'dark':'light'},[]);
+ useEffect(()=>{
+  const sync=()=>applySettingsV2(readSettingsV2());
+  sync();window.addEventListener(SETTINGS_V2_EVENT,sync);window.addEventListener('storage',sync);
+  return()=>{window.removeEventListener(SETTINGS_V2_EVENT,sync);window.removeEventListener('storage',sync)};
+ },[]);
  useEffect(()=>{
   let active=true;
   if(!supabase){setChecking(false);return}
