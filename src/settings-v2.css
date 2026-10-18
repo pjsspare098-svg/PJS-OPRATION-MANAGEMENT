@@ -1,0 +1,97 @@
+/* Settings 2.0: progressive UI features only, no cloud/worker mutations */
+.sc-nav-item{min-width:0;display:grid}
+.sc-nav-advanced{border-top:1px solid #e1eaf4;margin-top:10px;padding-top:18px}
+.sc-nav-link{font-size:12px;min-height:43px;line-height:1.35}
+.sc-section-head h2{font-size:17px;line-height:1.35}
+.sc-section-head p{font-size:12px}
+.sc-overview-grid .sc-shortcut{min-height:75px}
+.sc-shortcut strong{font-size:13px;line-height:1.3}
+.sc-setting-row strong{font-size:13px}
+.sc-setting-row p{font-size:12px}
+.sc-note{font-size:12px}
+.sc-fields .ux-field{font-size:13px}
+.sc-fields .ux-field small{font-size:12px}
+.sc-feature{font-size:12px}
+.sv2-content{padding:20px 23px;display:grid;gap:17px}
+.sv2-fieldset{margin:0;padding:0;border:0;min-width:0}
+.sv2-fieldset legend{font-size:13px;font-weight:800;color:#284666;padding:0 0 12px}
+.sv2-segments{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sv2-segments button{border:1px solid #cddbeb;background:#fff;color:#4c6382;border-radius:10px;min-height:46px;padding:8px 10px;font-size:13px;font-weight:800;cursor:pointer}
+.sv2-segments button.selected{background:#eaf2ff;border-color:#5482ec;color:#225ac1}
+.sv2-toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px;border:1px solid #e0e8f3;background:#fafcff;border-radius:12px;cursor:pointer}
+.sv2-toggle>span{display:grid;gap:6px}
+.sv2-toggle strong{color:#244161;font-size:14px}
+.sv2-toggle small{color:#647f9f;font-size:12px;line-height:1.45}
+.sv2-toggle input,.sv2-dashboard-card input{width:21px;height:21px;min-width:21px;accent-color:#376be1;cursor:pointer}
+.sv2-actions{display:flex;justify-content:flex-start;gap:9px;flex-wrap:wrap}
+.sv2-actions button{background:#f3f7ff;border:1px solid #cddcf2;color:#2c5da2;border-radius:10px;padding:11px 13px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:9px;min-height:44px;cursor:pointer}
+.sv2-actions button:hover{background:#e9f2ff}
+.sv2-explainer{font-size:13px;line-height:1.55;background:#edf5ff;border:1px solid #d7e8fe;color:#385d91;display:flex;align-items:flex-start;gap:10px;padding:13px;border-radius:10px;margin:0}
+.sv2-explainer svg{flex-shrink:0}
+.sv2-nav-preview{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;border:1px solid #dee9f6;background:#fff;border-radius:14px;padding:10px}
+.sv2-nav-preview>div{display:grid;justify-items:center;align-content:center;min-width:0;gap:5px;text-align:center}
+.sv2-nav-preview span{width:29px;height:29px;display:grid;place-items:center;border-radius:8px;background:#eaf2ff;color:#3466c4;font-weight:900;font-size:12px}
+.sv2-nav-preview strong{font-size:11px;color:#415d80;overflow-wrap:anywhere;line-height:1.3}
+.sv2-nav-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.sv2-nav-fields label{font-size:12px;font-weight:850;color:#405d80;display:grid;gap:8px;min-width:0}
+.sv2-nav-fields select{width:100%;font:14px/1.3 inherit;min-height:47px;border:1px solid #cddcef;background:#fff;color:#244364;border-radius:9px;padding:9px 11px;cursor:pointer;min-width:0}
+.sv2-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sv2-dashboard-card{display:flex;align-items:center;gap:11px;flex-wrap:wrap;min-height:70px;padding:13px 14px;border:1px solid #dce6f5;border-radius:12px;background:#fafcff;cursor:pointer}
+.sv2-dashboard-card>svg{color:#376ee2;flex-shrink:0}
+.sv2-dashboard-card>svg:last-child{margin-left:auto;color:#20a278}
+.sv2-dashboard-card strong{color:#2c4a71;font-size:13px;flex:1;min-width:100px}
+.sv2-help{color:#697f9c;font-size:12px;line-height:1.4}
+.sv2-planned{display:flex;align-items:center;gap:9px;padding:18px 23px;color:#5b789b;font-size:13px;line-height:1.55}
+.sv2-toggle:focus-within,.sv2-nav-fields label:focus-within,.sv2-dashboard-card:focus-within{outline:2px solid #5282e4;outline-offset:2px}
+@media(max-width:800px){
+ .sc-nav-advanced{display:none}
+ .sc-navigation{scroll-padding-inline:12px}
+ .sc-nav-item{display:block;flex:0 0 auto}
+ .sc-nav-link{min-height:46px;font-size:13px;padding:11px 14px}
+}
+@media(max-width:600px){
+ .sc-root{max-width:100%}
+ .sc-navigation{margin:0 -2px 16px;border-radius:12px;position:relative;box-shadow:0 4px 13px #1838630b}
+ .sc-main{width:100%;min-width:0}
+ .sc-shortcut{min-width:0}
+ .sc-metrics strong{font-size:15px}
+ .sc-section-head{gap:12px;padding:16px}
+ .sc-section-head h2{font-size:18px}
+ .sc-section-head p{font-size:13px}
+ .sc-chip{white-space:normal;font-size:10px}
+ .sv2-content{padding:16px;gap:16px}
+ .sv2-nav-fields{grid-template-columns:1fr}
+ .sv2-check-grid{grid-template-columns:1fr}
+ .sv2-dashboard-card{min-height:60px}
+ .sv2-toggle strong{font-size:15px}
+ .sv2-toggle small{font-size:13px}
+ .sv2-nav-preview{gap:3px;padding:7px}
+ .sv2-nav-preview strong{font-size:10px}
+ .sv2-segments button{font-size:12px;padding:8px 5px}
+ .sc-overview-grid{grid-template-columns:1fr}
+}
+:root[data-oms-font='large'] .sc-root :is(p,small,.sc-feature,.sc-nav-link,.sc-shortcut strong,.sc-setting-row strong,.sv2-help),
+:root[data-oms-font='large'] .ux-main :is(.ux-stat>small,.ux-readiness small,.ux-recent-name small,.ux-step>small,.ux-table td,.ux-table td small,.ux-page-heading p){font-size:14px!important;line-height:1.5}
+:root[data-oms-font='large'] .ux-main :is(.ux-nav-btn,.ux-recent-name strong,.ux-panel-title h2,.ux-stat>div>span,.ux-step>b,.ux-button,.ux-primary,.ux-secondary){font-size:15px!important}
+:root[data-oms-font='extra'] .sc-root :is(p,small,.sc-feature,.sc-nav-link,.sc-shortcut strong,.sc-setting-row strong,.sv2-help),
+:root[data-oms-font='extra'] .ux-main :is(.ux-stat>small,.ux-readiness small,.ux-recent-name small,.ux-step>small,.ux-table td,.ux-table td small,.ux-page-heading p){font-size:16px!important;line-height:1.55}
+:root[data-oms-font='extra'] .ux-main :is(.ux-recent-name strong,.ux-panel-title h2,.ux-stat>div>span,.ux-step>b,.ux-button,.ux-primary,.ux-secondary){font-size:17px!important;line-height:1.4}
+:root[data-oms-font='extra'] .ux-mobile-tab{font-size:13px}
+:root[data-oms-font='large'] .ux-mobile-tab{font-size:12px}
+:root[data-oms-font='extra'] .sc-section-head h2{font-size:20px}
+:root[data-oms-contrast='on'] .ux-panel,:root[data-oms-contrast='on'] .ux-stat,:root[data-oms-contrast='on'] .sc-card,
+:root[data-oms-contrast='on'] .sc-navigation,:root[data-oms-contrast='on'] .ux-process-card{border:2px solid #5979a1}
+:root[data-oms-contrast='on'] .ux-main :is(.ux-recent-name small,.ux-readiness small,.ux-page-heading p,.ux-stat>small),
+:root[data-oms-contrast='on'] .sc-root :is(.sc-section-head p,.sc-setting-row p,.sc-muted){color:#33557b!important}
+:root[data-oms-contrast='on'][data-oms-theme='dark'] .ux-main :is(.ux-recent-name small,.ux-readiness small,.ux-page-heading p,.ux-stat>small),
+:root[data-oms-contrast='on'][data-oms-theme='dark'] .sc-root :is(.sc-section-head p,.sc-setting-row p,.sc-muted){color:#dfedff!important}
+:root[data-oms-reduce-motion='on'] *, :root[data-oms-reduce-motion='on'] *::before,:root[data-oms-reduce-motion='on'] *::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}
+:root[data-oms-theme='dark'] .sv2-toggle,:root[data-oms-theme='dark'] .sv2-segments button,:root[data-oms-theme='dark'] .sv2-dashboard-card,
+:root[data-oms-theme='dark'] .sv2-nav-preview,:root[data-oms-theme='dark'] .sv2-nav-fields select{background:#172840!important;color:#e5efff!important;border-color:#476385!important}
+:root[data-oms-theme='dark'] .sv2-toggle strong,:root[data-oms-theme='dark'] .sv2-dashboard-card strong,:root[data-oms-theme='dark'] .sv2-nav-preview strong{color:#e9f2ff}
+:root[data-oms-theme='dark'] .sv2-toggle small,:root[data-oms-theme='dark'] .sv2-nav-fields label,:root[data-oms-theme='dark'] .sv2-fieldset legend{color:#c0d1eb}
+:root[data-oms-theme='dark'] .sv2-explainer,:root[data-oms-theme='dark'] .sv2-planned{background:#213a59;color:#d0e2fa;border-color:#476385}
+:root[data-oms-theme='dark'] .sv2-segments button.selected{background:#25518c!important;color:#fff!important}
+:root[data-oms-theme='dark'] .ux-mobile-bottom-nav{background:#172840!important;border-color:#476385!important}
+:root[data-oms-theme='dark'] .ux-mobile-tab{color:#b7cee8}
+:root[data-oms-theme='dark'] .ux-mobile-tab.active{background:#214b82;color:#f1f7ff}
