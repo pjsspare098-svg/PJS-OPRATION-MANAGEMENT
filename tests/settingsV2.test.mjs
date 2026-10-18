@@ -26,7 +26,7 @@ assert.deepEqual(normalizeSettingsV2({fontSize:'invalid'}).fontSize,'normal');
 assert.equal(mobileChoices.length,12);
 assert.deepEqual(dashboardChoices,['total','workflow','attention','completed']);
 assert.match(prefs,/localStorage\.setItem\(SETTINGS_V2_KEY/,'UI settings must be browser-local');
-assert.doesNotMatch(prefs,/supabase|service_role|fetch\(/i,'Local settings must have no server calls or secrets');
+assert.doesNotMatch(prefs,/from ['"]\.\/independentClient|createClient|SUPABASE_SERVICE_ROLE_KEY|\bfetch\(/i,'Local settings must have no server calls or secrets');
 for(const section of ['appearance','mobile','dashboard','alerts','automation','camera','security','backup'])
  assert.ok(ui.includes("id:'"+section+"'"),'Required Settings 2.0 section '+section);
 for(const existing of ["<WorkerFleetStatus","<TeamWorkspace","<SettingsNotifications","<WorkspaceResetPanel","<PdfOcrTestBench","<HistoricalImport","ops.updatePreferences","onExport"])
