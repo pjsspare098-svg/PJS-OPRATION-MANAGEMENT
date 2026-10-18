@@ -1,19 +1,26 @@
 import {Activity,AlertTriangle,BarChart3,Bell,Bot,ChevronRight,ClipboardCheck,Cloud,Database,FileCheck2,Images,FileSpreadsheet,LayoutDashboard,LogOut,LogIn,Mail,Menu,PackageCheck,RefreshCw,Settings2,ShieldCheck,Truck,UserRound,X} from 'lucide-react';
-import {type ReactNode,useState} from 'react';
+import {type ReactNode,useEffect,useState} from 'react';
+import {readSettingsV2,SETTINGS_V2_EVENT,type MobilePage} from './settingsV2Preferences';
 export type Section='Control Tower'|'Data Store'|'Universal Process'|'DataDoc'|'Email to Client'|'Dispatch Tracking'|'Done Pick List'|'Check List'|'Excel & LR Finder'|'AI Command Center'|'Audit & Reports'|'Settings';
 const nav:{name:string;items:[Section,any][]}[]=[
  {name:'COMMAND CENTER',items:[['Control Tower',LayoutDashboard],['Data Store',Database],['Universal Process',ClipboardCheck]]},
  {name:'DISPATCH WORKFLOW',items:[['DataDoc',FileCheck2],['Email to Client',Mail],['Dispatch Tracking',Truck],['Done Pick List',Images],['Check List',AlertTriangle]]},
  {name:'INTELLIGENCE & TOOLS',items:[['Excel & LR Finder',FileSpreadsheet],['AI Command Center',Bot],['Audit & Reports',BarChart3],['Settings',Settings2]]},
 ];
-const mobileNav: {page:Section; label:string; Icon:any}[]=[
- {page:'Control Tower',label:'Home',Icon:LayoutDashboard},
- {page:'Universal Process',label:'Processes',Icon:ClipboardCheck},
- {page:'Data Store',label:'Documents',Icon:Database},
- {page:'Dispatch Tracking',label:'Tracking',Icon:Truck},
-];
+const mobileLabels:Partial<Record<MobilePage,string>>={
+ 'Control Tower':'Home','Universal Process':'Processes','Data Store':'Documents',
+ 'Dispatch Tracking':'Tracking','Email to Client':'Email','Done Pick List':'Photos',
+ 'Excel & LR Finder':'Excel','AI Command Center':'AI Tasks','Audit & Reports':'Audit'
+};
 export default function UnifiedShell({page,onPage,onRefresh,onSignOut,demo,user,stats,notificationCount=0,busy,children}:{page:Section;onPage:(p:Section)=>void;onRefresh:()=>void;onSignOut:()=>void;demo:boolean;user:any;stats:any;notificationCount?:number;busy:boolean;children:ReactNode}){
  const [mobile,setMobile]=useState(false);
+ const [phoneNav,setPhoneNav]=useState(()=>readSettingsV2().mobileNav);
+ useEffect(()=>{
+  const sync=()=>setPhoneNav(readSettingsV2().mobileNav);
+  window.addEventListener(SETTINGS_V2_EVENT,sync);window.addEventListener('storage',sync);
+  return()=>{window.removeEventListener(SETTINGS_V2_EVENT,sync);window.removeEventListener('storage',sync)};
+ },[]);
+ const mobileNav=phoneNav.map(page=>({page,label:mobileLabels[page]||page,Icon:nav.flatMap(group=>group.items).find(([id])=>id===page)?.[1]||LayoutDashboard}));
  function go(p:Section){onPage(p);setMobile(false)}
  return <div className='ux-shell'><a className='ux-skip-link' href='#oms-main-content'>Skip to main content</a><aside id='oms-sidebar' aria-label='PJS Operations sections' className={'ux-sidebar '+(mobile?'mobile-open':'')}>
   <div className='ux-brand'><div className='ux-logo'>P</div><div><strong>PJS <i>Operations</i></strong><small>UNIFIED CONTROL SYSTEM</small></div><button type='button' className='ux-mobile-close' aria-label='Close menu' onClick={()=>setMobile(false)}><X size={20}/></button></div>
