@@ -54,7 +54,8 @@ export default function DispatchTrackingPage({p}:{p:any}){
 
  function latestScreenshot(r:any){
   const files=(r.documents||[]).filter((d:any)=>d.kind==='trackingShotDoc');
-  const manualDocumentId=String(r.trackingCaptureDocumentId||'');
+  const manualDocumentId=displayedTrackingResult(r).source==='manual'
+   ?String(r.trackingCaptureDocumentId||''):'';
   if(manualDocumentId){
    const manual=files.find((d:any)=>d.id===manualDocumentId);
    if(manual)return manual;
@@ -65,8 +66,8 @@ export default function DispatchTrackingPage({p}:{p:any}){
   const url=manualCarrierUrl(r.transporter);
   if(!url){p.onNotice?.('No official tracking website configured for this transporter. Review its name first.');return}
   // Direct user click opens the carrier tab; no Selenium, API lookup or queue.
-  const opened=window.open(url,'_blank','noopener,noreferrer');
-  if(!opened)p.onNotice?.('If the carrier page did not open, allow browser pop-ups for PJS.');
+  // With noopener, Chrome may return null even after opening successfully.
+  window.open(url,'_blank','noopener,noreferrer');
   if(r.lr&&navigator.clipboard?.writeText)void navigator.clipboard.writeText(String(r.lr)).catch(()=>{});
   setCapture(r);
  }
