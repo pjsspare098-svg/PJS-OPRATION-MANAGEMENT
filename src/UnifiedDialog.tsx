@@ -12,10 +12,14 @@ const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Box Weight (Kgs)'],['transporter','Courier / Transporter'],['lr','Doc No. / LR / Docket No.'],['courierDate','Courier Date','date'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
 ];
 export const documentKinds:[string,string][]= [['pickDoc','Pick Slip'],['invoiceDoc','Invoice'],['einvoiceDoc','E-Invoice'],['ebillDoc','E-Way Bill'],['lrDoc','LR / Docket'],['emailDoc','Outlook Email (.eml)'],['proofDoc','Delivery Proof'],['trackingShotDoc','Tracking Search Screenshots']];
-export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],exceptions=[],onDelete,onCancelEmailJob,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];exceptions?:any[];onDelete:(r:any)=>Promise<void>;onCancelEmailJob?:(job:any)=>Promise<void>;onClose:()=>void;onSave:(data:any,files:Record<string,File>,transferTo?:WorkflowStage)=>Promise<void|{saved:any;failed:string[];details:string;transferFailed?:string}>}){
+export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],exceptions=[],onDelete,onCancelEmailJob,onAttachmentChanged,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];exceptions?:any[];onDelete:(r:any)=>Promise<void>;onCancelEmailJob?:(job:any)=>Promise<void>;onAttachmentChanged?:()=>Promise<void>|void;onClose:()=>void;onSave:(data:any,files:Record<string,File>,transferTo?:WorkflowStage)=>Promise<void|{saved:any;failed:string[];details:string;transferFailed?:string}>}){
  const scrollRef=useRef<HTMLDivElement>(null);
  const [draft,setDraft]=useState<any>({...blankProcess(),...record});
  const [files,setFiles]=useState<Record<string,File>>({});
+ const [attachmentBusy,setAttachmentBusy]=useState('');
+ const [attachmentNotice,setAttachmentNotice]=useState('');
+ const [showDeletedAttachments,setShowDeletedAttachments]=useState(false);
+ const [deletedAttachments,setDeletedAttachments]=useState<{id:string;kind:string;name:string;deleted_at:string}[]>([]);
  const [transferTo,setTransferTo]=useState<WorkflowStage|''>('');
  const [sourcePending,setSourcePending]=useState(Boolean(sourceFile));
  const [deleteOpen,setDeleteOpen]=useState(false);
@@ -117,6 +121,44 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   }catch(e:any){setError(e?.message||'Save failed. Please try again.');scrollRef.current?.scrollTo({top:0,behavior:'smooth'})}
   finally{setBusy(false)}
  }
+ async function toggleDeletedAttachments(){
+  if(showDeletedAttachments){setShowDeletedAttachments(false);return}
+  if(!draft.id||demo)return;
+  setAttachmentBusy('loading');setError('');
+  try{
+   const docs=await cloud.listTrashedDocuments(draft.id);
+   setDeletedAttachments(docs);
+   setShowDeletedAttachments(true);
+  }catch(e:any){setError('Could not read Deleted attachments: '+String(e?.message||'Unknown error'))}
+  finally{setAttachmentBusy('')}
+ }
+ async function changeAttachment(d:{id:string;kind:string;name:string},restore:boolean){
+  if(!draft.id||demo||attachmentBusy||busy||scanBusy)return;
+  const name=String(d.name||d.kind||'attachment');
+  if(!restore&&!window.confirm('Move "'+name+'" from Process '+draft.process+' to Deleted attachments?\n\nOnly this file is affected. Its original bytes and audit history are preserved and it can be restored. Files used by active jobs or recorded evidence cannot be removed.'))return;
+  setAttachmentBusy(d.id);setError('');setAttachmentNotice('');
+  let applied=false;
+  try{
+   await cloud.setDocumentTrash(draft.id,d.id,restore);
+   applied=true;
+   setScanInfo('');setScanCandidates([]);setScanFailures([]);
+   // Keep any unsaved field edits in the editor; refresh attachments only.
+   const fresh=await cloud.findByProcess(String(draft.process||''));
+   if(fresh&&fresh.id===draft.id)setDraft((old:any)=>({...old,documents:fresh.documents||[]}));
+   else if(!restore)setDraft((old:any)=>({...old,documents:(old.documents||[]).filter((x:any)=>x.id!==d.id)}));
+   if(showDeletedAttachments||restore){
+    try{setDeletedAttachments(await cloud.listTrashedDocuments(draft.id))}
+    catch{setAttachmentNotice('Attachment updated. Refresh the Deleted attachments list if needed.')}
+   }
+   setAttachmentNotice((restore?'Restored ':'Moved to Deleted attachments: ')+name+
+     '. Process '+draft.process+' and the other files are unchanged.');
+   try{await onAttachmentChanged?.()}
+   catch{setAttachmentNotice('Attachment changed successfully, but page refresh failed. Close and reopen this process; do not repeat the action.')}
+  }catch(e:any){
+   setError((applied?'Attachment changed, but refresh failed: ':'Could not change attachment: ')+
+     String(e?.message||'Unknown error')+(applied?' Do not retry without refreshing.':''));
+  }finally{setAttachmentBusy('')}
+ }
  async function deleteProcess(){
   if(deleteInput!==String(draft.process||''))return;
   setBusy(true);setError('');
@@ -186,14 +228,15 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
      <input type='file' disabled={busy||Boolean(scanBusy)} accept={kind==='emailDoc'?'.eml,message/rfc822':'.pdf,.png,.jpg,.jpeg'} onChange={e=>{choose(kind,e.target.files?.[0]);e.target.value=''}}/>
     </label>
     {kind==='emailDoc'&&<small className='ux-recipient-count'>Outlook Reply All will use this conversation when the email agent is running. No addresses are extracted.</small>}
-    {files[kind]&&<button className='ux-preview-selected' type='button' onClick={()=>previewSelected(files[kind])}><ExternalLink size={14}/> Preview selected file (before save)</button>}
+    {files[kind]&&<div className='ux-attachment-pending'><button className='ux-preview-selected' type='button' onClick={()=>previewSelected(files[kind])}><ExternalLink size={14}/> Preview selected file (before save)</button><button type='button' className='ux-attachment-delete' disabled={busy||Boolean(scanBusy)||Boolean(attachmentBusy)} onClick={()=>setFiles(old=>{const next={...old};delete next[kind];return next})}><Trash2 size={14}/> Remove selected</button></div>}
     {scanBusy===kind&&<small className='ux-scanning'>Reading the document…</small>}
     {existing.map((d:any)=><div key={d.id} className='ux-saved-file'>
      <span title={d.name}>{d.name}</span>
      <div>
       <button type='button' disabled={demo} onClick={()=>void cloud.open(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not open file.'))}><ExternalLink size={13}/> Open</button>
       <button type='button' disabled={demo} onClick={()=>void cloud.download(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not download file.'))}>Download</button>
-      {canExtract&&<button type='button' disabled={demo||Boolean(scanBusy)} onClick={()=>void scan(kind,undefined,d)}>Extract</button>}
+      {canExtract&&<button type='button' disabled={demo||Boolean(scanBusy)||Boolean(attachmentBusy)} onClick={()=>void scan(kind,undefined,d)}>Extract</button>}
+      <button type='button' className='ux-attachment-delete' disabled={!canDelete||busy||Boolean(scanBusy)||Boolean(attachmentBusy)} title={canDelete?'Move this file to Deleted attachments':'Only the owner of a personal process can remove saved attachments'} onClick={()=>void changeAttachment(d,false)}><Trash2 size={13}/>{attachmentBusy===d.id?'Moving…':'Delete'}</button>
      </div>
     </div>)}
    </div>;
@@ -202,8 +245,24 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
     <span>{d.name||'Done Pick List'}</span><div>
      <button type='button' disabled={demo} onClick={()=>void cloud.open(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not open photo.'))}>Open</button>
      <button type='button' disabled={demo} onClick={()=>void cloud.download(draft.id,d.id).catch((e:any)=>setError(e?.message||'Could not download photo.'))}>Download</button>
+     <button type='button' className='ux-attachment-delete' disabled={!canDelete||busy||Boolean(scanBusy)||Boolean(attachmentBusy)} title='Move this photo to Deleted attachments' onClick={()=>void changeAttachment(d,false)}><Trash2 size={13}/>{attachmentBusy===d.id?'Moving…':'Delete'}</button>
     </div>
    </div>):<small>Not yet uploaded. Open the Done Pick List page to add multiple photos under a Process No.</small>}</div>}
+  {draft.id&&!demo&&<div className='ux-attachment-trash-panel'>
+   <button type='button' className='ux-attachment-trash-toggle'
+    disabled={busy||Boolean(attachmentBusy)||Boolean(scanBusy)}
+    onClick={()=>void toggleDeletedAttachments()}>
+    <Trash2 size={14}/>{showDeletedAttachments?'Hide Deleted attachments':'Deleted attachments · Restore files'}
+   </button>
+   {showDeletedAttachments&&<div className='ux-attachment-trash-list'>
+    {deletedAttachments.length?deletedAttachments.map(d=><div key={d.id} className='ux-saved-file'>
+     <span title={d.name}>{d.name}<small>{documentKinds.find(x=>x[0]===d.kind)?.[1]||d.kind} · Deleted {new Date(d.deleted_at).toLocaleDateString('en-IN')}</small></span>
+     <div><button type='button' disabled={!canDelete||busy||Boolean(attachmentBusy)||Boolean(scanBusy)}
+      onClick={()=>void changeAttachment(d,true)}>{attachmentBusy===d.id?'Restoring…':'Restore'}</button></div>
+    </div>):<small>No deleted attachments for this process.</small>}
+   </div>}
+  </div>}
+  {attachmentNotice&&<div className='ux-attachment-notice' role='status'>{attachmentNotice}</div>}
   <p className='ux-footnote'>Files up to 5 MB. Invoice, E-Invoice and E-Way Bill are optional for moving to Email. They are checked separately for DataDoc Bill Submit.</p>
  </section>
  {deleteOpen&&canDelete&&<div className='ux-master-delete' role='alertdialog' aria-label='Confirm Delete Process'>
