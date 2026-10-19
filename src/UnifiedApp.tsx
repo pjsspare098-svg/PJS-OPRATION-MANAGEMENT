@@ -5,9 +5,7 @@ import {cloud} from './cloud';
 import {dispatchDetailsText} from './emailWorkflow';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
 import {teamsApi} from './teamOps';
-import {agentApi} from './agentApi';
 import {canCloseProcess,checkBill,checkJob} from './businessRules';
-import {normalizeCarrier} from './carrierRegistry';
 import {processTransferIssues,transferStageStatus} from './processTransfer.ts';
 import type {WorkflowStage} from './workflowStages.ts';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
@@ -32,8 +30,6 @@ export default function UnifiedApp(){
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
  const [donePickOpen,setDonePickOpen]=useState(false);
- const [agentUnread,setAgentUnread]=useState(0);
- const notifiedIds=useRef<Set<string>>(new Set());
  const [activeTeam,setActiveTeam]=useState('');
  const [importIssue,setImportIssue]=useState('');
  const picker=useRef<HTMLInputElement>(null);
@@ -64,29 +60,6 @@ export default function UnifiedApp(){
    void teamsApi.list().then(t=>{if(alive&&t.length===1&&t[0].role!=='viewer')setActiveTeam(t[0].team_id)}).catch(()=>{});
    return()=>{alive=false};
  },[user?.id]);
- useEffect(()=>{
-  if(!user||demo){setAgentUnread(0);notifiedIds.current.clear();return}
-  let active=true;let initialized=false;
-  async function poll(){
-   try{
-    const events=await agentApi.notifications();
-    if(!active)return;
-    setAgentUnread(events.filter(e=>!e.read_at).length);
-    if(initialized&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
-     // Only notify for newly delivered reminders; initial unread events
-     // are visible through the bell but do not cause an alert storm.
-     for(const event of events.filter(e=>!e.read_at&&!notifiedIds.current.has(e.id)).slice(0,4)){
-      try{new Notification(event.title,{body:event.body,tag:'pjs-oms-'+event.id})}catch{}
-     }
-    }
-    notifiedIds.current=new Set(events.map(x=>x.id));
-    initialized=true;
-   }catch{}
-  }
-  void poll();
-  const interval=setInterval(()=>void poll(),45000);
-  return()=>{active=false;clearInterval(interval)};
- },[user?.id,demo]);
  const results=useMemo(()=>records.filter(r=>[r.process,r.party,r.so,r.invoice,r.transporter,r.lr,r.stage,r.status].some(v=>includes(v,search))),[records,search]);
  const stats=useMemo(()=>({total:records.length,complete:records.filter(r=>String(r.stage||'').toLowerCase()==='complete').length,pending:records.filter(r=>missingDocs(r).length>0).length,exceptions:new Set([...records.filter(isException).map(r=>r.id),...exceptions.filter(x=>x.status!=='resolved').map(x=>x.process_id)]).size}),[records,exceptions]);
  const authenticated=Boolean(user&&!demo);
@@ -229,16 +202,6 @@ export default function UnifiedApp(){
   if(!remaining.length){await ops.save({...r,exceptionReason:''},'Exception reason cleared after resolution');}
   await refresh();onNotice('Resolution saved. Process stage is unchanged until you explicitly move it.');
  }
- async function onAgentMove(r:any,stage:'Email to Client'|'Dispatch Tracking'){
-  if(!authenticated)throw Error('Sign in before modifying a cloud process.');
-  if(!records.some(x=>x.id===r.id))throw Error('Process is no longer in your accessible workspace.');
-  if(stage==='Dispatch Tracking'&&exceptions.some(x=>x.process_id===r.id&&x.status!=='resolved')){
-   throw Error('Resolve the open Check List exceptions before moving this process to tracking.');
-  }
-  await ops.stage(r,stage,stage==='Email to Client'?'Ready for Email':'Pending');
-  await refresh();
-  onNotice('Process '+r.process+' moved to '+stage+'. No email or office automation was executed.');
- }
  async function onApproveDataDocProof(r:any,documentId:string){
   if(!authenticated){setError('Sign in before approving DataDoc proof submissions.');return}
   const recent=records.find(x=>x.id===r.id);
@@ -257,6 +220,7 @@ export default function UnifiedApp(){
  }
  async function onQueue(r:any,type:JobType){
   if(!authenticated){onNotice('Sign in to queue office automation.');return}
+  if(type==='tracking'){setError('Automatic carrier tracking is retired. Open Dispatch Tracking and use Track + Capture to save manual evidence.');return}
   if(type==='bill_submit'&&!window.confirm('Approve a real DataDoc bill for Process '+r.process+'? Check the Invoice No., positive amount, Credit/Non-Credit and that Full Payment Verify = Yes is true. The Windows worker will attach one ZIP and may SUBMIT a real transaction when enabled.'))return;
   setBusy(true);
   try{
@@ -268,37 +232,6 @@ export default function UnifiedApp(){
       ?'Reply All draft queued. The office Outlook worker will prepare a draft when connected; it will NOT send an email.'
       :'Job queued. Its separate office adapter must be connected before any external action.');
   }catch(e:any){setError(e?.message||'Unable to queue request.')}
-  finally{setBusy(false)}
- }
- async function onBatchTrackShreeMaruti(requested:any[]){
-  if(!authenticated){setError('Sign in before requesting carrier tracking.');return}
-  if(!requested.length){onNotice('No eligible Shree Maruti tracking IDs in the current view.');return}
-  if(!window.confirm('Track All: queue '+requested.length+' Shree Maruti tracking IDs from the currently filtered view?\n\nThe office carrier worker handles approved lookups. The updated Shree Maruti Windows worker will search up to 20 IDs per carrier page and save each result to its own Process No. Older workers may still run individual searches until updated.\n\nNo emails, DataDoc submissions or delivery confirmations will be sent.'))return;
-  setBusy(true);setError('');
-  let added=0,skipped=0;
-  const failures:string[]=[];
-  try{
-   // Refresh both snapshots so a stale list cannot overwrite or re-queue records.
-   const [upToDate,existingJobs]=await Promise.all([ops.listRecords(),ops.listJobs()]);
-   const map=new Map(upToDate.map((r:any)=>[r.id,r]));
-   const known=new Set<string>();
-   for(const incoming of requested){
-    const r:any=map.get(incoming.id);
-    if(!r||known.has(r.id)){skipped++;continue}
-    known.add(r.id);
-    if(r.owner_id&&r.owner_id!==user?.id){skipped++;continue}
-    if(String(r.stage||'').trim().toLowerCase()!=='dispatch tracking'||normalizeCarrier(r.transporter)!=='SHREE MARUTI'){skipped++;continue}
-    if(r.trackingStatus==='Delivered'||existingJobs.some(j=>j.process_id===r.id&&j.job_type==='tracking'&&['queued','running'].includes(j.status))){skipped++;continue}
-    if(!checkJob(r,'tracking',settings,existingJobs).ready){skipped++;continue}
-    try{
-     const job=await ops.queue(r,'tracking',existingJobs,settings);
-     existingJobs.unshift(job);added++;
-    }catch(e:any){failures.push('Process '+r.process+': '+String(e?.message||'Queue rejected').slice(0,100))}
-   }
-   await refresh();
-   onNotice('Track All: queued '+added+' approved Shree Maruti lookup(s); skipped '+skipped+'. These are queued jobs, not verified results.');
-   if(failures.length)setError('Queue errors: '+failures.slice(0,5).join('; '));
-  }catch(e:any){setError('Could not complete Track All: '+String(e?.message||'Refresh and try again'))}
   finally{setBusy(false)}
  }
  async function onCancelEmailJob(job:Job){
@@ -337,8 +270,8 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onAgentMove,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onBatchTrackShreeMaruti,onApproveDataDocProof,onAttach,onDraftEmail,onCancelEmailJob,onConfirmEmailSent,onError:setError,onNotice};
- return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} notificationCount={agentUnread} busy={busy}>
+ const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onApproveDataDocProof,onAttach,onDraftEmail,onCancelEmailJob,onConfirmEmailSent,onError:setError,onNotice};
+ return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
