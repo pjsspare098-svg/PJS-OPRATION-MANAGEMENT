@@ -117,7 +117,8 @@ export default function DispatchTrackingPage({p}:{p:any}){
    <Tone value={r.trackingCaptureStatus&&!r.trackingStatus?r.trackingCaptureStatus:status}/>
    {r.trackingCaptureStatus&&<div className='ux-track-unverified'><AlertTriangle size={12}/> Manual status: {r.trackingCaptureStatus} · Not carrier-verified</div>}
    {r.trackingCaptureDetail&&<div className='ux-track-manual-detail' title={String(r.trackingCaptureDetail)}><strong>Tracking details:</strong> {String(r.trackingCaptureDetail)}</div>}
-   {r.trackingDetail&&<small title={String(r.trackingDetail)}>{String(r.trackingDetail).slice(0,105)}</small>}
+   {r.trackingDetail&&<small title={String(r.trackingDetail)}>{String(r.trackingDetail).slice(0,160)}</small>}
+   {r.trackingDeliveryDate&&<small>Latest carrier event: {String(r.trackingDeliveryDate)}</small>}
    {r.trackingCheckedAt&&<small>Worker checked {new Date(r.trackingCheckedAt).toLocaleString('en-IN')}</small>}
    {r.trackingCaptureAt&&<small>Screenshot {new Date(r.trackingCaptureAt).toLocaleString('en-IN')}</small>}
   </div>;
@@ -140,12 +141,15 @@ export default function DispatchTrackingPage({p}:{p:any}){
    <div className='ux-outlook-worker'><div className={'ux-outlook-worker-dot '+(ready?'is-online':'')}/><div>
     <strong>{!online?'Offline — approved jobs remain queued':ready?'Connected — tracking worker ready':'Connected — tracking paused'}</strong>
     <small>{worker?.worker_name||'No worker registered'} · Last heartbeat {lastSeen}</small>
-    <small>{workerError||'Only worker-confirmed results count as verified. No automatic retries or email sending.'}</small>
-    {worker&&worker.details?.mode!=='shree_maruti_verified_batch_v2'&&<small className='ux-shree-update-note'>Tracking worker is using an older adapter. Download the updated Windows worker to enable one-search multi-AWB batches and private delivered screenshots.</small>}
+    <small>{workerError||'Only verified latest journey events update process status; the green progress marker is recorded for comparison. Each verified Shree Maruti result can have a private screenshot. No automatic retries or email sending.'}</small>
+    {worker&&worker.details?.mode!=='shree_maruti_direct_screenshots_v3'&&<small className='ux-shree-update-note'>Tracking worker needs the latest direct-site adapter. Update the Windows worker to save screenshots for every verified status, including In Transit.</small>}
    </div></div>
    <div className='ux-shree-batch-controls'>
-    <div><strong>Track all Shree Maruti IDs in this view</strong><small>{shreeBatch.length} eligible of {selected.length} visible record(s) · excludes delivered, incomplete and already queued jobs. Updated Windows worker searches up to 20 AWBs together; older workers remain single-ID until updated.</small></div>
-    <button type='button' disabled={busy||!p.authenticated||shreeBatch.length===0} onClick={()=>void p.onBatchTrackShreeMaruti(shreeBatch)}><Truck size={16}/> Track All ({shreeBatch.length})</button>
+    <div><strong>Track all Shree Maruti IDs in this view</strong><small>{shreeBatch.length} eligible of {selected.length} visible record(s) · excludes delivered, incomplete and already queued jobs. Direct tracker: up to 20 AWBs per search; each verified result and screenshot belongs to its own Process No.</small></div>
+    <div className='ux-shree-batch-actions'>
+     <button type='button' className='ux-shree-visit' onClick={()=>window.open('https://tracking.shreemaruti.com/','_blank','noopener,noreferrer')}><ExternalLink size={16}/> Official tracker</button>
+     <button type='button' disabled={busy||!p.authenticated||shreeBatch.length===0} onClick={()=>void p.onBatchTrackShreeMaruti(shreeBatch)}><Truck size={16}/> Track All ({shreeBatch.length})</button>
+    </div>
    </div>
    <ShreeMarutiImport records={p.records} authenticated={p.authenticated} busy={busy} teamId={p.activeTeam||''} onImported={p.onRefresh}/>
   </Panel>}

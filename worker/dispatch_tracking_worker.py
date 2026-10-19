@@ -5,8 +5,9 @@
 - Up to 20 Shree Maruti jobs share ONE official multi-AWB website search.
   Per-AWB results are always finished individually through the existing
   transactional oms_finish_tracking RPC.
-- Only genuinely Delivered Shree Maruti screenshots are stored as private
-  trackingShotDoc files under their verified matching process.
+- Shree Maruti screenshots for each verified journey status are stored as
+  private trackingShotDoc files under their matching process (not only Delivered).
+  Screenshots alone NEVER confirm delivery; only the verified carrier status does.
 - Unknown/ambiguous results never become "Delivered"; no job or failed
   screenshot is automatically retried. No DataDoc or Outlook action.
 - Live browser access is DISABLED by default until a supervised office test.
@@ -90,7 +91,7 @@ def heartbeat(db, owner: str, name: str, status: str, job_id: str | None = None,
         "owner_id": owner, "worker_name": name, "machine_name": socket.gethostname(),
         "status": status, "current_job_id": job_id, "last_seen_at": timestamp(),
         "details": {
-            "mode": "shree_maruti_verified_batch_v2",
+            "mode": "shree_maruti_direct_screenshots_v3",
             "live_enabled": os.getenv("PJS_ENABLE_LIVE_TRACKING", "0") == "1",
             "batch_size": os.getenv("PJS_SHREE_MARUTI_BATCH_SIZE", "20"),
             "note": note[:160],
@@ -153,7 +154,7 @@ def result_from_carrier(result: TrackResult) -> dict:
         "success": True, "status": status,
         "detail": str(result.detail or status)[:900],
         "delivery_date": str(result.delivery_date or "")[:100],
-        "screenshot_path": str(result.screenshot_path or "") if status == "Delivered" else "",
+        "screenshot_path": str(result.screenshot_path or ""),
     }
 
 
@@ -232,28 +233,29 @@ def finish(db, job: dict, name: str, result: dict) -> None:
 
 
 def upload_verified_screenshot(db, job: dict, result: dict) -> bool:
-    """Attach delivered AWB screenshot to the exact private OMS process.
+    """Attach the confirmed AWB's result screenshot to its private OMS process.
 
     Called only AFTER the atomic finish RPC succeeded. Screenshot storage errors
     do not revert a correctly verified carrier result. Never load arbitrary
     paths supplied from a database job.
     """
-    if not result["success"] or result["status"] != "Delivered":
+    if not result["success"] or result["status"] not in VALID_STATUSES:
         return False
     screenshot = str(result.get("screenshot_path") or "")
     if not screenshot:
-        LOGGER.warning("Delivered tracking for process %s has no screenshot; review", job["process_no"])
+        LOGGER.warning("Verified Shree Maruti tracking for process %s has no screenshot; review", job["process_no"])
         return False
     local_path = Path(screenshot).resolve()
     if not local_path.is_relative_to(SCREENSHOT_ROOT.resolve()):
         raise ValueError("Screenshot path outside authorized tracking-screenshots folder")
     if not local_path.is_file() or not (0 < local_path.stat().st_size <= MAX_SCREENSHOT):
-        raise ValueError("Delivered screenshot is missing, empty or exceeds 5 MB")
+        raise ValueError("Tracking screenshot is missing, empty or exceeds 5 MB")
     process_no = str(job["process_no"])
     awb = str((job.get("payload") or {}).get("tracking_id") or "")
     if not re.fullmatch(r"\d{5,10}", process_no):
         raise ValueError("Invalid Process No. for private screenshot")
-    filename = f"Tracking_{process_no}_{re.sub(r'[^a-zA-Z0-9_-]', '_', awb)[:55]}_{uuid4().hex[:8]}.png"
+    status_name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(result["status"]))[:30]
+    filename = f"Tracking_{process_no}_{re.sub(r'[^a-zA-Z0-9_-]', '_', awb)[:55]}_{status_name}_{uuid4().hex[:8]}.png"
     storage_path = f"{job['user_id']}/{job['process_id']}/{uuid4()}-{filename}"
     with local_path.open("rb") as body:
         db.storage.from_("oms-documents").upload(
@@ -274,13 +276,15 @@ def upload_verified_screenshot(db, job: dict, result: dict) -> bool:
     try:
         db.table("oms_events").insert({
             "user_id": job["user_id"], "process_id": job["process_id"],
-            "process_no": process_no, "action": "Carrier delivered screenshot saved",
+            "process_no": process_no, "action": "Carrier tracking result screenshot saved",
             "details": {"job_id": job["id"], "carrier": "SHREE MARUTI",
-                        "tracking_id": awb, "document_name": filename},
+                        "tracking_id": awb, "status": result["status"],
+                        "document_name": filename},
         }).execute()
     except Exception:
         LOGGER.warning("Screenshot saved but audit event failed for process %s", process_no)
-    LOGGER.info("Delivered screenshot saved to private Process %s", process_no)
+    LOGGER.info("Tracking screenshot (%s) saved to private Process %s",
+                result["status"], process_no)
     return True
 
 
@@ -299,7 +303,7 @@ def record_jobs(db, owner: str, name: str, jobs: list[dict],
             LOGGER.error("Tracking finish uncertain: process %s, job %s (%s). Manual reconciliation required.",
                          job["process_no"], job["id"], type(exc).__name__)
             continue
-        if outcome["success"] and outcome["status"] == "Delivered":
+        if (outcome["success"] and is_shree_maruti(str((job.get("payload") or {}).get("transporter") or ""))):
             try:
                 upload_verified_screenshot(db, job, outcome)
             except Exception as exc:

@@ -57,6 +57,8 @@ class ShreeSupabaseMappingTests(unittest.TestCase):
         self.assertEqual(outcomes[jobs[2]["id"]]["status"], "Returned")
         self.assertEqual(outcomes[jobs[1]["id"]]["screenshot_path"], "/test.png")
         self.assertEqual(outcomes[jobs[0]["id"]]["screenshot_path"], "")
+        pending = worker.result_from_carrier(TrackResult("In Transit", "Booked", "13 OCT", "/safe/not-real.png"))
+        self.assertEqual(pending["screenshot_path"], "/safe/not-real.png")
         engine.track_shree_maruti_batch.assert_called_once_with(
             [(x["process_no"], x["payload"]["tracking_id"]) for x in jobs],
             on_progress=None
@@ -117,14 +119,14 @@ class ShreeSupabaseMappingTests(unittest.TestCase):
             "p_delivery_date": "",
         })
 
-    def test_attach_only_verified_delivered_screenshot_to_own_process(self):
+    def test_attach_verified_result_screenshot_to_own_process_for_any_status(self):
         with tempfile.TemporaryDirectory() as root, patch.object(worker, "SCREENSHOT_ROOT", Path(root)):
             target = job(1, "00123456789")
             file = Path(root) / "SHREE_MARUTI" / "295841_00123456789.png"
             file.parent.mkdir()
             file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"test-screenshot")
             db = Mock()
-            result = {"success": True, "status": "Delivered", "screenshot_path": str(file)}
+            result = {"success": True, "status": "In Transit", "screenshot_path": str(file)}
             self.assertTrue(worker.upload_verified_screenshot(db, target, result))
             insert_args = db.table.return_value.insert.call_args_list[0].args[0]
             self.assertEqual(insert_args["user_id"], OWNER)
@@ -133,10 +135,21 @@ class ShreeSupabaseMappingTests(unittest.TestCase):
             self.assertTrue(insert_args["path"].startswith(OWNER + "/" + target["process_id"] + "/"))
             self.assertIn("295841", insert_args["name"])
             self.assertIn("00123456789", insert_args["name"])
+            self.assertIn("In_Transit", insert_args["name"])
             db.storage.from_.return_value.upload.assert_called_once()
             self.assertFalse(worker.upload_verified_screenshot(db, target, {
-                "success": True, "status": "In Transit", "screenshot_path": str(file)
+                "success": False, "status": "Error", "screenshot_path": str(file)
             }))
+
+    def test_record_jobs_uploads_verified_in_transit_screenshot_not_only_delivered(self):
+        target = job(1, "00123456789")
+        db = Mock()
+        db.rpc.return_value.execute.return_value.data = True
+        outcome = {"success": True, "status": "In Transit", "detail": "Dispatched",
+                   "delivery_date": "", "screenshot_path": "/safe/result.png"}
+        with patch.object(worker, "upload_verified_screenshot") as upload:
+            worker.record_jobs(db, OWNER, "office", [target], {target["id"]: outcome})
+            upload.assert_called_once_with(db, target, outcome)
 
     def test_refuse_screenshot_outside_worker_private_folder(self):
         with tempfile.TemporaryDirectory() as root, patch.object(worker, "SCREENSHOT_ROOT", Path(root)):

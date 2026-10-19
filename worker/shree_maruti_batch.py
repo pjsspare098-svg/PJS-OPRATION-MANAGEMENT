@@ -4,11 +4,13 @@ No Excel or database access in this module. One Selenium session submits up to
 20 AWBs, selects the exact AWB chip and verifies the active hero belongs to it
 before saving its *latest journey event*. Fail closed on ambiguous results.
 
-The tracking page and its embedded iframe require verification on the actual
-authorized Windows workstation before live mode is enabled.
+The official tracker is opened directly at tracking.shreemaruti.com. The older
+Shree Maruti public page is not required. Validate its live DOM on the authorized
+Windows workstation before enabling carrier lookups.
 """
 from __future__ import annotations
 
+import base64
 import logging
 import re
 import time
@@ -21,7 +23,7 @@ from selenium.webdriver.common.by import By
 from carriers import TrackResult, normalize_status
 
 LOG = logging.getLogger(__name__)
-PAGE_URL = "https://shreemaruti.com/track-shipment/"
+PAGE_URL = "https://tracking.shreemaruti.com/"
 MAX_BATCH = 20
 POLL_SECONDS = 0.2
 PAGE_TIMEOUT = 18
@@ -54,6 +56,8 @@ class ShreeMarutiBatchTracker:
     def __init__(self, driver, screenshot_dir: str | Path):
         self.driver = driver
         self.screenshot_dir = Path(screenshot_dir)
+        # Never accept a chipless single-AWB hero from an earlier search.
+        self._submitted_awbs: list[str] = []
 
     def _find(self, css: str, scope=None):
         try:
@@ -106,10 +110,7 @@ class ShreeMarutiBatchTracker:
         try:
             self.driver.switch_to.default_content()
             current = str(self.driver.current_url or "").lower()
-            current_is_tracker = (
-                "shreemaruti.com/track-shipment" in current
-                or "tracking.shreemaruti.com" in current
-            )
+            current_is_tracker = current.startswith(PAGE_URL.lower())
             if force or not current_is_tracker:
                 self.driver.get(PAGE_URL)
             if self._until(self._activate_context, PAGE_TIMEOUT):
@@ -129,8 +130,8 @@ class ShreeMarutiBatchTracker:
             return []
 
     def _clear_previous(self):
-        """Refuse a stale chip from an earlier batch rather than reporting it."""
-        if not self._chips():
+        """Never reuse a stale chip OR stale chipless single-AWB hero."""
+        if not self._chips() and self._find(HERO) is None:
             return
         try:
             buttons = self.driver.find_elements(
@@ -145,15 +146,20 @@ class ShreeMarutiBatchTracker:
         # If Clear All changed, refresh ONLY because the page cannot be reused safely.
         self.driver.switch_to.default_content()
         self.driver.refresh()
-        if not self._until(self._activate_context, PAGE_TIMEOUT) or self._chips():
+        if (not self._until(self._activate_context, PAGE_TIMEOUT)
+                or self._chips() or self._find(HERO) is not None):
             raise RuntimeError("Old Shree Maruti results could not be cleared safely")
 
     def _submit(self, awbs: list[str]):
         if not awbs or len(awbs) > MAX_BATCH:
             raise ValueError("Shree Maruti search must contain 1–20 AWBs")
         if not self._activate_context():
-            raise RuntimeError("Shree Maruti search iframe is unavailable")
+            raise RuntimeError("Shree Maruti search context is unavailable")
+        self._submitted_awbs = []
         self._clear_previous()
+        # Clearing the old result may have reloaded the page / iframe.
+        if not self._activate_context():
+            raise RuntimeError("Shree Maruti search context disappeared after reset")
         box = self._find(SEARCH)
         button = self._find(BUTTON)
         if box is None or button is None:
@@ -167,6 +173,7 @@ class ShreeMarutiBatchTracker:
         if not self._until(lambda: button.is_enabled(), 2):
             raise RuntimeError("Shree Maruti Track button is disabled")
         button.click()
+        self._submitted_awbs = list(awbs)
 
     def _matching_chip(self, awb: str):
         for chip in self._chips():
@@ -178,20 +185,35 @@ class ShreeMarutiBatchTracker:
     def _belongs_to(self, awb: str) -> bool:
         label = self._find(ACTIVE_CHIP)
         hero = self._find(HERO)
-        return (
-            label is not None and hero is not None
-            and (label.text or "").strip().casefold() == awb.casefold()
-            and exact_awb_in(hero.text or "", awb)
-        )
+        if hero is None or not exact_awb_in(hero.text or "", awb):
+            return False
+        if label is not None:
+            return (label.text or "").strip().casefold() == awb.casefold()
+        # Shree Maruti's direct tracker has NO chips for a one-AWB search.
+        # This fallback is permitted only if our current request has exactly
+        # one AWB and there are no chips showing another active shipment.
+        return (len(self._submitted_awbs) == 1
+                and self._submitted_awbs[0].casefold() == awb.casefold()
+                and not self._chips())
 
     def _select(self, awb: str):
-        chip = self._until(lambda: self._matching_chip(awb), RESULT_TIMEOUT)
-        if chip is None:
-            raise LookupError("Exact AWB chip not present in the carrier result")
-        if not self._belongs_to(awb):
-            chip.click()
+        # A single tracking ID can show the hero directly without a chip.
+        # In a multi-AWB response we require the exact selectable chip.
+        def select_ready():
+            if len(self._submitted_awbs) == 1 and self._belongs_to(awb):
+                return True
+            return self._matching_chip(awb)
+        target = self._until(select_ready, RESULT_TIMEOUT)
+        if target is None:
+            raise LookupError("Matching shipment result was not found for this AWB")
+        if target is not True and not self._belongs_to(awb):
+            target.click()
         if not self._until(lambda: self._belongs_to(awb), RESULT_TIMEOUT):
             raise RuntimeError("Selected AWB and shipment hero did not agree")
+
+    def _current_progress_step(self) -> str:
+        """Read only the green/current progress marker, NOT all 'done' marks."""
+        return self._text("section.status-hero .progress-step.current .progress-label")
 
     def _latest_journey(self, awb: str) -> tuple[str, str, str]:
         if not self._belongs_to(awb):
@@ -215,17 +237,23 @@ class ShreeMarutiBatchTracker:
         # Keep the carrier's displayed date/time; do not invent the year.
         event_time = re.split(r"\s*[·•]\s*", sub, maxsplit=1)[0].strip()
         date = " ".join(x for x in (day, event_time) if x)[:100]
-        detail = " | ".join(x for x in (title, date, sub, reason) if x)[:900]
+        marker = self._current_progress_step()
+        # In returned/undelivered cases the green marker can still show an
+        # earlier stage. The *latest shipment journey* remains authoritative.
+        marker_note = f"Current progress marker: {marker}" if marker else ""
+        if marker and normalize_status(marker) != status:
+            marker_note += " (journey differs; latest journey used)"
+        detail = " | ".join(x for x in (title, date, sub, reason, marker_note) if x)[:900]
         if not self._belongs_to(awb):
             raise RuntimeError("Carrier result changed before it was recorded")
         return status, detail, date
 
-    def _capture_delivered(self, process: str, awb: str) -> str | None:
+    def _capture_result(self, process: str, awb: str, status: str) -> str | None:
         if not self._belongs_to(awb):
             return None
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        name = f"{safe_segment(process)}_{safe_segment(awb)}_{stamp}_{uuid4().hex[:8]}.png"
+        name = f"{safe_segment(process)}_{safe_segment(awb)}_{safe_segment(status)}_{stamp}_{uuid4().hex[:8]}.png"
         path = self.screenshot_dir / name
         try:
             hero = self._find("section.status-hero")
@@ -233,12 +261,32 @@ class ShreeMarutiBatchTracker:
                 self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", hero)
             if not self._belongs_to(awb):
                 return None
-            if not self.driver.save_screenshot(str(path)) or not path.is_file() or path.stat().st_size == 0:
+            # Chrome's full-page capture includes both the status card and the
+            # Shipment Journey, as shown in the operator's official site.
+            # Fall back to a normal Selenium viewport image when CDP is unavailable.
+            captured = False
+            try:
+                response = self.driver.execute_cdp_cmd(
+                    "Page.captureScreenshot",
+                    {"format": "png", "captureBeyondViewport": True, "fromSurface": True},
+                )
+                raw = base64.b64decode(response["data"], validate=True)
+                if raw.startswith(b"\x89PNG\r\n\x1a\n") and len(raw) <= 5 * 1024 * 1024:
+                    path.write_bytes(raw)
+                    captured = True
+            except Exception:
+                pass
+            if not captured and not self.driver.save_screenshot(str(path)):
                 raise RuntimeError("Selenium did not produce a screenshot")
+            if not self._belongs_to(awb):
+                path.unlink(missing_ok=True)
+                raise RuntimeError("Tracking result changed AWB during screenshot capture")
+            if not path.is_file() or path.stat().st_size == 0:
+                raise RuntimeError("Tracking screenshot file is empty")
             return str(path)
         except Exception as exc:
-            LOG.warning("Verified delivered status, but screenshot failed for process %s (%s)",
-                        process, type(exc).__name__)
+            LOG.warning("Verified carrier status %s, but screenshot failed for process %s (%s)",
+                        status, process, type(exc).__name__)
             return None
 
     def _read_one(self, awb: str) -> tuple[str, str, str]:
@@ -291,9 +339,8 @@ class ShreeMarutiBatchTracker:
             for index, awb in enumerate(unique, 1):
                 try:
                     resolved[awb] = self._read_one(awb)
-                    if resolved[awb][0] == "Delivered":
-                        for process in processes_by_awb[awb]:
-                            screenshots[(process, awb)] = self._capture_delivered(process, awb)
+                    for process in processes_by_awb[awb]:
+                        screenshots[(process, awb)] = self._capture_result(process, awb, resolved[awb][0])
                 except Exception as exc:
                     errors[awb] = type(exc).__name__
                 finally:
@@ -306,9 +353,8 @@ class ShreeMarutiBatchTracker:
                     raise RuntimeError("Tracking page unavailable")
                 self._submit([awb])
                 resolved[awb] = self._read_one(awb)
-                if resolved[awb][0] == "Delivered":
-                    for process in processes_by_awb[awb]:
-                        screenshots[(process, awb)] = self._capture_delivered(process, awb)
+                for process in processes_by_awb[awb]:
+                    screenshots[(process, awb)] = self._capture_result(process, awb, resolved[awb][0])
                 errors.pop(awb, None)
             except Exception as exc:
                 errors[awb] = type(exc).__name__
@@ -321,8 +367,8 @@ class ShreeMarutiBatchTracker:
                     "Error", "Carrier lookup was inconclusive for this exact tracking ID")
                 continue
             status, detail, date = resolved[awb]
-            # Capture while the exact AWB is selected, BEFORE any fallback
-            # search can replace the original batch with another AWB.
+            # Every verified status may have a screenshot, captured while its
+            # own AWB was active BEFORE another search replaced the result.
             shot = screenshots.get((process, awb))
             output[(process, awb)] = TrackResult(status, detail, date, shot)
         return output

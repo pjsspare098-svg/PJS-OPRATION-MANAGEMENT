@@ -140,3 +140,8 @@
 @media(max-width:380px){.ux-shree-import-buttons{grid-template-columns:1fr}}
 
 .ux-shree-update-note{color:#ab6e25!important;font-weight:750;line-height:1.5;max-width:720px}
+
+
+.ux-shree-batch-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.ux-shree-batch-actions .ux-shree-visit{background:white;color:#315d98;border-color:#bfd2ec}
+@media(max-width:680px){.ux-shree-batch-actions{width:100%}.ux-shree-batch-actions button{flex:1;min-width:140px}}
