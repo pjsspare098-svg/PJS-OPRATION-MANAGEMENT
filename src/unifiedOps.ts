@@ -7,6 +7,8 @@ import {OUTLOOK_DRAFT_VERSION,emailDraftReadiness} from './emailWorkflow';
 export type JobType='bill_submit'|'datadoc_submit'|'tracking'|'delivery_proof_submit'|'email_reply';
 export type Job={id:string;process_id:string;process_no:string;job_type:JobType;status:string;progress:number;error_message:string|null;created_at:string;updated_at:string;started_at?:string|null;finished_at?:string|null;worker_name?:string|null;user_id?:string;payload:any;result:any};
 export type AuditEvent={id:string;process_id:string|null;process_no:string;action:string;details:any;created_at:string};
+export type CarrierTrashPreview={carrier:string;total_owned:number;eligible:number;blocked:number;shared:number;blocked_processes:string[];fingerprint:string;recoverable:boolean;processes_deleted_permanently:boolean};
+export type CarrierTrashResult={carrier:string;moved:number;blocked:number;shared:number;recoverable:boolean};
 export type Preferences={ebill_threshold:number;retrack_days:number;reminder_days:number};
 export const defaults:Preferences={ebill_threshold:50000,retrack_days:3,reminder_days:10};
 const DEMO_KEY='oms-unified-local-v1';
@@ -95,6 +97,33 @@ export const ops={
     if(error)throw error;
     if(data!==true)throw Error('The job changed while you reviewed it. Refresh; do not retry automatically.');
     return true;
+  },
+
+  async previewDispatchCarrierTrash(carrier:string):Promise<CarrierTrashPreview>{
+    await currentUser();
+    if(!carrier||carrier==='All carriers')throw Error('Choose one transporter before previewing bulk deletion.');
+    const {data,error}=await supabase!.rpc('oms_preview_dispatch_carrier_trash',{p_carrier:carrier});
+    if(error)throw error;
+    if(!data||data.carrier!==carrier||typeof data.eligible!=='number'
+      ||typeof data.fingerprint!=='string'||data.recoverable!==true){
+      throw Error('Server returned an invalid transporter cleanup preview. Nothing was changed.');
+    }
+    return data as CarrierTrashPreview;
+  },
+  async moveDispatchCarrierToTrash(preview:CarrierTrashPreview,confirmation:string):Promise<CarrierTrashResult>{
+    await currentUser();
+    if(!preview||preview.carrier==='All carriers'||preview.eligible<=0
+      ||!(/^[a-f0-9]{32}$/.test(preview.fingerprint)))throw Error('Refresh the cleanup preview first.');
+    if(confirmation!=='DELETE '+preview.carrier)throw Error('Type the exact confirmation phrase.');
+    const {data,error}=await supabase!.rpc('oms_move_dispatch_carrier_to_trash',{
+      p_carrier:preview.carrier,p_expected_fingerprint:preview.fingerprint,p_confirmation:confirmation
+    });
+    if(error)throw error;
+    if(!data||data.carrier!==preview.carrier||data.recoverable!==true
+      ||data.moved!==preview.eligible){
+      throw Error('Cleanup response needs review. Refresh Audit & Reports and Deleted Processes before retrying.');
+    }
+    return data as CarrierTrashResult;
   },
 
   async preferences():Promise<Preferences>{const u=await currentUser();const {data,error}=await supabase!.from('oms_preferences').select('*').eq('user_id',u.id).maybeSingle();if(error)throw error;return data?{ebill_threshold:Number(data.ebill_threshold),retrack_days:data.retrack_days,reminder_days:data.reminder_days}:defaults},
