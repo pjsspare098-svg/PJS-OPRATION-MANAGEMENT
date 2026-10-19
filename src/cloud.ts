@@ -13,7 +13,7 @@ function demoRecords():any[]{try{return JSON.parse(localStorage.getItem(LOCAL_KE
 function storeDemo(records:any[]){localStorage.setItem(LOCAL_KEY,JSON.stringify(records))}
 function validFile(file:File){if(file.size>5*1024*1024)throw Error('Max file size is 5 MB');if(!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)&&!(/\.eml$/i.test(file.name)&&(file.type===''||file.type==='message/rfc822'||file.type==='application/octet-stream')))throw Error('Use PDF, JPG, PNG or Outlook .eml')}
 async function identity(){if(!supabase)throw Error('Independent cloud backend is not configured');const {data,error}=await supabase.auth.getUser();if(error||!data.user)throw Error('Sign in before accessing cloud files');return data.user}
-function mapped(r:any):any{const docs=(r.oms_documents||[]).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,owner_id:r.user_id,team_id:r.team_id||null,deleted_at:r.deleted_at||null,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
+function mapped(r:any):any{const docs=(r.oms_documents||[]).filter((d:any)=>!d.deleted_at).map((d:any)=>({id:d.id,kind:d.kind,name:d.name,path:d.path,uploadedAt:d.created_at}));return {...(r.data||{}),id:r.id,owner_id:r.user_id,team_id:r.team_id||null,deleted_at:r.deleted_at||null,process:r.process_no,party:r.party_name||'',so:r.sales_order_no||'',documents:docs,docs:docs.length,status:r.data?.status||'Review'}}
 function headerRows(items:any[]):string[]{
   const words=items.filter(i=>typeof i.str==='string'&&i.str.trim()&&Array.isArray(i.transform)).map(i=>({x:Number(i.transform[4]),y:Number(i.transform[5]),str:String(i.str).trim()})).sort((a,b)=>b.y-a.y||a.x-b.x);
   const rows:{y:number;parts:typeof words}[]=[];
@@ -76,7 +76,7 @@ export const cloud={
   async list():Promise<any[]>{
     if(!supabase)return demoRecords();
     await identity();
-    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').is('deleted_at',null).order('created_at',{ascending:false}).limit(1000);
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at,deleted_at)').is('deleted_at',null).order('created_at',{ascending:false}).limit(1000);
     if(error)throw error;
     return (data||[]).map(mapped);
   },
@@ -84,7 +84,7 @@ export const cloud={
     if(!supabase)return [];
     const user=await identity();
     const {data,error}=await supabase.from('oms_processes')
-      .select('*,oms_documents(id,kind,name,path,created_at)')
+      .select('*,oms_documents(id,kind,name,path,created_at,deleted_at)')
       .eq('user_id',user.id).not('deleted_at','is',null).order('deleted_at',{ascending:false}).limit(200);
     if(error)throw error;
     return (data||[]).map(mapped);
@@ -96,12 +96,32 @@ export const cloud={
     const {error}=await supabase.rpc('oms_set_process_trash',{p_process:record.id,p_number:record.process,p_restore:restore});
     if(error)throw error;
   },
+  async listTrashedDocuments(processId:string):Promise<{id:string;kind:string;name:string;deleted_at:string}[]>{
+    if(!supabase)throw Error('Cloud sign-in required to view deleted attachments.');
+    const user=await identity();
+    const {data,error}=await supabase.from('oms_documents')
+      .select('id,kind,name,deleted_at').eq('process_id',processId).eq('user_id',user.id)
+      .not('deleted_at','is',null).order('deleted_at',{ascending:false}).limit(100);
+    if(error)throw error;
+    return data||[];
+  },
+  async setDocumentTrash(processId:string,documentId:string,restore=false){
+    if(!supabase)throw Error('Cloud sign-in is required to manage attachments.');
+    await identity();
+    const {data,error}=await supabase.rpc('oms_set_document_trash',{
+      p_process_id:processId,p_document_id:documentId,p_restore:restore
+    });
+    if(error)throw error;
+    if(!data||data.id!==documentId||data.process_id!==processId||data.trashed===restore)
+      throw Error('The attachment change was not confirmed. Refresh this process before retrying.');
+    return data as {id:string;name:string;kind:string;trashed:boolean;recoverable:boolean};
+  },
   async findByProcess(processNo:string):Promise<any|null>{
     const searched=processNo.trim();
     if(!searched)return null;
     if(!supabase)return demoRecords().find(r=>String(r.process).trim()===searched)||null;
     await identity();
-    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at)').eq('process_no',searched).is('deleted_at',null).limit(2);
+    const {data,error}=await supabase.from('oms_processes').select('*,oms_documents(id,kind,name,path,created_at,deleted_at)').eq('process_no',searched).is('deleted_at',null).limit(2);
     if(error)throw error;
     if((data||[]).length>1)throw Error('More than one accessible process uses this Process No. Select the correct workspace first.');
     return data?.[0]?mapped(data[0]):null;
@@ -160,7 +180,7 @@ export const cloud={
     try{
       if(!supabase)throw Error('Document bytes are not saved in local preview.');
       await identity();
-      const {data,error}=await supabase.from('oms_documents').select('path').eq('id',docId).eq('process_id',id).single();
+      const {data,error}=await supabase.from('oms_documents').select('path').eq('id',docId).eq('process_id',id).is('deleted_at',null).single();
       if(error||!data)throw Error('Document not found in your private workspace');
       const {data:link,error:linkError}=await supabase.storage.from('oms-documents').createSignedUrl(data.path,60);
       if(linkError||!link?.signedUrl)throw Error('Could not open the private document');
@@ -170,7 +190,7 @@ export const cloud={
   async download(id:string,docId:string){
     if(!supabase)throw Error('Cloud login required for private downloads.');
     await identity();
-    const {data,error}=await supabase.from('oms_documents').select('path,name').eq('id',docId).eq('process_id',id).single();
+    const {data,error}=await supabase.from('oms_documents').select('path,name').eq('id',docId).eq('process_id',id).is('deleted_at',null).single();
     if(error||!data)throw Error('Document not found or access denied.');
     const {data:file,fileError}=await (async()=>{const result=await supabase.storage.from('oms-documents').download(data.path);return {data:result.data,fileError:result.error}})();
     if(fileError||!file)throw Error(fileError?.message||'Private download failed.');
@@ -247,7 +267,7 @@ export const cloud={
   async inspectStored(id:string,docId:string,kind:string):Promise<ScanResult>{
     if(!supabase)throw Error('Cloud storage not configured');
     await identity();
-    const {data:doc,error}=await supabase.from('oms_documents').select('path,name,kind').eq('id',docId).eq('process_id',id).single();
+    const {data:doc,error}=await supabase.from('oms_documents').select('path,name,kind').eq('id',docId).eq('process_id',id).is('deleted_at',null).single();
     if(error||!doc)throw Error('Document not found or no permission');
     if(doc.kind!==kind)throw Error('Incorrect document type');
     const {data:file,error:downloadError}=await supabase.storage.from('oms-documents').download(doc.path);
