@@ -57,9 +57,10 @@ class ShreeSupabaseMappingTests(unittest.TestCase):
         self.assertEqual(outcomes[jobs[2]["id"]]["status"], "Returned")
         self.assertEqual(outcomes[jobs[1]["id"]]["screenshot_path"], "/test.png")
         self.assertEqual(outcomes[jobs[0]["id"]]["screenshot_path"], "")
-        engine.track_shree_maruti_batch.assert_called_once_with([
-            (x["process_no"], x["payload"]["tracking_id"]) for x in jobs
-        ])
+        engine.track_shree_maruti_batch.assert_called_once_with(
+            [(x["process_no"], x["payload"]["tracking_id"]) for x in jobs],
+            on_progress=None
+        )
 
     def test_missing_exact_pair_fails_not_delivered(self):
         jobs = [job(1, "00123456789"), job(2, "98765432100")]
