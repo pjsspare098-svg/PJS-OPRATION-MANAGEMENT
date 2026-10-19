@@ -5,7 +5,7 @@
 .oq-top p{font-size:11px;color:#849ab4;line-height:1.7;max-width:760px;margin:0}
 .oq-refresh{display:flex;align-items:center;gap:6px;border:1px solid #d3e1f1;background:#f5f9ff;color:#56769a;padding:9px 12px;border-radius:8px;font-size:10px;font-weight:800;cursor:pointer}
 .oq-refresh:disabled{opacity:.6}
-.oq-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(210px,1.35fr);gap:10px;margin:18px 0}
+.oq-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) minmax(210px,1.35fr);gap:10px;margin:18px 0}
 .oq-overview>div{display:flex;align-items:center;gap:8px;border:1px solid #e5ebf5;background:#fafcff;border-radius:10px;padding:11px}
 .oq-overview>div>strong{font-size:20px;color:#294f7b;font-weight:900}.oq-overview>div>small{font-size:10px;line-height:1.5;color:#8099b5}
 .oq-stat-ico{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;flex-shrink:0}
