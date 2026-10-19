@@ -128,9 +128,12 @@ See docs/SHREE_MARUTI_BATCH_AGENT_2026-10-19.md in the repository.
 The Dispatch Tracking Excel import creates process-specific tracking records.
 Track All queues up to 20 eligible carrier IDs per group, with the authorized
 tracking worker claiming those jobs atomically through the new 028 migration.
-The Python adapter translates your October 2026 Shree Maruti VBA V2 selectors,
-reads each exact AWB's latest journey event, persists the outcome to **its own**
-OMS Process No., and uploads *Delivered* screenshots to private OMS documents.
+The Python adapter now opens https://tracking.shreemaruti.com/ directly,
+matches the exact AWB even when a single-ID result has no chip, reads the green
+current progress marker and the authoritative latest Shipment Journey event,
+persists status to **its own** OMS Process No., and uploads a result screenshot
+for every successfully verified Shree Maruti tracking status (not only Delivered)
+to private OMS documents. Read docs/SHREE_MARUTI_DIRECT_TRACKER_2026-10-19.md.
 
 Keep PJS_ENABLE_LIVE_TRACKING=0 until the new Python files have been installed
 on the office PC and two distinct AWBs are verified in a supervised carrier
