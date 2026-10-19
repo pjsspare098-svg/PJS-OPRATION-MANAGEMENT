@@ -138,3 +138,5 @@
 .ux-shree-import-error{margin:0;color:#bb4550;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 @media(max-width:680px){.ux-shree-import{padding:12px}.ux-shree-batch-controls{padding:12px}.ux-shree-batch-controls button,.ux-shree-import-buttons,.ux-shree-import-buttons button,.ux-shree-import-submit{width:100%}.ux-shree-import-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ux-shree-import-buttons button{font-size:11px;padding:10px 8px}}
 @media(max-width:380px){.ux-shree-import-buttons{grid-template-columns:1fr}}
+
+.ux-shree-update-note{color:#ab6e25!important;font-weight:750;line-height:1.5;max-width:720px}
