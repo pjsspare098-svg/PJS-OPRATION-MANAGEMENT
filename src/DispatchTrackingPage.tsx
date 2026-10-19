@@ -10,6 +10,7 @@ import type {Job} from './unifiedOps';
 import {normalizeCarrier} from './carrierRegistry';
 import {MANUAL_CARRIER_URLS,TRANSPORT_CARRIERS,transportCarrier} from './transportTracking';
 import TransportTrackingCapture from './TransportTrackingCapture';
+import ShreeMarutiImport from './ShreeMarutiImport';
 
 type Mode='Non-trackable'|'Shree Maruti'|'Transport';
 type Worker={worker_name:string;status:string;last_seen_at:string;details:Record<string,unknown>}|null;
@@ -59,6 +60,13 @@ export default function DispatchTrackingPage({p}:{p:any}){
   const status=String(r.trackingCaptureStatus||r.trackingStatus||r.status||'Pending');
   return statusFilter==='All'||(statusFilter==='Needs Review'?isException(status)||(!r.trackingStatus&&Boolean(r.trackingCaptureStatus)):status.toLowerCase()===statusFilter.toLowerCase());
  });
+ const shreeBatch=selected.filter((r:any)=>
+  normalizeCarrier(r.transporter)==='SHREE MARUTI'
+  &&(!r.owner_id||r.owner_id===p.userId)
+  &&r.trackingStatus!=='Delivered'
+  &&!recent.some(j=>j.process_id===r.id&&['queued','running'].includes(j.status))
+  &&checkJob(r,'tracking',settings,recent).ready
+ );
  const delivered=rows.filter((r:any)=>r.trackingStatus==='Delivered').length;
  const issues=rows.filter((r:any)=>isException(String(r.trackingStatus||r.trackingCaptureStatus||r.status||''))).length;
  function rowDocument(r:any){return (r.documents||[]).filter((d:any)=>d.kind==='trackingShotDoc')
@@ -134,6 +142,11 @@ export default function DispatchTrackingPage({p}:{p:any}){
     <small>{worker?.worker_name||'No worker registered'} · Last heartbeat {lastSeen}</small>
     <small>{workerError||'Only worker-confirmed results count as verified. No automatic retries or email sending.'}</small>
    </div></div>
+   <div className='ux-shree-batch-controls'>
+    <div><strong>Track all Shree Maruti IDs in this view</strong><small>{shreeBatch.length} eligible of {selected.length} visible record(s) · excludes delivered, incomplete and already queued jobs. Current office worker processes jobs one by one until VBA batch upgrade.</small></div>
+    <button type='button' disabled={busy||!p.authenticated||shreeBatch.length===0} onClick={()=>void p.onBatchTrackShreeMaruti(shreeBatch)}><Truck size={16}/> Track All ({shreeBatch.length})</button>
+   </div>
+   <ShreeMarutiImport records={p.records} authenticated={p.authenticated} busy={busy} teamId={p.activeTeam||''} onImported={p.onRefresh}/>
   </Panel>}
   <Panel title='Dispatch tracking records' subtitle={mode==='Transport'?'Manual transport carriers · original process records and screenshots remain private':mode==='Shree Maruti'?'Shree Maruti approved automation':'Unsupported, local and non-trackable consignments'}>
    <div className='ux-track-search-toolbar'>
@@ -156,15 +169,15 @@ export default function DispatchTrackingPage({p}:{p:any}){
     <th>Process / Party</th><th>Carrier / LR</th><th>Carrier result</th><th>Transfer To.</th><th>Search Result · Track</th>
    </tr></thead><tbody>{selected.length?selected.map((r:any)=>{
     const latest=mostRecent(recent,r.id);
-    return <tr key={r.id}><td><button className='ux-process-link' onClick={()=>onEdit(r)}>{r.process}</button><small>{r.party}</small></td>
+    return <tr key={r.id}><td><button className='ux-process-link' onClick={()=>onEdit(r)}>{r.process}</button><small>{r.party||'Party not recorded'}</small><small>{r.sales||'Sales person not recorded'} · {r.credit||'Credit type not recorded'}</small></td>
      <td><strong>{r.transporter||'No carrier'}</strong><small>LR {r.lr||'Not entered'}</small></td>
      <td>{statusSummary(r)}</td><td><div className='ux-track-transfer-cell'>{actionBar(r,'transfer')}</div></td>
      <td><div className='ux-track-search-cell'>{actionBar(r,'actions')}{mode==='Shree Maruti'&&latest&&['queued','running'].includes(latest.status)&&<small>{latest.status} · Tracking request</small>}</div></td>
     </tr>
-   }):<tr><td colSpan={5}><Empty icon={Truck} title='No matching tracking records' help={rows.length?'Try another transporter or status filter.':'Move a process to Dispatch Tracking after confirming the client email was sent.'}/></td></tr>}</tbody></table></div>
+   }):<tr><td colSpan={5}><Empty icon={Truck} title='No matching tracking records' help={rows.length?'Try another transporter or status filter.':mode==='Shree Maruti'?'Use Upload Excel above to create tracking processes, or move an existing process to Dispatch Tracking.':'Move a process to Dispatch Tracking after confirming the client email was sent.'}/></td></tr>}</tbody></table></div>
    <div className='ux-track-mobile-list'>{selected.length?selected.map((r:any)=><article key={r.id} className='ux-track-mobile-card'>
     <header><button onClick={()=>onEdit(r)}>{r.process}</button><strong>{r.transporter||'No transporter'}</strong></header>
-    <p>{r.party||'Party not recorded'} · LR {r.lr||'Not entered'}</p>{statusSummary(r)}{actionBar(r)}
+    <p>{r.party||'Party not recorded'} · LR {r.lr||'Not entered'}</p><p>{r.sales||'Sales person not recorded'} · {r.credit||'Credit type not recorded'}</p>{statusSummary(r)}{actionBar(r)}
    </article>):<div className='ux-track-mobile-empty'>No matching tracking records.</div>}</div>
   </Panel>
   {capture&&<TransportTrackingCapture process={capture} onClose={()=>setCapture(null)} onSaved={()=>p.onRefresh?.()} onNotice={p.onNotice}/>}
