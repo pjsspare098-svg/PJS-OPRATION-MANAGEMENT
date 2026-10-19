@@ -273,7 +273,7 @@ export default function UnifiedApp(){
  async function onBatchTrackShreeMaruti(requested:any[]){
   if(!authenticated){setError('Sign in before requesting carrier tracking.');return}
   if(!requested.length){onNotice('No eligible Shree Maruti tracking IDs in the current view.');return}
-  if(!window.confirm('Track All: queue '+requested.length+' Shree Maruti tracking IDs from the currently filtered view?\n\nThe office carrier worker handles approved lookups. Today it processes queued IDs individually; true single-page batch processing will be added after validating your VBA.\n\nNo emails, DataDoc submissions or delivery confirmations will be sent.'))return;
+  if(!window.confirm('Track All: queue '+requested.length+' Shree Maruti tracking IDs from the currently filtered view?\n\nThe office carrier worker handles approved lookups. The updated Shree Maruti Windows worker will search up to 20 IDs per carrier page and save each result to its own Process No. Older workers may still run individual searches until updated.\n\nNo emails, DataDoc submissions or delivery confirmations will be sent.'))return;
   setBusy(true);setError('');
   let added=0,skipped=0;
   const failures:string[]=[];

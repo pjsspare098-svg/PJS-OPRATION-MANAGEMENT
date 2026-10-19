@@ -164,107 +164,26 @@ class CarrierEngine:
         # Outcome is stored as a structured value, never inferred from a screenshot.
         return result
 
-    def _shree_database_error(self) -> bool:
-        driver = self.start()
-        try:
-            body = (driver.find_element(By.TAG_NAME, "body").text or "").lower()
-        except Exception:
-            return False
-        phrases = [
-            "database error",
-            "error establishing a database connection",
-            "service unavailable",
-            "temporarily unavailable",
-            "internal server error",
-        ]
-        return any(p in body for p in phrases)
+    def track_shree_maruti_batch(self, requests: list[tuple[str, str]], on_progress=None) -> dict[tuple[str, str], TrackResult]:
+        """One official carrier page submission for up to 20 verified AWBs.
 
-    def _find_shree_box(self):
-        driver = self.start()
-        driver.switch_to.default_content()
-        try:
-            return WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.ID, "sentenceInput"))
-            )
-        except TimeoutException:
-            pass
-
-        frames = driver.find_elements(By.TAG_NAME, "iframe")
-        for i in range(min(len(frames), 3)):
-            try:
-                driver.switch_to.default_content()
-                driver.switch_to.frame(i)
-                box = WebDriverWait(driver, 2).until(
-                    EC.presence_of_element_located((By.ID, "sentenceInput"))
-                )
-                return box
-            except Exception:
-                continue
-
-        driver.switch_to.default_content()
-        return None
+        Returns per-(Process No., Tracking ID) results; nothing writes to the
+        database here. The queue worker performs owner/stage/AWB checks again
+        when storing each outcome.
+        """
+        from shree_maruti_batch import ShreeMarutiBatchTracker
+        engine = ShreeMarutiBatchTracker(
+            self.start(), self.screenshot_dir / "SHREE_MARUTI"
+        )
+        return engine.track_many(requests, on_progress=on_progress)
 
     def track_shree_maruti(self, tracking_id: str, process_no: str) -> TrackResult:
-        driver = self.start()
-        self.ensure_url("https://shreemaruti.com/track-shipment/", "shreemaruti.com/track-shipment")
-
-        if self._shree_database_error():
-            driver.refresh()
-            time.sleep(2)
-            if self._shree_database_error():
-                raise WebDriverException("Shree Maruti site database unavailable")
-
-        box = self._find_shree_box()
-        driver.switch_to.default_content()
-        try:
-            box = WebDriverWait(driver, 8).until(EC.presence_of_element_located((By.ID, "sentenceInput")))
-        except TimeoutException:
-            try:
-                driver.switch_to.frame(0)
-                box = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "sentenceInput")))
-            finally:
-                pass
-        if box is None:
-            raise TimeoutException("Shree Maruti tracking input not found")
-
-        box.clear()
-        box.send_keys(tracking_id)
-        typed = (box.get_attribute("value") or "").strip()
-        if typed != tracking_id:
-            raise WebDriverException(
-                f"Shree Maruti input did not accept tracking ID. Expected {tracking_id}, got {typed}"
-            )
-
-        button = WebDriverWait(driver, 8).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".track-btn"))
-        )
-        button.click()
-
-        status = ""
-        delivery_date = ""
-        end = time.time() + 12
-        while time.time() < end:
-            if self._shree_database_error():
-                raise WebDriverException("Shree Maruti database error while reading result")
-            try:
-                status = driver.execute_script(
-                    "var e=document.querySelector('div.status-title');return e?e.textContent:'';"
-                ) or ""
-                delivery_date = driver.execute_script(
-                    "var e=document.querySelector('div.status-time');return e?e.textContent:'';"
-                ) or ""
-            except Exception:
-                pass
-            if status.strip():
-                break
-            time.sleep(0.25)
-
-        if not status.strip():
-            raise TimeoutException("Shree Maruti result not found")
-
-        driver.switch_to.default_content()
-        shot = self.screenshot(process_no, "SHREE MARUTI") if normalize_status(status) in ("Delivered", "RTO Delivered") else None
-        return TrackResult(normalize_status(status), status.strip(), delivery_date.strip(), shot)
+        """Keep the original single-tracking adapter compatible with the new page."""
+        process, awb = str(process_no).strip(), str(tracking_id).strip()
+        results = self.track_shree_maruti_batch([(process, awb)])
+        return results.get((process, awb), TrackResult(
+            "Error", "Shree Maruti did not return an exact matching shipment"
+        ))
 
     def track_vrl(self, tracking_id: str, process_no: str) -> TrackResult:
         driver = self.start()

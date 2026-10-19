@@ -119,3 +119,25 @@ This is **not** the DataDoc ZIP bill submit. Open **DataDoc → Delivery Proof**
 5. `START_OFFICE_WORKERS.bat` can launch the proof worker alongside other workers without enabling any live switch. The PJS website cannot access the local DataDoc address by itself.
 
 Logs: `worker/logs/datadoc-proof.log`. Never reset a `running` or `failed` job to `queued` until the exact DataDoc transaction is reconciled.
+
+
+## Shree Maruti batch tracking v2 (separate worker)
+
+See docs/SHREE_MARUTI_BATCH_AGENT_2026-10-19.md in the repository.
+
+The Dispatch Tracking Excel import creates process-specific tracking records.
+Track All queues up to 20 eligible carrier IDs per group, with the authorized
+tracking worker claiming those jobs atomically through the new 028 migration.
+The Python adapter translates your October 2026 Shree Maruti VBA V2 selectors,
+reads each exact AWB's latest journey event, persists the outcome to **its own**
+OMS Process No., and uploads *Delivered* screenshots to private OMS documents.
+
+Keep PJS_ENABLE_LIVE_TRACKING=0 until the new Python files have been installed
+on the office PC and two distinct AWBs are verified in a supervised carrier
+test. The other DataDoc Proof live switch is unrelated and must remain disabled.
+
+Use the carrier worker entry point (not the proof worker):
+& "C:\Users\vivek.pal\Python313\python.exe" start_worker.py dispatch_tracking_worker.py
+
+Check worker/logs/dispatch-tracking.log and Dispatch Tracking → Shree Maruti for
+the actual heartbeat. NEVER copy or overwrite a local .env when updating files.
