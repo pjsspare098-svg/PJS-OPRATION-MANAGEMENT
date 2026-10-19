@@ -1,4 +1,5 @@
 """Offline Shree Maruti VBA V2 adaptation tests. No Chrome, carrier or Supabase network."""
+import base64
 import tempfile
 import unittest
 from pathlib import Path
@@ -122,6 +123,33 @@ class ShreeMarutiBatchTests(unittest.TestCase):
         tracker._select("26184200069988")
         tracker._submitted_awbs = ["26184200069988", "26184200069989"]
         self.assertFalse(tracker._belongs_to("26184200069988"))
+
+    def test_full_page_screenshot_for_in_transit_is_process_and_awb_named(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tracker = ShreeMarutiBatchTracker(Mock(), directory)
+            tracker._belongs_to = Mock(return_value=True)
+            tracker._find = Mock(return_value=None)
+            image = b"\x89PNG\r\n\x1a\n" + b"simulated-image"
+            tracker.driver.execute_cdp_cmd.return_value = {
+                "data": base64.b64encode(image).decode("ascii")
+            }
+            path = tracker._capture_result("295845", "00123456789", "In Transit")
+            self.assertIsNotNone(path)
+            self.assertEqual(Path(path).read_bytes(), image)
+            self.assertIn("295845_00123456789_In_Transit", Path(path).name)
+            tracker.driver.save_screenshot.assert_not_called()
+            tracker.driver.execute_cdp_cmd.assert_called_once()
+
+    def test_screenshot_rejected_when_active_awb_changes_during_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tracker = ShreeMarutiBatchTracker(Mock(), directory)
+            tracker._belongs_to = Mock(side_effect=[True, True, False])
+            tracker._find = Mock(return_value=None)
+            tracker.driver.execute_cdp_cmd.return_value = {
+                "data": base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"image").decode()
+            }
+            self.assertIsNone(tracker._capture_result("295845", "123456789", "Delivered"))
+            self.assertEqual(list(Path(directory).glob("*.png")), [])
 
     def test_hero_and_active_chip_must_match_exact_awb(self):
         tracker = ShreeMarutiBatchTracker(Mock(), "test-shots")
