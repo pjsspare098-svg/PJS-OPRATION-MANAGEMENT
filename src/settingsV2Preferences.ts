@@ -8,7 +8,7 @@ export const SETTINGS_V2_EVENT='pjs-oms-settings-v2-changed';
 export const mobileChoices=[
  'Control Tower','Universal Process','Data Store','Dispatch Tracking',
  'DataDoc','Email to Client','Done Pick List','Check List',
- 'Excel & LR Finder','AI Command Center','Audit & Reports','Settings'
+ 'Excel & LR Finder','Audit & Reports','Settings'
 ] as const;
 export type MobilePage=typeof mobileChoices[number];
 

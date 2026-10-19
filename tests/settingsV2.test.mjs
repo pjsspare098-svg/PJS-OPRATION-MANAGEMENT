@@ -23,7 +23,8 @@ assert.deepEqual(normalizeSettingsV2({fontSize:'extra',highContrast:true,reduceM
 assert.deepEqual(normalizeSettingsV2({mobileNav:['Control Tower','Control Tower','Data Store','DataDoc'],dashboardCards:[]}).mobileNav,defaultSettingsV2.mobileNav,'Duplicate bottom tabs must fall back safely');
 assert.deepEqual(normalizeSettingsV2({dashboardCards:[]}).dashboardCards,defaultSettingsV2.dashboardCards,'Never hide all dashboard cards');
 assert.deepEqual(normalizeSettingsV2({fontSize:'invalid'}).fontSize,'normal');
-assert.equal(mobileChoices.length,12);
+assert.equal(mobileChoices.length,11);
+assert.ok(!mobileChoices.includes('AI Command Center'),'Retired AI center must not appear in mobile choices');
 assert.deepEqual(dashboardChoices,['total','workflow','attention','completed']);
 assert.match(prefs,/localStorage\.setItem\(SETTINGS_V2_KEY/,'UI settings must be browser-local');
 assert.doesNotMatch(prefs,/from ['"]\.\/independentClient|createClient|SUPABASE_SERVICE_ROLE_KEY|\bfetch\(/i,'Local settings must have no server calls or secrets');

@@ -1,7 +1,6 @@
 import {Heading} from './UnifiedKit';
 import ExcelLRWorkspace from './ExcelLRWorkspace';
 import DonePickListPage from './DonePickListPage';
-import AgentCommandCenter from './AgentCommandCenter';
 import ExceptionDesk from './ExceptionDesk';
 import SettingsControlCenter from './SettingsControlCenter';
 import AuditCleanupPage from './AuditCleanupPage';
@@ -20,8 +19,6 @@ export default function UnifiedStagePagesB({page,p}:{page:string;p:any}){
     description='Read courier bills, extract LR / Docket numbers, and match them with stored PJS process records.'/>
   <ExcelLRWorkspace records={records}/>
  </>;
- if(page==='AI Command Center')return <AgentCommandCenter records={records} authenticated={authenticated}
-  onEdit={onEdit} onRefresh={p.onRefresh} onMove={p.onAgentMove}/>;
  if(page==='Audit & Reports')return <AuditCleanupPage p={p}/>;
  if(page==='Settings')return <SettingsControlCenter p={p}/>;
  return null;

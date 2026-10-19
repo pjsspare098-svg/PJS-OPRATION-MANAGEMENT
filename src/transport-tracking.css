@@ -145,3 +145,11 @@
 .ux-shree-batch-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .ux-shree-batch-actions .ux-shree-visit{background:white;color:#315d98;border-color:#bfd2ec}
 @media(max-width:680px){.ux-shree-batch-actions{width:100%}.ux-shree-batch-actions button{flex:1;min-width:140px}}
+
+.ux-manual-tracking-banner{margin:2px 0 18px;align-items:flex-start;background:#f1f8ff}
+.ux-manual-tracking-banner>div{display:grid;gap:4px}
+.ux-manual-tracking-banner strong{color:#285c93;font-size:13px}
+.ux-manual-tracking-banner span{line-height:1.65}
+.ux-track-legacy-notice{display:flex;align-items:center;flex-wrap:wrap;gap:9px;background:#fff7e9;border-color:#f3dbb7;color:#906024}
+.ux-track-legacy-notice button{background:#fff;border:1px solid #ecd2ab;border-radius:8px;padding:8px 11px;font-weight:800;font-size:11px;color:#875824;cursor:pointer}
+@media(max-width:680px){.ux-track-legacy-notice button{width:100%}.ux-manual-tracking-banner{margin-bottom:13px}}
