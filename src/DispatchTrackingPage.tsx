@@ -159,7 +159,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
     return <tr key={r.id}><td><button className='ux-process-link' onClick={()=>onEdit(r)}>{r.process}</button><small>{r.party}</small></td>
      <td><strong>{r.transporter||'No carrier'}</strong><small>LR {r.lr||'Not entered'}</small></td>
      <td>{statusSummary(r)}</td><td><div className='ux-track-transfer-cell'>{actionBar(r,'transfer')}</div></td>
-     <td><div className='ux-track-search-cell'>{actionBar(r,'actions')}{mode==='Shree Maruti'&&latest&&<small>{latest.status} · {latest.error_message||latest.result?.detail||'Tracking request'}</small>}</div></td>
+     <td><div className='ux-track-search-cell'>{actionBar(r,'actions')}{mode==='Shree Maruti'&&latest&&['queued','running'].includes(latest.status)&&<small>{latest.status} · Tracking request</small>}</div></td>
     </tr>
    }):<tr><td colSpan={5}><Empty icon={Truck} title='No matching tracking records' help={rows.length?'Try another transporter or status filter.':'Move a process to Dispatch Tracking after confirming the client email was sent.'}/></td></tr>}</tbody></table></div>
    <div className='ux-track-mobile-list'>{selected.length?selected.map((r:any)=><article key={r.id} className='ux-track-mobile-card'>
