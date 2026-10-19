@@ -64,6 +64,15 @@ export const ops={
     if(!data)throw Error('Audit display was not cleared. Refresh and retry.');
     return data as string;
   },
+  async restoreAuditView(scope:string){
+    await currentUser();
+    const target=String(scope||'').trim();
+    if(target!=='*'&&!/^\d{5,10}$/.test(target))throw Error('Select an exact Process No. or All processes.');
+    const {data,error}=await supabase!.rpc('oms_restore_audit_view',{p_scope:target});
+    if(error)throw error;
+    if(data!==true)throw Error('There is no hidden audit history to restore for this scope.');
+    return true;
+  },
   async cancelQueuedJob(job:Job){
     await currentUser();
     if(!job.id||!job.process_no||job.status!=='queued')throw Error('Only jobs still waiting in the queue can be cancelled.');
