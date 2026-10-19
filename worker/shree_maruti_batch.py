@@ -243,6 +243,12 @@ class ShreeMarutiBatchTracker:
 
     def _read_one(self, awb: str) -> tuple[str, str, str]:
         self._select(awb)
+        if not self._until(
+            lambda: self._belongs_to(awb) and (
+                self._find(LATEST) is not None or self._find(JOURNEY) is not None
+            ), RESULT_TIMEOUT
+        ):
+            raise RuntimeError("Latest shipment journey failed to load for selected AWB")
         return self._latest_journey(awb)
 
     def track_many(self, requests: list[tuple[str, str]]) -> dict[tuple[str, str], TrackResult]:
@@ -259,6 +265,10 @@ class ShreeMarutiBatchTracker:
             clean.append((proc, number))
         unique = list(dict.fromkeys(awb for _, awb in clean))
         resolved: dict[str, tuple[str, str, str]] = {}
+        screenshots: dict[tuple[str, str], str | None] = {}
+        processes_by_awb: dict[str, list[str]] = {}
+        for process, awb in clean:
+            processes_by_awb.setdefault(awb, []).append(process)
         errors: dict[str, str] = {}
         if not self._ensure_page():
             return {(p, a): TrackResult("Error", "Shree Maruti website not reachable")
@@ -275,6 +285,9 @@ class ShreeMarutiBatchTracker:
             for awb in unique:
                 try:
                     resolved[awb] = self._read_one(awb)
+                    if resolved[awb][0] == "Delivered":
+                        for process in processes_by_awb[awb]:
+                            screenshots[(process, awb)] = self._capture_delivered(process, awb)
                 except Exception as exc:
                     errors[awb] = type(exc).__name__
         # A failed read-only lookup can be rechecked just once, without
@@ -285,6 +298,9 @@ class ShreeMarutiBatchTracker:
                     raise RuntimeError("Tracking page unavailable")
                 self._submit([awb])
                 resolved[awb] = self._read_one(awb)
+                if resolved[awb][0] == "Delivered":
+                    for process in processes_by_awb[awb]:
+                        screenshots[(process, awb)] = self._capture_delivered(process, awb)
                 errors.pop(awb, None)
             except Exception as exc:
                 errors[awb] = type(exc).__name__
@@ -295,21 +311,8 @@ class ShreeMarutiBatchTracker:
                     "Error", "Carrier lookup was inconclusive for this exact tracking ID")
                 continue
             status, detail, date = resolved[awb]
-            # Re-select if a retry changed the currently active AWB; never
-            # attach an unrelated shipment's screenshot to this process.
-            shot = None
-            if status == "Delivered":
-                try:
-                    if self._belongs_to(awb) or (
-                        self._activate_context() and self._matching_chip(awb)
-                        and self._select_for_screenshot(awb)
-                    ):
-                        shot = self._capture_delivered(process, awb)
-                except Exception:
-                    LOG.warning("Delivered screenshot could not be safely selected for %s", process)
+            # Capture while the exact AWB is selected, BEFORE any fallback
+            # search can replace the original batch with another AWB.
+            shot = screenshots.get((process, awb))
             output[(process, awb)] = TrackResult(status, detail, date, shot)
         return output
-
-    def _select_for_screenshot(self, awb: str) -> bool:
-        self._select(awb)
-        return self._belongs_to(awb)
