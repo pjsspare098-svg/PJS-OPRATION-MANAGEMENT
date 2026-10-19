@@ -1,6 +1,6 @@
 /** All official carrier lookups are MANUAL. No tracking queue/job is generated. */
-import {carrierTrackingUrl,normalizeCarrier} from './carrierRegistry';
-import {MANUAL_CARRIER_URLS,transportCarrier} from './transportTracking';
+import {carrierTrackingUrl,normalizeCarrier} from './carrierRegistry.ts';
+import {MANUAL_CARRIER_URLS,transportCarrier} from './transportTracking.ts';
 
 export const MANUAL_TRACKING_MODE='manual-only-v1' as const;
 export function manualCarrierName(input:unknown):string|null{
