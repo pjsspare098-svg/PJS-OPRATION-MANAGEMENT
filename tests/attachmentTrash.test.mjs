@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=(file)=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
+
+const dialog=read('src/UnifiedDialog.tsx');
+const cloud=read('src/cloud.ts');
+const app=read('src/UnifiedApp.tsx');
+const fleet=read('src/WorkerFleetStatus.tsx');
+const sql=read('supabase/migrations/032_safe_attachment_trash.sql');
+
+assert.match(dialog,/onAttachmentChanged\?:\(\)=>Promise<void>\|void/);
+assert.match(app,/onAttachmentChanged=\{refresh\}/);
+assert.match(dialog,/changeAttachment\(d,false\)/,'Saved attachments have per-file Delete actions');
+assert.match(dialog,/changeAttachment\(d,true\)/,'Archived attachments have per-file Restore actions');
+assert.match(dialog,/Deleted attachments · Restore files/);
+assert.match(dialog,/!canDelete\|\|busy\|\|Boolean\(scanBusy\)/,'Delete button refuses unauthorised or busy state');
+assert.match(dialog,/window\.confirm\('Move "'/,'Require explicit single-file confirmation');
+assert.match(dialog,/cloud\.setDocumentTrash\(draft\.id,d\.id,restore\)/);
+assert.match(dialog,/cloud\.findByProcess\(String\(draft\.process\|\|''\)\)/,'Refresh only attachments after a successful change');
+assert.match(dialog,/onAttachmentChanged\?\.\(\)/,'Update other pages through parent refresh');
+assert.match(dialog,/const canDelete=Boolean\(!demo&&draft\.id&&draft\.owner_id===userId&&!draft\.team_id\)/);
+assert.match(dialog,/Remove selected/,'Unsaved selected files can be discarded');
+assert.match(cloud,/setDocumentTrash\(processId:string,documentId:string,restore=false\)/);
+assert.match(cloud,/oms_set_document_trash/);
+assert.match(cloud,/listTrashedDocuments\(processId:string\)/);
+assert.match(cloud,/\(r\.oms_documents\|\|\[\]\)\.filter\(\(d:any\)=>!d\.deleted_at\)/);
+assert.ok((cloud.match(/oms_documents\(id,kind,name,path,created_at,deleted_at\)/g)||[]).length>=3,'All process list queries include archived marker');
+assert.ok((cloud.match(/\.is\('deleted_at',null\)\.single\(\)/g)||[]).length>=3,'Open, download and extraction all reject deleted files');
+
+assert.match(sql,/alter table public\.oms_documents/);
+assert.match(sql,/add column if not exists deleted_at timestamptz/);
+assert.match(sql,/add column if not exists deleted_by uuid/);
+assert.match(sql,/auth\.uid\(\)/);
+assert.match(sql,/p\.user_id=v_uid and p\.team_id is null/,'Owner-only personal-process access');
+assert.match(sql,/d\.id=p_document_id and d\.process_id=p_process_id/,'Exact document owner/process scope');
+assert.match(sql,/j\.status in \('queued','running'\)/,'Do not archive docs while jobs are active');
+assert.match(sql,/v_proc\.data::text/,'Block current process evidence document references');
+assert.match(sql,/j\.payload::text/,'Block automated job input references');
+assert.match(sql,/j\.result::text/,'Block historical job evidence references');
+assert.match(sql,/lock table public\.oms_jobs/,'Prevent racing worker job claims');
+assert.match(sql,/set deleted_at=now\(\),deleted_by=v_uid/);
+assert.match(sql,/set deleted_at=null,deleted_by=null/);
+assert.match(sql,/Attachment moved to trash/);
+assert.match(sql,/Attachment restored from trash/);
+assert.match(sql,/revoke all on function public\.oms_set_document_trash/);
+assert.match(sql,/grant execute on function public\.oms_set_document_trash/);
+assert.doesNotMatch(sql,/delete\s+from\s+public\.oms_documents/i,'No irreversible document deletion');
+assert.doesNotMatch(sql,/storage\.objects|storage\.from_|storage\.remove/i,'Private file bytes remain recoverable');
+
+assert.doesNotMatch(fleet,/oms_tracking_workers|Carrier Tracking Worker|Icon:Truck|setTracking/,'Retired worker is not shown or polled on Control Tower');
+assert.match(fleet,/DataDoc Bill Worker/,'Keep DataDoc readiness');
+assert.match(fleet,/Outlook Reply All Draft Worker/,'Keep Outlook readiness');
+console.log('PASS: per-attachment Delete and Restore wired into Process editor with explicit confirmation');
+console.log('PASS: private file bytes, other attachments, jobs, and audit records preserved; owner/job/evidence safeguards');
+console.log('PASS: retired carrier worker removed from Control Tower while DataDoc and Outlook readiness remain');
