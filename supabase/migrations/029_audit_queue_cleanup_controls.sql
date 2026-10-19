@@ -146,3 +146,28 @@ revoke all on function public.oms_reconcile_stale_tracking_job(uuid,text,text,bo
  from public,anon,authenticated;
 grant execute on function public.oms_reconcile_stale_tracking_job(uuid,text,text,boolean)
  to authenticated;
+
+
+-- Restore this user's previously hidden audit entries, without mutating history.
+create or replace function public.oms_restore_audit_view(p_scope text)
+returns boolean
+language plpgsql security definer set search_path='' as $$
+declare v_uid uuid:=auth.uid();
+ v_scope text:=trim(coalesce(p_scope,''));
+begin
+ if v_uid is null then raise exception 'Authentication required';end if;
+ if v_scope<>'*' and v_scope !~ '^[0-9]{5,10}$' then
+   raise exception 'Use ALL or an exact Process No.';
+ end if;
+ delete from public.oms_audit_view_scopes
+   where user_id=v_uid and scope=v_scope;
+ if not found then return false;end if;
+ insert into public.oms_events(user_id,process_id,process_no,action,details)
+ values(v_uid,null,case when v_scope='*' then '' else v_scope end,
+   'Audit display restored',jsonb_build_object(
+    'scope',v_scope,'audit_records_deleted',false));
+ return true;
+end;
+$$;
+revoke all on function public.oms_restore_audit_view(text) from public,anon,authenticated;
+grant execute on function public.oms_restore_audit_view(text) to authenticated;
