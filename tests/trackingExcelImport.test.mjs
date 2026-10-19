@@ -29,7 +29,7 @@ assert.equal(preview.rejected.length,5);
 assert.match(preview.rejected[0].reason,/Duplicate/);
 assert.match(preview.rejected.at(-1).reason,/already exists/i);
 assert.equal(checkJob({process:'292184',party:'',transporter:'SHREE MARUTI',lr:'001234567890',documents:[]},'tracking').ready,true,
- 'The four-column spreadsheet must be sufficient to queue carrier-only tracking, without fabricating Party or SO');
+ 'The existing four-column spreadsheet format is still valid for manual tracking intake');
 assert.equal(checkJob({process:'292184',party:'',transporter:'SHREE MARUTI',lr:'',documents:[]},'tracking').ready,false);
 const offset=previewShreeMarutiImport([
  [],['Internal dispatch tracking workbook'],['Process Number','Credit Type','Sales Person','LR No.'],
@@ -44,7 +44,7 @@ const trackingUi=readFileSync(new URL('../src/DispatchTrackingPage.tsx',import.m
 assert.match(trackingUi,/onBatchTrackShreeMaruti\(shreeBatch\)/);
 assert.match(trackingUi,/ShreeMarutiImport/);
 const parent=readFileSync(new URL('../src/UnifiedApp.tsx',import.meta.url),'utf8');
-assert.match(parent,/onBatchTrackShreeMaruti/);
+assert.doesNotMatch(parent,/onBatchTrackShreeMaruti/,'Auto-queue action must be gone from parent');
 assert.match(parent,/existingJobs\.unshift\(job\)/);
 console.log('PASS: tracking Excel headers, aliases, clean rows, duplicates, missing IDs, zero padding and limits');
-console.log('PASS: Party and SO not required for tracking-only lookup and Track All wiring');
+console.log('PASS: Manual Shree Excel intake retained; no automatic Track All queue');
