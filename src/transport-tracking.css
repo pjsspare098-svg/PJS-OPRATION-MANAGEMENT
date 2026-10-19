@@ -101,3 +101,40 @@
 .ux-track-manual-detail{font-size:11px;line-height:1.55;color:#365774;white-space:pre-wrap;overflow-wrap:anywhere;max-width:340px;border-left:3px solid #8fb3e8;padding:6px 9px;background:#f4f8fe;border-radius:3px 7px 7px 3px}
 .ux-track-manual-detail strong{color:#28507b;font-weight:800}
 @media(max-width:900px){.ux-track-manual-detail{max-width:none;width:100%;box-sizing:border-box}}
+
+
+/* Shree Maruti: reviewed Excel intake and intentionally separate bulk queue. */
+.ux-shree-batch-controls{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin:16px 0;padding:14px 17px;border:1px solid #d8e7ff;border-radius:12px;background:#f1f7ff}
+.ux-shree-batch-controls>div{display:grid;gap:5px;flex:1;min-width:230px}
+.ux-shree-batch-controls strong{font-size:13px;color:#244d79}
+.ux-shree-batch-controls small{font-size:11px;line-height:1.55;color:#627f9f}
+.ux-shree-batch-controls button,.ux-shree-import-buttons button,.ux-shree-import-submit{border-radius:9px;border:1px solid #315fcb;background:#3568e8;color:white;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:12px;padding:11px 14px;cursor:pointer;min-height:42px}
+.ux-shree-batch-controls button:disabled,.ux-shree-import-buttons button:disabled,.ux-shree-import-submit:disabled{opacity:.5;cursor:not-allowed}
+.ux-shree-import{border:1px solid #e0e9f5;border-radius:12px;padding:16px;background:white;display:grid;gap:13px}
+.ux-shree-import-head{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.ux-shree-import-head>div:first-child{flex:1;min-width:210px}
+.ux-shree-import-head h3{font-size:14px;color:#234c7e;display:flex;gap:8px;align-items:center;margin:0 0 7px;font-weight:850}
+.ux-shree-import-head p,.ux-shree-import-columns{margin:0;font-size:12px;line-height:1.6;color:#7185a1}
+.ux-shree-import-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.ux-shree-import-buttons button{color:#325c92;background:#f7faff;border-color:#cdddF3}
+.ux-shree-import-buttons button.primary{color:white;background:#3568e8;border-color:#3568e8}
+.ux-shree-import-columns{padding:9px 12px;background:#f7f9fc;border-radius:8px}
+.ux-shree-import-preview{display:grid;gap:11px;border-top:1px solid #e3eaf5;padding-top:13px;color:#315274}
+.ux-shree-import-preview>strong{font-size:12px;overflow-wrap:anywhere}
+.ux-shree-import-summary{display:flex;gap:15px;flex-wrap:wrap;font-size:12px;font-weight:850}
+.ux-shree-import-summary span{display:flex;align-items:center;gap:5px}
+.ux-shree-import-summary span:first-child{color:#15805b}
+.ux-shree-import-summary span:last-child{color:#b27822}
+.ux-shree-preview-table{overflow-x:auto;max-width:100%}
+.ux-shree-preview-table table{width:100%;border-collapse:collapse;min-width:550px;font-size:11px;text-align:left}
+.ux-shree-preview-table td,.ux-shree-preview-table th{border-bottom:1px solid #e5edf5;padding:9px;overflow-wrap:anywhere}
+.ux-shree-preview-table th{background:#f4f8fe;color:#375c86}
+.ux-shree-preview-table small{display:block;margin-top:7px;color:#7890a8}
+.ux-shree-import-errors{max-height:145px;overflow:auto;background:#fff8e8;border:1px solid #f3e4c5;border-radius:8px;padding:7px 11px}
+.ux-shree-import-errors p{font-size:11px;margin:5px 0;color:#8d6828;overflow-wrap:anywhere}
+.ux-shree-confirm{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.6;color:#3d6187}
+.ux-shree-confirm input{flex-shrink:0;margin-top:4px}
+.ux-shree-import-progress{margin:0;color:#1c7958;font-weight:750;font-size:12px}
+.ux-shree-import-error{margin:0;color:#bb4550;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:680px){.ux-shree-import{padding:12px}.ux-shree-batch-controls{padding:12px}.ux-shree-batch-controls button,.ux-shree-import-buttons,.ux-shree-import-buttons button,.ux-shree-import-submit{width:100%}.ux-shree-import-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ux-shree-import-buttons button{font-size:11px;padding:10px 8px}}
+@media(max-width:380px){.ux-shree-import-buttons{grid-template-columns:1fr}}
