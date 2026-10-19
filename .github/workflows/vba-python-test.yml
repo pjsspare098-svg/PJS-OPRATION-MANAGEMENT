@@ -93,3 +93,12 @@ jobs:
         working-directory: worker
         shell: powershell
         run: python -m unittest -v test_start_worker.py
+      - name: Install Python carrier test dependencies on Windows
+        run: python -m pip install -r worker/requirements.txt
+      - name: Run Shree Maruti batch and per-process tests on Python 3.13
+        working-directory: worker
+        shell: powershell
+        run: |
+          python -m py_compile shree_maruti_batch.py carriers.py dispatch_tracking_worker.py
+          python -m unittest -v test_shree_maruti_batch.py test_shree_tracking_persistence.py test_dispatch_tracking_worker.py test_tracking_agent.py
+
