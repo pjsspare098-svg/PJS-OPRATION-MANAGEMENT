@@ -34,7 +34,8 @@ assert.ok(sql.includes('grant execute on function public.oms_prepare_personal_re
 assert.ok(sql.includes("state='preparing'"),'Retryable cleanup required');
 assert.ok(!reset.includes('SUPABASE_SERVICE_ROLE_KEY')&&!settings.includes('SUPABASE_SERVICE_ROLE_KEY'),'No server secrets in browser');
 assert.ok(notifications.includes('oms_agent_notifications')&&notifications.includes("read_at:new Date().toISOString()"));
-assert.ok(office.includes('oms_office_workers')&&office.includes('oms_tracking_workers'));
+assert.ok(office.includes('oms_office_workers')&&office.includes('oms_outlook_workers'),'Keep DataDoc and Outlook workers');
+assert.ok(!office.includes('oms_tracking_workers'),'Retired carrier automation worker must not be polled or listed');
 assert.ok(photos.includes('pjs_oms_photo_batch_limit_v1'));
 assert.ok(app.includes('pjs_oms_landing_page_v1'));
 console.log('PASS: Reset preview, owner-only confirmed deletion, active worker status and live Settings controls');
