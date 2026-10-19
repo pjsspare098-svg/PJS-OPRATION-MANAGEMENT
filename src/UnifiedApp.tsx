@@ -6,7 +6,8 @@ import {dispatchDetailsText} from './emailWorkflow';
 import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
 import {teamsApi} from './teamOps';
 import {agentApi} from './agentApi';
-import {canCloseProcess,checkBill} from './businessRules';
+import {canCloseProcess,checkBill,checkJob} from './businessRules';
+import {normalizeCarrier} from './carrierRegistry';
 import {processTransferIssues,transferStageStatus} from './processTransfer.ts';
 import type {WorkflowStage} from './workflowStages.ts';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
@@ -269,6 +270,37 @@ export default function UnifiedApp(){
   }catch(e:any){setError(e?.message||'Unable to queue request.')}
   finally{setBusy(false)}
  }
+ async function onBatchTrackShreeMaruti(requested:any[]){
+  if(!authenticated){setError('Sign in before requesting carrier tracking.');return}
+  if(!requested.length){onNotice('No eligible Shree Maruti tracking IDs in the current view.');return}
+  if(!window.confirm('Track All: queue '+requested.length+' Shree Maruti tracking IDs from the currently filtered view?\n\nThe office carrier worker handles approved lookups. Today it processes queued IDs individually; true single-page batch processing will be added after validating your VBA.\n\nNo emails, DataDoc submissions or delivery confirmations will be sent.'))return;
+  setBusy(true);setError('');
+  let added=0,skipped=0;
+  const failures:string[]=[];
+  try{
+   // Refresh both snapshots so a stale list cannot overwrite or re-queue records.
+   const [upToDate,existingJobs]=await Promise.all([ops.listRecords(),ops.listJobs()]);
+   const map=new Map(upToDate.map((r:any)=>[r.id,r]));
+   const known=new Set<string>();
+   for(const incoming of requested){
+    const r:any=map.get(incoming.id);
+    if(!r||known.has(r.id)){skipped++;continue}
+    known.add(r.id);
+    if(r.owner_id&&r.owner_id!==user?.id){skipped++;continue}
+    if(String(r.stage||'').trim().toLowerCase()!=='dispatch tracking'||normalizeCarrier(r.transporter)!=='SHREE MARUTI'){skipped++;continue}
+    if(r.trackingStatus==='Delivered'||existingJobs.some(j=>j.process_id===r.id&&j.job_type==='tracking'&&['queued','running'].includes(j.status))){skipped++;continue}
+    if(!checkJob(r,'tracking',settings,existingJobs).ready){skipped++;continue}
+    try{
+     const job=await ops.queue(r,'tracking',existingJobs,settings);
+     existingJobs.unshift(job);added++;
+    }catch(e:any){failures.push('Process '+r.process+': '+String(e?.message||'Queue rejected').slice(0,100))}
+   }
+   await refresh();
+   onNotice('Track All: queued '+added+' approved Shree Maruti lookup(s); skipped '+skipped+'. These are queued jobs, not verified results.');
+   if(failures.length)setError('Queue errors: '+failures.slice(0,5).join('; '));
+  }catch(e:any){setError('Could not complete Track All: '+String(e?.message||'Refresh and try again'))}
+  finally{setBusy(false)}
+ }
  async function onCancelEmailJob(job:Job){
   setBusy(true);
   try{await ops.cancelEmailJob(job);await refresh();onNotice('Waiting Outlook draft request cancelled.')}
@@ -305,7 +337,7 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,trashedProcesses,onRestoreProcess,results,stats,authenticated,onAgentMove,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onApproveDataDocProof,onAttach,onDraftEmail,onCancelEmailJob,onConfirmEmailSent,onError:setError,onNotice};
+ const p={records,trashedProcesses,onRestoreProcess,results,stats,authenticated,onAgentMove,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onBatchTrackShreeMaruti,onApproveDataDocProof,onAttach,onDraftEmail,onCancelEmailJob,onConfirmEmailSent,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} notificationCount={agentUnread} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
