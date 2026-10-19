@@ -8,20 +8,20 @@ create or replace function public.oms_tracking_carrier_key(p_transporter text)
 returns text language sql immutable set search_path='' as $$
   with t as (
     select pg_catalog.regexp_replace(
-      pg_catalog.upper(pg_catalog.trim(coalesce(p_transporter,''))),
+      pg_catalog.upper(pg_catalog.btrim(coalesce(p_transporter,''))),
       '[[:space:]_-]+',' ','g'
     ) as value
   )
   select case
-    when pg_catalog.position('SHREE MARUTI' in value)>0
-      or pg_catalog.position('ARHAM ENTERPRISE' in value)>0 then 'SHREE MARUTI'
-    when pg_catalog.position('TCI EXPRESS' in value)>0 then 'TCI EXPRESS'
-    when pg_catalog.position('TCI FREIGHT' in value)>0 then 'TCI FREIGHT'
-    when pg_catalog.position('V EXPRESS' in value)>0
-      or pg_catalog.position('V XPRESS' in value)>0
-      or pg_catalog.position('VXPRESS' in value)>0 then 'V EXPRESS'
-    when pg_catalog.position('V TRANS' in value)>0
-      or pg_catalog.position('VTRANS' in value)>0 then 'V TRANS'
+    when pg_catalog.strpos(value,'SHREE MARUTI')>0
+      or pg_catalog.strpos(value,'ARHAM ENTERPRISE')>0 then 'SHREE MARUTI'
+    when pg_catalog.strpos(value,'TCI EXPRESS')>0 then 'TCI EXPRESS'
+    when pg_catalog.strpos(value,'TCI FREIGHT')>0 then 'TCI FREIGHT'
+    when pg_catalog.strpos(value,'V EXPRESS')>0
+      or pg_catalog.strpos(value,'V XPRESS')>0
+      or pg_catalog.strpos(value,'VXPRESS')>0 then 'V EXPRESS'
+    when pg_catalog.strpos(value,'V TRANS')>0
+      or pg_catalog.strpos(value,'VTRANS')>0 then 'V TRANS'
     when value ~ '(^| )DTDC( |$)' then 'DTDC'
     when value ~ '(^| )ACPL( |$)' then 'ACPL'
     when value ~ '(^| )ARC( |$)' then 'ARC'
