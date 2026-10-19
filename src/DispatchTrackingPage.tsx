@@ -141,9 +141,10 @@ export default function DispatchTrackingPage({p}:{p:any}){
     <strong>{!online?'Offline — approved jobs remain queued':ready?'Connected — tracking worker ready':'Connected — tracking paused'}</strong>
     <small>{worker?.worker_name||'No worker registered'} · Last heartbeat {lastSeen}</small>
     <small>{workerError||'Only worker-confirmed results count as verified. No automatic retries or email sending.'}</small>
+    {worker&&worker.details?.mode!=='shree_maruti_verified_batch_v2'&&<small className='ux-shree-update-note'>Tracking worker is using an older adapter. Download the updated Windows worker to enable one-search multi-AWB batches and private delivered screenshots.</small>}
    </div></div>
    <div className='ux-shree-batch-controls'>
-    <div><strong>Track all Shree Maruti IDs in this view</strong><small>{shreeBatch.length} eligible of {selected.length} visible record(s) · excludes delivered, incomplete and already queued jobs. Current office worker processes jobs one by one until VBA batch upgrade.</small></div>
+    <div><strong>Track all Shree Maruti IDs in this view</strong><small>{shreeBatch.length} eligible of {selected.length} visible record(s) · excludes delivered, incomplete and already queued jobs. Updated Windows worker searches up to 20 AWBs together; older workers remain single-ID until updated.</small></div>
     <button type='button' disabled={busy||!p.authenticated||shreeBatch.length===0} onClick={()=>void p.onBatchTrackShreeMaruti(shreeBatch)}><Truck size={16}/> Track All ({shreeBatch.length})</button>
    </div>
    <ShreeMarutiImport records={p.records} authenticated={p.authenticated} busy={busy} teamId={p.activeTeam||''} onImported={p.onRefresh}/>
