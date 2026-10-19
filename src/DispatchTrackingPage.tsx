@@ -2,7 +2,7 @@ import './transport-tracking.css';
 import {useMemo,useState} from 'react';
 import {
  AlertTriangle,Camera,CheckCircle2,ClipboardCheck,ExternalLink,
- FileImage,RefreshCw,Truck
+ FileImage,RefreshCw,Trash2,Truck
 } from 'lucide-react';
 import {cloud} from './cloud';
 import {filterStage} from './workflowStages';
@@ -15,6 +15,7 @@ import {
 } from './manualDispatchTracking';
 import TransportTrackingCapture from './TransportTrackingCapture';
 import ShreeMarutiImport from './ShreeMarutiImport';
+import CarrierBulkTrashDialog from './CarrierBulkTrashDialog';
 
 type Tab='Trackable'|'Non-trackable';
 const statusOptions=[
@@ -30,6 +31,7 @@ export default function DispatchTrackingPage({p}:{p:any}){
  const [statusFilter,setStatusFilter]=useState('All');
  const [transfers,setTransfers]=useState<Record<string,string>>({});
  const [capture,setCapture]=useState<any|null>(null);
+ const [bulkCarrier,setBulkCarrier]=useState<string|null>(null);
  const rows=filterStage(results,'Dispatch Tracking');
  const counts={
   Trackable:rows.filter((r:any)=>Boolean(manualCarrierUrl(r.transporter))).length,
@@ -188,6 +190,12 @@ export default function DispatchTrackingPage({p}:{p:any}){
      <button className='ux-track-refresh' disabled={busy} onClick={()=>void p.onRefresh?.()}>
       <RefreshCw size={15}/> Refresh
      </button>
+     {tab==='Trackable'&&<button type='button' className='ux-track-bulk-delete'
+      disabled={busy||!p.authenticated||carrierFilter==='All carriers'}
+      title={carrierFilter==='All carriers'?'Select one transporter to move its processes to Deleted Processes':'Preview and move eligible '+carrierFilter+' processes to Deleted Processes'}
+      onClick={()=>setBulkCarrier(carrierFilter)}>
+      <Trash2 size={15}/> Delete selected transporter
+     </button>}
     </div>
    </div>
    <div className='ux-tablewrap ux-track-desktop-table'>
@@ -221,5 +229,12 @@ export default function DispatchTrackingPage({p}:{p:any}){
   </Panel>
   {capture&&<TransportTrackingCapture process={capture} onClose={()=>setCapture(null)}
    onSaved={()=>p.onRefresh?.()} onNotice={p.onNotice}/>}
+  {bulkCarrier&&<CarrierBulkTrashDialog key={bulkCarrier} carrier={bulkCarrier}
+   onClose={()=>setBulkCarrier(null)}
+   onCompleted={async result=>{
+    await p.onRefresh?.();
+    p.onNotice?.(result.moved+' '+result.carrier+' process(es) moved to Deleted Processes. '+result.blocked+' blocked and '+result.shared+' shared record(s) preserved. You can restore the moved processes in Data Store.');
+    setBulkCarrier(null);
+   }}/>}
  </>;
 }
