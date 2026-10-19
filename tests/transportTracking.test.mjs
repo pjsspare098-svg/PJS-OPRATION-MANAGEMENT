@@ -9,7 +9,7 @@ for(const name of TRANSPORT_CARRIERS){
 for(const [alias,expected] of [['TCI Express Ltd','TCI EXPRESS'],['TCI FREIGHT','TCI FREIGHT'],['V Xpress','V EXPRESS'],['V-Trans (India) Ltd','V TRANS'],['DTDC COURIER','DTDC'],['VRL Logistics','VRL'],['ARC limited','ARC']]){
  assert.equal(transportCarrier(alias),expected);
 }
-assert.equal(transportCarrier('SHREE MARUTI'),null,'Automated Shree Maruti is not a manual transport');
+assert.equal(transportCarrier('SHREE MARUTI'),null,'Shree Maruti has its own carrier alias, resolved by the combined manual page');
 assert.equal(transportCarrier('Unlisted transporter'),null);
 assert.deepEqual(CAPTURE_STATUSES,[
  'Needs Review','Pending','In Transit','Out for Delivery','Delivered','Undelivered','RTO','Returned','Cancelled','Delayed','Address Issue','Not Found'
@@ -22,6 +22,6 @@ assert.ok(capture.includes("disabled={!file||!resultDetails.trim()||busy}"),'Scr
 assert.ok(capture.includes('Carrier status (manual entry)'));
 assert.ok(!capture.includes('recognize('),'Tracking screenshots must never trigger OCR');
 assert.ok(!capture.includes('extractTrackingStatus'),'No automatic status guesses');
-assert.ok(sheet.includes('r.trackingCaptureDetail'),'Typed result must be shown on tracking sheet');
+assert.ok(sheet.includes('displayedTrackingResult(r)'),'Typed result must be shown on the combined tracking sheet');
 assert.ok(sheet.includes('Tracking details:'),'Tracking result label visible in carrier row');
 console.log('PASS: eight manual carrier portals; manual status and details saved and displayed without OCR');
