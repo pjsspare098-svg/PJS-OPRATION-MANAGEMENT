@@ -103,6 +103,7 @@ export const ops={
   async save(r:any,action='Process saved'){const result=await cloud.save(r);await ops.audit(result,action,{stage:result.stage||'Universal Process'});return result},
   async stage(r:any,stage:string,status?:string){const saved=await cloud.save({...r,stage,status:status||r.status||'Pending'});await ops.audit(saved,'Moved to '+stage,{previousStage:r.stage||'Universal Process',newStage:stage});return saved},
   async queue(r:any,type:JobType,existing:Job[],prefs:RulePrefs=defaults){
+    if(type==='tracking')throw Error('Automatic carrier tracking is disabled. Use Dispatch Tracking → Track → Capture to save manual tracking evidence.');
     const u=await currentUser();
     if(!r.id||!r.process)throw Error('Save this process first.');
     if(existing.some(j=>j.process_id===r.id&&j.job_type===type&&['queued','running'].includes(j.status)))throw Error('A '+type.replaceAll('_',' ')+' job is already queued for '+r.process);
