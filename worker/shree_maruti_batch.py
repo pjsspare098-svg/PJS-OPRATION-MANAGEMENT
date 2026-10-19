@@ -10,6 +10,7 @@ Windows workstation before enabling carrier lookups.
 """
 from __future__ import annotations
 
+import base64
 import logging
 import re
 import time
@@ -260,8 +261,28 @@ class ShreeMarutiBatchTracker:
                 self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", hero)
             if not self._belongs_to(awb):
                 return None
-            if not self.driver.save_screenshot(str(path)) or not path.is_file() or path.stat().st_size == 0:
+            # Chrome's full-page capture includes both the status card and the
+            # Shipment Journey, as shown in the operator's official site.
+            # Fall back to a normal Selenium viewport image when CDP is unavailable.
+            captured = False
+            try:
+                response = self.driver.execute_cdp_cmd(
+                    "Page.captureScreenshot",
+                    {"format": "png", "captureBeyondViewport": True, "fromSurface": True},
+                )
+                raw = base64.b64decode(response["data"], validate=True)
+                if raw.startswith(b"\x89PNG\r\n\x1a\n") and len(raw) <= 5 * 1024 * 1024:
+                    path.write_bytes(raw)
+                    captured = True
+            except Exception:
+                pass
+            if not captured and not self.driver.save_screenshot(str(path)):
                 raise RuntimeError("Selenium did not produce a screenshot")
+            if not self._belongs_to(awb):
+                path.unlink(missing_ok=True)
+                raise RuntimeError("Tracking result changed AWB during screenshot capture")
+            if not path.is_file() or path.stat().st_size == 0:
+                raise RuntimeError("Tracking screenshot file is empty")
             return str(path)
         except Exception as exc:
             LOG.warning("Verified carrier status %s, but screenshot failed for process %s (%s)",
