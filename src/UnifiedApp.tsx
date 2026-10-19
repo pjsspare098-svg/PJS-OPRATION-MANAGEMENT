@@ -277,6 +277,6 @@ export default function UnifiedApp(){
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
-  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} onCancelEmailJob={onCancelEmailJob} exceptions={exceptions} onDelete={onDeleteProcess} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
+  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} onCancelEmailJob={onCancelEmailJob} exceptions={exceptions} onDelete={onDeleteProcess} onAttachmentChanged={refresh} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
  </UnifiedShell>;
 }
