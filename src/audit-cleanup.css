@@ -1,0 +1,38 @@
+/* Audit & Reports: scope-limited cleanup, no destructive audit deletion. */
+.ux-audit-manager{background:#fff;border:1px solid #dce7f4;border-radius:14px;padding:18px;margin-bottom:20px;display:grid;gap:13px}
+.ux-audit-manager-title{display:flex;align-items:start;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.ux-audit-manager-title>div{flex:1;min-width:220px}
+.ux-audit-manager-title h2{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:900;margin:0 0 7px;color:#27486d}
+.ux-audit-manager-title h2 svg{color:#b4762d}
+.ux-audit-manager-title p{font-size:11px;color:#71849a;line-height:1.7;margin:0}
+.ux-audit-manager button{border:1px solid #cedcee;border-radius:8px;background:#f8faff;color:#365c87;font-size:11px;font-weight:800;padding:10px 12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px}
+.ux-audit-manager button:hover:not(:disabled){background:#e9f1ff;border-color:#abc7f0}
+.ux-audit-manager button:disabled{cursor:not-allowed;opacity:.45}
+.ux-audit-manager-scope{display:flex;gap:17px;align-items:end;flex-wrap:wrap}
+.ux-audit-manager-scope>label{display:grid;gap:7px;min-width:220px;flex:1;color:#47688c;font-size:11px;font-weight:800}
+.ux-audit-manager-scope input{display:block;height:41px;width:100%;min-width:0;border:1px solid #ccdbed;background:#fff;color:#294b71;padding:10px 12px;font-size:12px;border-radius:9px;box-sizing:border-box}
+.ux-audit-manager-scope input:focus{outline:2px solid #bed6ff}
+.ux-audit-manager-buttons{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:760px}
+.ux-audit-manager .is-danger,.ux-audit-reconcile-actions .is-danger{color:#b74c57;border-color:#f0c5cc;background:#fff4f5}
+.ux-audit-manager .is-danger:hover:not(:disabled),.ux-audit-reconcile-actions .is-danger:hover:not(:disabled){background:#ffe5e8}
+.ux-audit-manager-hint{font-size:11px;color:#92652e;background:#fff7eb;border:1px solid #f0d9b5;border-radius:8px;padding:10px 12px;margin:0;line-height:1.65}
+.ux-audit-manager-archive-note{font-size:11px;color:#4c6b90;line-height:1.65}
+.ux-audit-manager-error,.ux-audit-manager-success{margin:0;padding:10px 12px;border-radius:8px;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.ux-audit-manager-error{color:#a94453;background:#fff1f3;border:1px solid #eebec6}
+.ux-audit-manager-success{color:#1e795c;background:#effaf5;border:1px solid #c7e9d8}
+.ux-audit-job{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ux-audit-job>div:first-child{flex:1;min-width:130px}
+.ux-audit-job .ux-warning{flex-basis:100%;overflow-wrap:anywhere}
+.ux-audit-job-actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px;flex-basis:100%}
+.ux-audit-job-actions button,.ux-audit-reconcile-actions button{border:1px solid #d6e2f1;border-radius:8px;background:#f6f9ff;color:#355b8b;padding:8px 10px;min-height:34px;cursor:pointer;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.ux-audit-job-actions button:disabled,.ux-audit-reconcile-actions button:disabled{opacity:.45;cursor:not-allowed}
+.ux-audit-job-running{display:grid;gap:8px;flex-basis:100%;font-size:11px;color:#687f9d;line-height:1.6}
+.ux-audit-job-running>small{line-height:1.6}
+.ux-audit-reconcile{display:grid;gap:11px;border:1px solid #f0d7b7;border-radius:9px;background:#fff9f1;padding:13px}
+.ux-audit-reconcile>label:first-child{display:grid;gap:6px;font-weight:750;font-size:11px;color:#845f32}
+.ux-audit-reconcile textarea{width:100%;min-height:76px;resize:vertical;box-sizing:border-box;border:1px solid #e7ceb0;border-radius:8px;padding:9px;color:#4b4d56;font:12px/1.6 inherit;background:white}
+.ux-audit-reconcile-check{display:flex;align-items:start;gap:8px;font-size:11px;color:#7d603f;line-height:1.5}
+.ux-audit-reconcile-check input{margin-top:3px;flex-shrink:0}
+.ux-audit-reconcile-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media(max-width:760px){.ux-audit-manager{padding:13px}.ux-audit-manager-scope{align-items:stretch}.ux-audit-manager-scope>label,.ux-audit-manager-buttons{width:100%;max-width:none}.ux-audit-manager-buttons{display:grid;grid-template-columns:1fr 1fr}.ux-audit-manager-buttons button{width:100%}.ux-audit-manager-buttons button:last-child{grid-column:1/-1}}
+@media(max-width:400px){.ux-audit-manager-buttons{grid-template-columns:1fr}.ux-audit-manager-buttons button:last-child{grid-column:auto}}
