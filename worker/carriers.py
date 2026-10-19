@@ -164,7 +164,7 @@ class CarrierEngine:
         # Outcome is stored as a structured value, never inferred from a screenshot.
         return result
 
-    def track_shree_maruti_batch(self, requests: list[tuple[str, str]]) -> dict[tuple[str, str], TrackResult]:
+    def track_shree_maruti_batch(self, requests: list[tuple[str, str]], on_progress=None) -> dict[tuple[str, str], TrackResult]:
         """One official carrier page submission for up to 20 verified AWBs.
 
         Returns per-(Process No., Tracking ID) results; nothing writes to the
@@ -175,7 +175,7 @@ class CarrierEngine:
         engine = ShreeMarutiBatchTracker(
             self.start(), self.screenshot_dir / "SHREE_MARUTI"
         )
-        return engine.track_many(requests)
+        return engine.track_many(requests, on_progress=on_progress)
 
     def track_shree_maruti(self, tracking_id: str, process_no: str) -> TrackResult:
         """Keep the original single-tracking adapter compatible with the new page."""
