@@ -3,7 +3,7 @@
  */
 export type CarrierName = 'SHREE MARUTI'|'VRL'|'ACPL'|'V EXPRESS'|'TCI FREIGHT'|'ARC';
 export const CARRIER_URLS: Record<CarrierName,string> = {
- 'SHREE MARUTI':'https://shreemaruti.com/track-shipment/',
+ 'SHREE MARUTI':'https://tracking.shreemaruti.com/',
  'VRL':'https://www.vrlgroup.in/Tracking/TrackShipment',
  'ACPL':'https://acplcargo.com/tracking',
  'V EXPRESS':'https://vxpress.in/track-shipment/',
