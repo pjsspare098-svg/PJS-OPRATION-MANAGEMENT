@@ -251,7 +251,7 @@ class ShreeMarutiBatchTracker:
             raise RuntimeError("Latest shipment journey failed to load for selected AWB")
         return self._latest_journey(awb)
 
-    def track_many(self, requests: list[tuple[str, str]]) -> dict[tuple[str, str], TrackResult]:
+    def track_many(self, requests: list[tuple[str, str]], on_progress=None) -> dict[tuple[str, str], TrackResult]:
         """One submission per group; always map back to *exact* Process No.+AWB."""
         if not requests or len(requests) > MAX_BATCH:
             raise ValueError("Shree Maruti batch size must be 1–20")
@@ -264,6 +264,12 @@ class ShreeMarutiBatchTracker:
                 raise ValueError("Invalid tracking AWB in Shree Maruti batch")
             clean.append((proc, number))
         unique = list(dict.fromkeys(awb for _, awb in clean))
+        def progress(index: int):
+            if on_progress is not None:
+                try:
+                    on_progress(index, len(unique))
+                except Exception:
+                    LOG.warning("Shree Maruti progress heartbeat unavailable; continuing lookup")
         resolved: dict[str, tuple[str, str, str]] = {}
         screenshots: dict[tuple[str, str], str | None] = {}
         processes_by_awb: dict[str, list[str]] = {}
@@ -282,7 +288,7 @@ class ShreeMarutiBatchTracker:
                 errors[awb] = "Carrier batch search unavailable"
         else:
             # Collect all first: resubmitting one failed AWB must not erase others.
-            for awb in unique:
+            for index, awb in enumerate(unique, 1):
                 try:
                     resolved[awb] = self._read_one(awb)
                     if resolved[awb][0] == "Delivered":
@@ -290,9 +296,11 @@ class ShreeMarutiBatchTracker:
                             screenshots[(process, awb)] = self._capture_delivered(process, awb)
                 except Exception as exc:
                     errors[awb] = type(exc).__name__
+                finally:
+                    progress(index)
         # A failed read-only lookup can be rechecked just once, without
         # re-submitting already verified AWBs or retrying database writes.
-        for awb in list(errors):
+        for index, awb in enumerate(list(errors), 1):
             try:
                 if not self._ensure_page():
                     raise RuntimeError("Tracking page unavailable")
@@ -304,6 +312,8 @@ class ShreeMarutiBatchTracker:
                 errors.pop(awb, None)
             except Exception as exc:
                 errors[awb] = type(exc).__name__
+            finally:
+                progress(index)
         output: dict[tuple[str, str], TrackResult] = {}
         for process, awb in clean:
             if awb not in resolved:
