@@ -61,11 +61,11 @@ export default function EmailToClientWorkflow({p}:{p:any}){
    const isOpen=expanded.includes(r.id);
    const attachments=(r.documents||[]).filter((d:any)=>['invoiceDoc','einvoiceDoc','ebillDoc','lrDoc'].includes(d.kind));
    const jobStatus=active?.status||latest?.status||'not_queued';
-   const statusText=jobStatus==='running'?'Draft being prepared':jobStatus==='queued'?'Waiting for Outlook worker':jobStatus==='completed'?'Draft prepared — not sent':jobStatus==='failed'?'Needs review':jobStatus==='cancelled'?'Request cancelled':'Not queued';
+   const statusText=jobStatus==='running'?'Draft being prepared':jobStatus==='queued'?'Waiting for Outlook worker':jobStatus==='not_queued'?'Not queued':'';
    return <article className='ux-process-card ux-outlook-process' key={r.id}>
     <div className='ux-process-card-title'>
      <div><strong>{r.process} · {r.party}</strong><small>SO {r.so||'—'} · {r.productName||'Product not set'} · Invoice {r.invoice||'Missing'}</small></div>
-     <span className={'ux-email-job-status status-'+jobStatus.replace(/[^a-z]/g,'')}>{statusText}</span>
+     {statusText&&<span className={'ux-email-job-status status-'+jobStatus.replace(/[^a-z]/g,'')}>{statusText}</span>}
     </div>
     <div className='ux-outlook-card-grid'>
      <div className='ux-outlook-subpanel'>
@@ -115,9 +115,7 @@ export default function EmailToClientWorkflow({p}:{p:any}){
       <Button onClick={()=>onDraftEmail(r)}><ClipboardCheck size={15}/> Copy formatted dispatch text</Button>
     </div>}
     {readiness.missing.length>0&&<div className='ux-outlook-warning'><AlertTriangle size={15}/><div><strong>Complete before queueing:</strong> {readiness.missing.join(' · ')}</div></div>}
-    {latest?.error_message&&latest.status==='failed'&&<div className='ux-outlook-warning'><AlertTriangle size={15}/><div>{latest.error_message}</div></div>}
     {readiness.legacy&&<div className='ux-outlook-warning'><AlertTriangle size={15}/><div>This is an older Outlook request. Cancel it before queueing a new draft-only request.</div></div>}
-    {latest?.status==='completed'&&<div className='ux-outlook-note'><CheckCircle2 size={15}/> A Reply All draft was prepared in office Outlook. This is NOT confirmation that an email was sent.</div>}
     <div className='ux-row-actions'>
      <label className='ux-button secondary ux-file-button'><Upload size={15}/> Upload .eml<input type='file' accept='.eml,message/rfc822' onChange={e=>{onAttach(r,'emailDoc',e.target.files?.[0]);e.target.value=''}}/></label>
      <Button onClick={()=>onEdit(r)}>Edit dispatch</Button>
