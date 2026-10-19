@@ -25,7 +25,7 @@ export function checkJob(r:any,type:RuleJob,prefs:RulePrefs={ebill_threshold:500
  if(type==='bill_submit')return checkBill(r,prefs.ebill_threshold);
  const files=kinds(r),missing:string[]=[],warnings:string[]=[];
  if(!text(r.process))missing.push('Process No.');
- if(!text(r.party))missing.push('Party Name');
+ if(!text(r.party)&&type!=='tracking')missing.push('Party Name');
  if(type==='tracking'){
   if(!text(r.transporter))missing.push('Transporter');
   if(!text(r.lr))missing.push('LR / Docket No.');
