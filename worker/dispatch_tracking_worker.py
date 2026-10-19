@@ -195,8 +195,13 @@ def execute_shree_batch(db, jobs: list[dict], owner: str, engine: CarrierEngine,
         return outputs
     requests = [(tracking.process_no, tracking.tracking_id)
                 for tracking in prepared.values()]
+    def browser_progress(done: int, total: int):
+        if on_progress:
+            on_progress(jobs[0]["id"], done, total)
     try:
-        confirmed = engine.track_shree_maruti_batch(requests)
+        confirmed = engine.track_shree_maruti_batch(
+            requests, on_progress=browser_progress if on_progress else None
+        )
     except Exception as exc:
         LOGGER.error("Shree Maruti bulk browser error (%s); no automatic retry", type(exc).__name__)
         confirmed = {}
