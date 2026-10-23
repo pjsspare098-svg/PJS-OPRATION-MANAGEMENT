@@ -1,4 +1,4 @@
-# Launch PJS independent office workers. Does not enable live automation.
+# Launch only PJS DataDoc bill + DataDoc proof workers. Does not enable live automation.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 $envPath = Join-Path $PSScriptRoot '.env'
@@ -45,7 +45,7 @@ try {
 } catch {
   throw 'Cannot verify existing Python processes. No workers started; check Windows WMI/CIM access.'
 }
-foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispatch_tracking_worker.py', 'datadoc_proof_worker.py')) {
+foreach ($worker in @('independent_worker.py', 'datadoc_proof_worker.py')) {
   if (-not (Test-Path (Join-Path $PSScriptRoot $worker))) { throw "Missing $worker" }
   $workerPath = Join-Path $PSScriptRoot $worker
   $pattern = '(^|[\\/\s"''])(?:' + [regex]::Escape($worker) + ')(?=$|[\s"''])'
@@ -62,5 +62,5 @@ foreach ($worker in @('independent_worker.py', 'outlook_draft_worker.py', 'dispa
   Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $PSScriptRoot | Out-Null
   Write-Host "Started $worker. Check Control Tower for a fresh heartbeat."
 }
-Write-Host 'Safety flags were not modified. Disabled workers should report PAUSED.'
-Write-Host 'Logs: worker\logs\datadoc-worker.log, outlook-draft-worker.log, dispatch-tracking.log, datadoc-proof.log'
+Write-Host 'Only DataDoc submit workers were considered. Live flags were NOT modified.'
+Write-Host 'Logs: worker\logs\datadoc-worker.log, datadoc-proof.log'
