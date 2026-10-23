@@ -55,7 +55,7 @@ assert.ok(!stage.includes('AgentCommandCenter'));
 assert.ok(!prefs.includes('AI Command Center'));
 assert.ok(!app.includes('onBatchTrackShreeMaruti'));
 assert.ok(!app.includes("agentApi"));
-assert.ok(read('src/unifiedOps.ts').includes("if(type==='tracking')throw Error("));
+assert.ok(read('src/unifiedOps.ts').includes("if(type!=='bill_submit')throw Error("),'Only DataDoc Bill Submit may queue');
 const sql=read('supabase/migrations/030_manual_only_carrier_tracking_claims.sql');
 assert.ok(sql.includes('oms_claim_approved_tracking('));
 assert.ok(sql.includes('oms_claim_approved_shree_maruti_batch('));
