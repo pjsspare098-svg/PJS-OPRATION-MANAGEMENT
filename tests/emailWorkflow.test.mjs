@@ -19,7 +19,7 @@ assert.ok(body.includes('Please record a proper video')&&body.includes('Dispatch
 assert.ok(body.includes('Box Weight (Kgs): 12'));
 assert.ok(!body.includes('To:')&&!body.includes('Cc:'),'No recipient extraction or reconstruction');
 const page=readFileSync(new URL('../src/EmailToClientWorkflow.tsx',import.meta.url),'utf8');
-assert.ok(page.includes('Queue Reply All draft'));
+assert.ok(page.includes('Manual Outlook workflow — no automation running'));
 assert.ok(page.includes('I sent this in Outlook · Track'));
 assert.ok(page.includes('Download original .eml'));
 assert.ok(!page.includes('Saved dispatch recipients'));
@@ -27,8 +27,8 @@ assert.ok(page.includes('ux-pressurejet-email-table'),'Structured customer email
 assert.equal(emailDraftReadiness({...record,weight:''}).ready,false);
 assert.equal(emailDraftReadiness({...record,documents:record.documents.filter(d=>d.kind!=='lrDoc')}).ready,false);
 const operations=readFileSync(new URL('../src/unifiedOps.ts',import.meta.url),'utf8');
-assert.ok(operations.includes('approved_for_draft:true,auto_send:false'));
+assert.ok(operations.includes("if(type!=='bill_submit')throw Error("));
 const app=readFileSync(new URL('../src/UnifiedApp.tsx',import.meta.url),'utf8');
 assert.ok(app.includes('automatic_sent_verification:false'));
-assert.ok(app.includes("j.result?.draft_saved===true&&j.result?.email_sent===false"));
-console.log('PASS: Outlook draft-only page, original email selection, worker-queue safety and preview');
+assert.ok(!app.includes('confirmedDraft'),'Manual confirmation must not depend on a worker draft');
+console.log('PASS: Manual Outlook Reply All, file download, preview and operator-confirmed send');
