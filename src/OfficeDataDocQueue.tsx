@@ -76,6 +76,6 @@ export default function OfficeDataDocQueue({authenticated,records=[],threshold=5
     </div><span className={'oq-job-status '+className}>{status}</span></div>
    }):<div className='oq-empty'><ShieldCheck size={17}/> No active DataDoc bill jobs. Completed submissions and errors are available in Audit & Reports.</div>}
   </div>
-  <div className='oq-note'><ShieldCheck size={15}/><span>Automatic execution requires one-time Windows installation and a verified live setting. Approved <strong>Bill Submit</strong> jobs build one ZIP automatically and require verified confirmation; Outlook and Delivery Proof integrations remain separate. Finished and failed jobs remain in Audit & Reports and never retry automatically.</span></div>
+  <div className='oq-note'><ShieldCheck size={15}/><span>Automatic execution requires one-time Windows installation and a verified live setting. Approved <strong>Bill Submit</strong> jobs build one ZIP automatically and require verified confirmation; DataDoc Tracking Proof uses a separate approved DataDoc submission worker. Email and carrier tracking are manual. Finished and failed jobs remain in Audit & Reports and never retry automatically.</span></div>
  </div>;
 }
