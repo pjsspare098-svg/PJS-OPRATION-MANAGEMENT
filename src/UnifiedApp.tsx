@@ -220,37 +220,24 @@ export default function UnifiedApp(){
  }
  async function onQueue(r:any,type:JobType){
   if(!authenticated){onNotice('Sign in to queue office automation.');return}
-  if(type==='tracking'){setError('Automatic carrier tracking is retired. Open Dispatch Tracking and use Track + Capture to save manual evidence.');return}
+  if(type!=='bill_submit'){setError('Only DataDoc Bill Submit automation is enabled. Outlook and carrier tracking are manual.');return}
   if(type==='bill_submit'&&!window.confirm('Approve a real DataDoc bill for Process '+r.process+'? Check the Invoice No., positive amount, Credit/Non-Credit and that Full Payment Verify = Yes is true. The Windows worker will attach one ZIP and may SUBMIT a real transaction when enabled.'))return;
   setBusy(true);
   try{
     const needsBillInfo=type==='bill_submit'&&!checkBill(r,settings.ebill_threshold).ready;
     await ops.queue(r,type,jobs,settings);await refresh();
-    onNotice(type==='bill_submit'
-      ?needsBillInfo?'DataDoc request saved. Office worker will wait for the required invoice information and files before submitting.':'Approved DataDoc Bill Submit queued for the Windows office worker.'
-      :type==='email_reply'
-      ?'Reply All draft queued. The office Outlook worker will prepare a draft when connected; it will NOT send an email.'
-      :'Job queued. Its separate office adapter must be connected before any external action.');
+    onNotice(needsBillInfo?'DataDoc request saved. Office worker will wait for invoice information and files before submitting.':'Approved DataDoc Bill Submit queued for the authorized Windows DataDoc worker.');
   }catch(e:any){setError(e?.message||'Unable to queue request.')}
-  finally{setBusy(false)}
- }
- async function onCancelEmailJob(job:Job){
-  setBusy(true);
-  try{await ops.cancelEmailJob(job);await refresh();onNotice('Waiting Outlook draft request cancelled.')}
-  catch(e:any){setError(e?.message||'Could not cancel this request.')}
   finally{setBusy(false)}
  }
  async function onConfirmEmailSent(r:any){
   if(!authenticated){setError('Sign in before confirming a real Outlook dispatch.');return}
   if(String(r.stage||'').trim()!=='Email to Client'){setError('Process is not in Email to Client; refresh before confirming.');return}
-  const confirmedDraft=jobs.find(j=>j.process_id===r.id&&j.job_type==='email_reply'&&
-    j.status==='completed'&&j.payload?.automation_version==='outlook_draft_v1'&&
-    j.result?.draft_saved===true&&j.result?.email_sent===false);
-  if(!confirmedDraft){setError('A completed Reply All draft must be verified before confirming the email was sent.');return}
+  if(!records.some(row=>row.id===r.id&&row.stage==='Email to Client')){setError('This process is no longer in the Email to Client stage. Refresh before continuing.');return}
   if(!window.confirm('Confirm that you personally checked the Reply All recipients, attachments and dispatch details, and SENT this reply from Outlook. This is a manual confirmation, not automatic verification. Move to tracking?'))return;
   setBusy(true);
   try{
-   await ops.audit(r,'Outlook dispatch sent confirmed by operator',{method:'manual_confirmation',process:r.process,source_draft_job_id:confirmedDraft.id,operator_confirmed_at:new Date().toISOString(),automatic_sent_verification:false});
+   await ops.audit(r,'Manual Outlook Reply All sent confirmed by operator',{method:'manual_confirmation',process:r.process,operator_confirmed_at:new Date().toISOString(),automation_used:false,automatic_sent_verification:false});
    await ops.stage(r,'Dispatch Tracking','Pending');
    await refresh();onNotice('Manual sent confirmation recorded. Process moved to Dispatch Tracking.');
   }catch(e:any){setError(e?.message||'Unable to record manual sent confirmation.')}
@@ -270,13 +257,13 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onApproveDataDocProof,onAttach,onDraftEmail,onCancelEmailJob,onConfirmEmailSent,onError:setError,onNotice};
+ const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onApproveDataDocProof,onAttach,onDraftEmail,onConfirmEmailSent,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
   {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
-  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} onCancelEmailJob={onCancelEmailJob} exceptions={exceptions} onDelete={onDeleteProcess} onAttachmentChanged={refresh} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
+  {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} exceptions={exceptions} onDelete={onDeleteProcess} onAttachmentChanged={refresh} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
  </UnifiedShell>;
 }
