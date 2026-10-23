@@ -1,19 +1,5 @@
 @echo off
-setlocal
-cd /d "%~dp0"
-if not exist ".env" (
- echo ERROR: Missing local worker\.env - see docs\OUTLOOK_AUTOMATION_SETUP.md
- pause
- exit /b 1
-)
-where py >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
- py -3 outlook_draft_worker.py
-) else (
- python outlook_draft_worker.py
-)
-if errorlevel 1 (
- echo Outlook draft worker stopped with an error. See logs\outlook-draft-worker.log
- pause
-)
-endlocal
+rem RETIRED: Outlook automation is disabled by the DataDoc-only policy.
+echo PJS OMS: Outlook Reply All is manual. The draft worker has been retired.
+echo Use Email to Client to copy dispatch details and confirm after sending manually.
+exit /b 0

@@ -12,7 +12,7 @@ const sections:{label:string;fields:[string,string,string?][]}[]=[
  {label:'Documents & carrier',fields:[['einvoice','E-Invoice No.'],['ebill','E-Way Bill No.'],['weight','Box Weight (Kgs)'],['transporter','Courier / Transporter'],['lr','Doc No. / LR / Docket No.'],['courierDate','Courier Date','date'],['trackingStatus','Tracking Result'],['exceptionReason','Exception Reason']]}
 ];
 export const documentKinds:[string,string][]= [['pickDoc','Pick Slip'],['invoiceDoc','Invoice'],['einvoiceDoc','E-Invoice'],['ebillDoc','E-Way Bill'],['lrDoc','LR / Docket'],['emailDoc','Outlook Email (.eml)'],['proofDoc','Delivery Proof'],['trackingShotDoc','Tracking Search Screenshots']];
-export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],exceptions=[],onDelete,onCancelEmailJob,onAttachmentChanged,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];exceptions?:any[];onDelete:(r:any)=>Promise<void>;onCancelEmailJob?:(job:any)=>Promise<void>;onAttachmentChanged?:()=>Promise<void>|void;onClose:()=>void;onSave:(data:any,files:Record<string,File>,transferTo?:WorkflowStage)=>Promise<void|{saved:any;failed:string[];details:string;transferFailed?:string}>}){
+export default function UnifiedDialog({record,sourceFile,importIssue='',demo,userId,jobs=[],exceptions=[],onDelete,onAttachmentChanged,onClose,onSave}:{record:any;sourceFile:File|null;importIssue?:string;demo:boolean;userId:string;jobs?:any[];exceptions?:any[];onDelete:(r:any)=>Promise<void>;onAttachmentChanged?:()=>Promise<void>|void;onClose:()=>void;onSave:(data:any,files:Record<string,File>,transferTo?:WorkflowStage)=>Promise<void|{saved:any;failed:string[];details:string;transferFailed?:string}>}){
  const scrollRef=useRef<HTMLDivElement>(null);
  const [draft,setDraft]=useState<any>({...blankProcess(),...record});
  const [files,setFiles]=useState<Record<string,File>>({});
@@ -171,7 +171,6 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  const transferIssues=transferTo?processTransferIssues(draft,transferTo,jobs,exceptions):[];
  const transferAllowed=Boolean(transferTo&&!transferIssues.length);
  const deletionBlockers=(jobs||[]).filter((job:any)=>job.process_id===draft.id&&['queued','running'].includes(job.status));
- const cancellableOutlook=deletionBlockers.find((job:any)=>job.job_type==='email_reply'&&job.status==='queued');
  const deleteReason=demo?'Sign in to delete cloud processes.':draft.team_id?'Shared team processes cannot be deleted here; ask a team administrator.':draft.id&&draft.owner_id!==userId?'Only the process owner can delete this record.':'';
 
  return <div className='ux-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><section className='ux-drawer' role='dialog' aria-modal='true' aria-label='Process editor'>
@@ -227,7 +226,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
      <small>{files[kind]?.name||(kind==='pickDoc'&&sourcePending&&sourceFile?.name)||(existing.length?existing.length+' saved':'Choose file')}</small>
      <input type='file' disabled={busy||Boolean(scanBusy)} accept={kind==='emailDoc'?'.eml,message/rfc822':'.pdf,.png,.jpg,.jpeg'} onChange={e=>{choose(kind,e.target.files?.[0]);e.target.value=''}}/>
     </label>
-    {kind==='emailDoc'&&<small className='ux-recipient-count'>Outlook Reply All will use this conversation when the email agent is running. No addresses are extracted.</small>}
+    {kind==='emailDoc'&&<small className='ux-recipient-count'>Reference copy only. Open Outlook and Reply All manually; PJS OMS does not create drafts or send emails.</small>}
     {files[kind]&&<div className='ux-attachment-pending'><button className='ux-preview-selected' type='button' onClick={()=>previewSelected(files[kind])}><ExternalLink size={14}/> Preview selected file (before save)</button><button type='button' className='ux-attachment-delete' disabled={busy||Boolean(scanBusy)||Boolean(attachmentBusy)} onClick={()=>setFiles(old=>{const next={...old};delete next[kind];return next})}><Trash2 size={14}/> Remove selected</button></div>}
     {scanBusy===kind&&<small className='ux-scanning'>Reading the document…</small>}
     {existing.map((d:any)=><div key={d.id} className='ux-saved-file'>
@@ -271,10 +270,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
   {deletionBlockers.length>0&&<div className='ux-delete-blockers' role='alert'>
     <strong>Cannot delete while automation is waiting or running.</strong>
     {deletionBlockers.map((job:any)=><div key={job.id}>Process job: {job.job_type.replace(/_/g,' ')} — {job.status}</div>)}
-    {cancellableOutlook&&onCancelEmailJob&&<button type='button' className='ux-secondary' disabled={busy} onClick={()=>void onCancelEmailJob(cancellableOutlook)}>
-      Cancel waiting Outlook draft request
-    </button>}
-    <small>Only queued Outlook drafts can be canceled here. Running or other automation jobs must be safely resolved first, then refresh.</small>
+    <small>Review legacy jobs in Audit &amp; Reports. No job is automatically cancelled when a process is moved to Trash.</small>
   </div>}
   <label className='ux-field'>Type Process No. {draft.process} to confirm
    <input value={deleteInput} onChange={e=>setDeleteInput(e.target.value.trim())} placeholder='Exact Process No.' autoComplete='off'/>

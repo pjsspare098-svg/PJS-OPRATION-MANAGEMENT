@@ -1,3 +1,13 @@
+# CURRENT POLICY (23 October 2026): DataDoc-only automation
+
+**Only DataDoc bill submission and DataDoc tracking-proof submission may run automatically in the authorized Windows office environment.** Outlook Reply All and all carrier lookups are manual. Cloud background audit/extraction agents are retired. The website, SQL guards and START_OFFICE_WORKERS.ps1 enforce this.
+
+Run only `independent_worker.py` and (after a verified supervised test) `datadoc_proof_worker.py`. Keep live flags off until an authorized supervised DataDoc acceptance test. Do not run old `outlook_draft_worker.py` or `dispatch_tracking_worker.py`. The launcher rejects those scripts.
+
+The historical notes below document earlier capabilities and are **not current operational instructions** wherever they discuss Outlook, carrier tracking, Track All, or unrelated cloud workers.
+
+---
+
 # Independent PJS OMS — Windows Login DataDoc Worker
 
 The independent website stays hosted on Vercel. DataDoc submissions stay safely queued in **independent Supabase** when the office PC is switched off. After Windows sign-in, Task Scheduler starts a dedicated Python worker. The worker connects to the private office DataDoc website, claims approved jobs, submits one bill at a time, and writes outcomes and notifications back to Supabase.

@@ -90,8 +90,10 @@ export default function SettingsControlCenter({p}:{p:any}){
     setDirty(true);
   }
   function switchTab(t:Tab){setTab(t);window.scrollTo({top:0,behavior:'smooth'});}
-  const waiting=jobs.filter((j:any)=>j.status==='queued').length;
-  const failed=jobs.filter((j:any)=>j.status==='failed').length;
+  const datadocJobs=jobs.filter((j:any)=>['bill_submit','delivery_proof_submit'].includes(j.job_type));
+  const pendingSubmit=datadocJobs.filter((j:any)=>j.status==='queued').length;
+  const runningSubmit=datadocJobs.filter((j:any)=>j.status==='running').length;
+  const failedSubmit=datadocJobs.filter((j:any)=>j.status==='failed').length;
   return <div className='sc-root'>
     <Heading eyebrow='PERSONALIZATION / ADMINISTRATION' title='Settings 2.0'
       description='Eight organized sections for phone, desktop and operations. Working preferences are separate from features that still require backend setup.'/>
@@ -110,9 +112,9 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SectionHeader title='System overview' description='Actual available services and current operational data.'/>
             <div className='sc-metrics'>
               <div><Database size={19}/><span>Cloud workspace</span><strong>{demo?'Demo':'Connected'}</strong></div>
-              <div><Server size={19}/><span>Office automation</span><strong>Live status in Worker tab</strong></div>
+              <div><Server size={19}/><span>DataDoc submission</span><strong>Only approved automation</strong></div>
               <div><ClipboardCheck size={19}/><span>Visible processes</span><strong>{records.length}</strong></div>
-              <div><Workflow size={19}/><span>Queued jobs</span><strong>{waiting}</strong></div>
+              <div><Truck size={19}/><span>Courier tracking</span><strong>Manual only</strong></div>
             </div>
           </section>
           <section className='sc-card'>
@@ -120,7 +122,7 @@ export default function SettingsControlCenter({p}:{p:any}){
             <div className='sc-overview-grid'>{tabs.filter(t=>(settingsEight as readonly string[]).includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={21}/><strong>{label}</strong><ArrowRight size={16}/></button>)}</div>
           </section>
           <section className='sc-card'><SectionHeader title='Existing operational settings' description='Keep using the current Office Worker, Users & Roles, Dispatch Rules and PDF/OCR controls without losing any functionality.' badge='PRESERVED'/><div className='sc-overview-grid'>{tabs.filter(t=>['worker','users','dispatch','pdf'].includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={19}/><strong>{label}</strong><ArrowRight size={15}/></button>)}</div></section>
-          <Note>Office agents are monitored live; start/pause requires the authorized Windows PC. In-app notifications and user-scoped process deletion are connected. Managed database backups and outbound messaging remain separately administered.</Note>
+          <Note>Only DataDoc submissions use automation on the authorized Windows PC. Outlook Reply All and carrier tracking are manual. In-app notifications and process controls remain available.</Note>
         </>}
         {tab==='mobile'&&<SettingsPersonalization section='mobile'/>}
         {tab==='dashboard'&&<SettingsPersonalization section='dashboard'/>}
@@ -137,24 +139,26 @@ export default function SettingsControlCenter({p}:{p:any}){
         </section>}
         {tab==='dispatch'&&<Planned title='Advanced dispatch configuration' items={['Overdue delivery escalation','Carrier-specific retry rules','E-Way Bill expiry warnings','Notification recipients and delivery schedule','Rule change history and approval gates']}/>}
         {tab==='worker'&&<>
-          <section className='sc-card'><SectionHeader title='Live office agents' description='Current Supabase heartbeats from DataDoc, Outlook Draft and Carrier Tracking. Status depends on your office computer.' badge='LIVE HEARTBEATS'/>
+          <section className='sc-card'><SectionHeader title='DataDoc submission worker' description='Monitor only the authorized DataDoc office worker. Email and tracking have no automated workers.' badge='DATADOC ONLY'/>
             <div className='sc-worker-fleet'><WorkerFleetStatus authenticated={authenticated}/></div>
-            <SettingRow title='Queued jobs' description='Requests wait safely in the cloud until the appropriate worker can claim them.' right={<strong>{waiting}</strong>}/>
-            <SettingRow title='Failed jobs' description='Inspect external systems before manually retrying to avoid duplicate submissions.' right={<strong>{failed}</strong>}/>
+            <SettingRow title='DataDoc pending submissions' description='Approved DataDoc bill and tracking-proof submissions only.' right={<strong>{pendingSubmit}</strong>}/>
+            <SettingRow title='Failed DataDoc submissions' description='Verify the DataDoc portal before another submission to avoid duplicates.' right={<strong>{failedSubmit}</strong>}/>
             <div className='sc-actions'><Button onClick={()=>onGoto('DataDoc')}>View DataDoc jobs <ArrowRight size={15}/></Button>
-              <a className='sc-link-button' href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/blob/main/docs/ONE_CLICK_OFFICE_START.md' target='_blank' rel='noreferrer'>Install one-click Windows startup</a></div>
-            <Note>For security, a website tab cannot start, stop or change local Python worker switches. Use the Windows desktop launcher and private .env file. No remote command is sent.</Note>
+              <a className='sc-link-button' href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/tree/main/worker' target='_blank' rel='noreferrer'>DataDoc-only worker setup</a></div>
+            <Note>For security, a website tab cannot start or stop a local worker. Run only the authorized DataDoc submission workers on the Windows PC; stop legacy Outlook, carrier and cloud agents.</Note>
           </section>
         </>}
         {tab==='automation'&&<>
-          <section className='sc-card'><SectionHeader title='Automation job monitor' description='Live queued, running and failed jobs from this workspace. Agent execution remains on the authorized office PC.' badge='LIVE QUEUE'/>
-            <div className='sc-metrics'><div><Clock3 size={19}/><span>Queued</span><strong>{waiting}</strong></div><div><Activity size={19}/><span>Running</span><strong>{jobs.filter((j:any)=>j.status==='running').length}</strong></div><div><AlertTriangle size={19}/><span>Failed</span><strong>{failed}</strong></div></div>
-            <div className='sc-actions'><Button onClick={()=>onGoto('Audit & Reports')}>Review job history <ArrowRight size={15}/></Button>
-            <Button onClick={()=>onGoto('Dispatch Tracking')}>Carrier tracking <Truck size={15}/></Button>
-            <Button onClick={()=>onGoto('Email to Client')}>Outlook draft workflow <ArrowRight size={15}/></Button></div>
-            <Note>Automatic sending and untested DataDoc Email Submit cannot be enabled from this page. The local office configuration controls live execution; website approval never guarantees completion.</Note>
+          <section className='sc-card'><SectionHeader title='DataDoc submission automation' description='Only DataDoc Bill Submit and DataDoc Tracking Proof jobs are executable by authorized office workers.' badge='DATADOC ONLY'/>
+            <div className='sc-metrics'>
+             <div><Clock3 size={19}/><span>Pending DataDoc</span><strong>{pendingSubmit}</strong></div>
+             <div><Activity size={19}/><span>Submitting</span><strong>{runningSubmit}</strong></div>
+             <div><AlertTriangle size={19}/><span>Needs verification</span><strong>{failedSubmit}</strong></div>
+            </div>
+            <div className='sc-actions'><Button onClick={()=>onGoto('DataDoc')}>Open DataDoc submission <ArrowRight size={15}/></Button>
+             <Button onClick={()=>onGoto('Audit & Reports')}>Review submission history <ArrowRight size={15}/></Button></div>
+            <Note>Outlook Reply All, carrier tracking and other background agents are disabled. All those tasks are manual. DataDoc is the only automation, and the office worker still requires explicit approval and a verified live setting.</Note>
           </section>
-          <Planned title='Additional automation controls' items={['Secure remote worker command channel','Automatic retry scheduling after external verification','Per-agent live test mode','Action-specific approval policies']}/>
         </>}
         {tab==='users'&&<>
           <section className='sc-card'><SectionHeader title='Access roles' description='Existing team authorization uses Admin, Operator and Viewer in Supabase.' badge='EXISTING ACCESS'/>
@@ -189,7 +193,7 @@ export default function SettingsControlCenter({p}:{p:any}){
           <section className='sc-card'><SectionHeader title='Notifications & alerts' description='Pending task review is available; automatic outbound notifications are not configured.' badge='PARTIALLY AVAILABLE'/>
             <SettingRow title='Pending process checks' description='Existing completeness checks can be opened from the workspace.' right={<Status tone='good'>Available</Status>}/>
             <SettingRow title='Email, SMS or WhatsApp delivery' description='Requires server-side delivery integration and opt-in settings.' right={<Status>Not configured</Status>}/>
-            <div className='sc-actions'><Button onClick={()=>onGoto('AI Command Center')}>Open pending tasks <ArrowRight size={15}/></Button></div>
+            <div className='sc-actions'><Button onClick={()=>onGoto('Audit & Reports')}>Review audit history <ArrowRight size={15}/></Button></div>
           </section>
           <SettingsNotifications authenticated={authenticated&&!demo}/>
           <Planned title='External notification delivery' items={['Email / SMS / WhatsApp providers and verified consent','Quiet hours and notification digest','Rate limits and escalation routing']}/>

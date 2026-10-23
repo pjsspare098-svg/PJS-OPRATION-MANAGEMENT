@@ -48,8 +48,8 @@ assert.doesNotMatch(sql,/delete\s+from\s+public\.oms_documents/i,'No irreversibl
 assert.doesNotMatch(sql,/storage\.objects|storage\.from_|storage\.remove/i,'Private file bytes remain recoverable');
 
 assert.doesNotMatch(fleet,/oms_tracking_workers|Carrier Tracking Worker|Icon:Truck|setTracking/,'Retired worker is not shown or polled on Control Tower');
-assert.match(fleet,/DataDoc Bill Worker/,'Keep DataDoc readiness');
-assert.match(fleet,/Outlook Reply All Draft Worker/,'Keep Outlook readiness');
+assert.match(fleet,/DataDoc Submit Worker/,'Keep DataDoc readiness');
+assert.doesNotMatch(fleet,/Outlook Reply All Draft Worker|oms_outlook_workers/,'Retired Outlook worker must be absent');
 console.log('PASS: per-attachment Delete and Restore wired into Process editor with explicit confirmation');
 console.log('PASS: private file bytes, other attachments, jobs, and audit records preserved; owner/job/evidence safeguards');
-console.log('PASS: retired carrier worker removed from Control Tower while DataDoc and Outlook readiness remain');
+console.log('PASS: retired carrier worker removed from Control Tower while DataDoc readiness remains');

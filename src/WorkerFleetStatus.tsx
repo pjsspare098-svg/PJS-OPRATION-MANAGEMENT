@@ -1,26 +1,23 @@
 import {useCallback,useEffect,useState} from 'react';
-import {Activity,Clock3,Mail,RefreshCw} from 'lucide-react';
+import {Activity,Clock3,RefreshCw} from 'lucide-react';
 import {supabase} from './independentClient';
 
 type Worker={status:string;last_seen_at:string;worker_name:string;machine_name?:string};
 const alive=(worker:Worker|null,now:number)=>Boolean(worker&&Number.isFinite(Date.parse(worker.last_seen_at))&&now-Date.parse(worker.last_seen_at)>=0&&now-Date.parse(worker.last_seen_at)<120000);
 export default function WorkerFleetStatus({authenticated}:{authenticated:boolean}){
  const [datadoc,setDatadoc]=useState<Worker|null>(null);
- const [outlook,setOutlook]=useState<Worker|null>(null);
  const [checkedAt,setCheckedAt]=useState(0);
  const [error,setError]=useState('');
  const refresh=useCallback(async()=>{
-  if(!supabase||!authenticated){setDatadoc(null);setOutlook(null);return}
+  if(!supabase||!authenticated){setDatadoc(null);return}
   try{
    const {data:{user},error:authError}=await supabase.auth.getUser();
    if(authError||!user)throw Error('Sign in required to see office worker status.');
-   const [a,b]=await Promise.all([
-    supabase.from('oms_office_workers').select('worker_name,machine_name,status,last_seen_at').eq('owner_id',user.id).maybeSingle(),
-    supabase.from('oms_outlook_workers').select('worker_name,machine_name,status,last_seen_at').eq('owner_id',user.id).maybeSingle()
-   ]);
-   if(a.error||b.error)throw Error(a.error?.message||b.error?.message);
-   setDatadoc(a.data||null);setOutlook(b.data||null);setError('');
-  }catch(e:any){setError(e?.message||'Worker status is unavailable');setDatadoc(null);setOutlook(null)}
+   const {data,error:heartbeatError}=await supabase.from('oms_office_workers')
+     .select('worker_name,machine_name,status,last_seen_at').eq('owner_id',user.id).maybeSingle();
+   if(heartbeatError)throw heartbeatError;
+   setDatadoc(data||null);setError('');
+  }catch(e:any){setError(e?.message||'Worker status is unavailable');setDatadoc(null)}
   finally{setCheckedAt(Date.now())}
  },[authenticated]);
  useEffect(()=>{void refresh();const poll=window.setInterval(()=>void refresh(),30000);return()=>window.clearInterval(poll)},[refresh]);
@@ -31,8 +28,7 @@ export default function WorkerFleetStatus({authenticated}:{authenticated:boolean
   return {label:'Attention',color:'orange',detail:worker?.status||'Unrecognized worker state'};
  };
  const rows=[
-  {key:'DataDoc',name:'DataDoc Bill Worker',Icon:Activity,worker:datadoc,href:'https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/tree/main/worker'},
-  {key:'Outlook',name:'Outlook Reply All Draft Worker',Icon:Mail,worker:outlook,href:'https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/blob/main/docs/OUTLOOK_AUTOMATION_SETUP.md'}
+  {key:'DataDoc',name:'DataDoc Submit Worker',Icon:Activity,worker:datadoc,href:'https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/tree/main/worker'}
  ];
  return <>
   {rows.map(({key,name,Icon,worker,href})=>{const status=state(worker);return <div key={key}>
@@ -41,7 +37,7 @@ export default function WorkerFleetStatus({authenticated}:{authenticated:boolean
    <b className={status.color}>{status.label}</b>
   </div>})}
 
-  <div className='ux-worker-quickstart'><small>On an office PC, use the <a href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/blob/main/docs/ONE_CLICK_OFFICE_START.md' target='_blank' rel='noreferrer'>one-click website + worker desktop shortcut</a> to start missing agents. A normal browser tab cannot launch Windows programs.</small></div>
+  <div className='ux-worker-quickstart'><small>Only DataDoc submissions use office automation. Start the DataDoc worker from the authorized PC using the <a href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/tree/main/worker' target='_blank' rel='noreferrer'>DataDoc worker instructions</a>. Other legacy workers should remain stopped.</small></div>
   {error&&<div className='ux-worker-error'><Clock3 size={16}/> {error} <button type='button' onClick={()=>void refresh()}><RefreshCw size={14}/> Retry</button></div>}
  </>;
 }

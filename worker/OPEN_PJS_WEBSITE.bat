@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo PJS Operations: checking office agents and opening the website...
+echo PJS Operations: checking DataDoc submission workers and opening the website...
 call "%~dp0START_OFFICE_WORKERS.bat"
 set "PJS_START_RESULT=%ERRORLEVEL%"
 start "" "https://pjs-oms-independent-pjsspare098-2655.vercel.app/"
@@ -13,5 +13,5 @@ if not "%PJS_START_RESULT%"=="0" (
   exit /b 1
 )
 echo.
-echo Website opened. The Control Tower will confirm agents online once heartbeats arrive.
+echo Website opened. The Control Tower will confirm the DataDoc submission worker online once heartbeats arrive.
 endlocal
