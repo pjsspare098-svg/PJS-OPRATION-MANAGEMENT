@@ -65,8 +65,10 @@ def heartbeat(db,owner:str,name:str,state:str,request_id:str|None=None,live:bool
     db.table("oms_outlook_workers").upsert({
        "owner_id":owner,"worker_name":name,
        "machine_name":socket.gethostname(),"status":state,
-       "last_seen_at":now(),"current_job_id":request_id,
-       "details":{"mode":"email_send","live_enabled":live,"no_auto_retry":True}
+       "last_seen_at":now(),"current_job_id":None,
+       # Legacy current_job_id references oms_jobs, not this separate send queue.
+       "details":{"mode":"email_send","live_enabled":live,"no_auto_retry":True,
+                  "email_send_request_id":request_id}
     }).execute()
 
 
