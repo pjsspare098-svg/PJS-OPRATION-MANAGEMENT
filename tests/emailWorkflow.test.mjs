@@ -19,7 +19,7 @@ assert.ok(body.includes('Please record a proper video')&&body.includes('Dispatch
 assert.ok(body.includes('Box Weight (Kgs): 12'));
 assert.ok(!body.includes('To:')&&!body.includes('Cc:'),'No recipient extraction or reconstruction');
 const page=readFileSync(new URL('../src/EmailToClientWorkflow.tsx',import.meta.url),'utf8');
-assert.ok(page.includes('Outlook sending and carrier tracking are manual'));
+assert.ok(page.includes('Use Send Email for an explicitly approved Outlook Reply All'));
 assert.ok(page.includes('I sent this in Outlook · Track'));
 assert.ok(page.includes('Download original email'));
 assert.ok(!page.includes('Saved dispatch recipients'));
@@ -31,4 +31,4 @@ assert.ok(operations.includes("if(type!=='bill_submit')throw Error("));
 const app=readFileSync(new URL('../src/UnifiedApp.tsx',import.meta.url),'utf8');
 assert.ok(app.includes('automatic_sent_verification:false'));
 assert.ok(!app.includes('confirmedDraft'),'Manual confirmation must not depend on a worker draft');
-console.log('PASS: Manual Outlook Reply All, file download, preview and operator-confirmed send');
+console.log('PASS: Manual Outlook preserved alongside approved send action');

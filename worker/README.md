@@ -1,3 +1,10 @@
+# New optional Outlook SEND worker — 25 October 2026
+
+In addition to the approved DataDoc submit workers, users may now **explicitly approve real Outlook Reply All sends** from the Email to Client page. The **separate** `outlook_send_worker.py` performs the Send only when its private `PJS_ENABLE_LIVE_EMAIL_SEND=1` switch is enabled after supervised setup. DataDoc remains unchanged. The previous `outlook_draft_worker.py` and carrier tracking worker remain retired.
+
+The normal `START_OFFICE_WORKERS.ps1` shortcut intentionally starts DataDoc workers **only**; it does NOT automatically start the email sender. Read `docs/OUTLOOK_EMAIL_SEND_SETUP_2026-10-25.md` before enabling any real send.
+
+---
 # CURRENT POLICY (23 October 2026): DataDoc-only automation
 
 **Only DataDoc bill submission and DataDoc tracking-proof submission may run automatically in the authorized Windows office environment.** Outlook Reply All and all carrier lookups are manual. Cloud background audit/extraction agents are retired. The website, SQL guards and START_OFFICE_WORKERS.ps1 enforce this.

@@ -1,0 +1,34 @@
+name: Outlook Email Send Safety
+on:
+  pull_request:
+    paths:
+      - 'worker/outlook_send_worker.py'
+      - 'worker/outlook_mailbox_bridge.py'
+      - 'worker/outlook_reply_agent.py'
+      - 'worker/oms_dispatch_bridge.py'
+      - 'worker/test_outlook_send_worker.py'
+      - '.github/workflows/outlook-send-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'worker/outlook_send_worker.py'
+      - 'worker/outlook_mailbox_bridge.py'
+      - 'worker/outlook_reply_agent.py'
+      - 'worker/oms_dispatch_bridge.py'
+      - 'worker/test_outlook_send_worker.py'
+      - '.github/workflows/outlook-send-tests.yml'
+permissions:
+  contents: read
+jobs:
+  source-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile and run dependency-free send safeguards
+        run: |
+          cd worker
+          python -m py_compile outlook_send_worker.py outlook_reply_agent.py outlook_mailbox_bridge.py oms_dispatch_bridge.py
+          python -m unittest -v test_outlook_send_worker test_outlook_reply_agent

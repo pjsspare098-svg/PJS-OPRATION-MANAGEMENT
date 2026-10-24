@@ -24,7 +24,7 @@ assert.doesNotMatch(settings,/Queued jobs|Outlook draft workflow|Live office age
 assert.match(settings,/DataDoc submission automation/);
 assert.match(settings,/Pending DataDoc/);
 assert.match(settings,/\['bill_submit','delivery_proof_submit'\]/,'Settings may only count DataDoc jobs');
-assert.match(email,/Outlook sending and carrier tracking are manual/);
+assert.match(email,/Use Send Email for an explicitly approved Outlook Reply All/);
 assert.match(email,/I sent this in Outlook · Track/);
 assert.match(email,/Download original email/);
 assert.match(email,/Copy dispatch text/);
@@ -53,6 +53,6 @@ assert.match(sql,/oms_cloud_claim/);
 assert.match(sql,/grant execute on function public\.oms_claim_outlook_draft/);
 assert.match(sql,/grant execute on function public\.oms_cloud_claim/);
 assert.doesNotMatch(sql,/delete from public\.oms_jobs|update public\.oms_jobs|delete from public\.oms_processes|update public\.oms_processes/i,'No existing jobs or processes can be modified during migration');
-console.log('PASS: Only DataDoc submission automation remains, including Bill Submit and Tracking Proof');
-console.log('PASS: Outlook Reply All and courier tracking are manual; old worker prompts and queues removed');
+console.log('PASS: DataDoc-only legacy queue remains; email uses separate owner-approved requests');
+console.log('PASS: Retired draft sender remains blocked; new email sends need explicit approval');
 console.log('PASS: Server-side insert and claim guards prevent new retired work while historical jobs remain intact');
