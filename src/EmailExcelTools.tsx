@@ -11,7 +11,6 @@ import {
 
 type Props={records:any[];authenticated:boolean;busy:boolean;userId:string;onImported:()=>Promise<void>};
 const TEXT_COLUMNS=new Set([1,3,4,5,9]);
-const dateFields=new Set(['poDate','invoiceDate','courierDate']);
 const cleanExcel=(value:unknown)=>{
  const s=String(value??'');
  return /^[=+\-@\t\r\n]/.test(s)?"'"+s:s;
@@ -45,7 +44,7 @@ async function saveWorkbook(records:any[]|null){
  if(sheet.rowCount>1)for(let r=2;r<=sheet.rowCount;r++){
   sheet.getRow(r).height=21;
   if(r%2===0)sheet.getRow(r).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F8FE'}};
-  for(const c of sheet.getRow(r)._cells||[])if(c)c.alignment={vertical:'middle'};
+  sheet.getRow(r).eachCell(cell=>{cell.alignment={vertical:'middle'};});
  }
  const help=wb.addWorksheet('Instructions');
  help.getColumn(1).width=34;help.getColumn(2).width=100;
