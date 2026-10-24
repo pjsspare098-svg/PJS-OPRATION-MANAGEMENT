@@ -12,11 +12,12 @@ import runpy
 import sys
 
 BASE = Path(__file__).resolve().parent
-# The approved launcher starts only DataDoc portal submission workers.
-# Legacy scripts remain in git for audit/reference but cannot be launched here.
+# The approved launcher starts DataDoc submission + explicitly approved email sender.
+# Retired draft and carrier scripts remain blocked.
 ALLOWED = {
     "independent_worker.py",
     "datadoc_proof_worker.py",
+    "outlook_send_worker.py",
 }
 
 
@@ -52,7 +53,7 @@ def acquire_worker_lock(entry: str):
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] not in ALLOWED:
-        raise SystemExit("Usage: python start_worker.py [independent_worker.py | datadoc_proof_worker.py]")
+        raise SystemExit("Usage: python start_worker.py [independent_worker.py | datadoc_proof_worker.py | outlook_send_worker.py]")
     entry = sys.argv[1]
     sys.path.insert(0, str(BASE))
     try:
