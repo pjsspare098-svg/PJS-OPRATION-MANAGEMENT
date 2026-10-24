@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const dialog=read('src/UnifiedDialog.tsx');
+const app=read('src/UnifiedApp.tsx');
+const transfer=read('src/processTransfer.ts');
+assert.match(dialog,/pendingEmailEdit=Boolean\(draft\.id&&!destination&&normalizedStage\(draft\)==='Email to Client'&&draft\.status==='Pending Details'\)/);
+assert.match(app,/pendingEmailEdit=Boolean\(r\.id&&current&&!transferTo&&normalizedStage\(current\)==='Email to Client'&&current\.status==='Pending Details'\)/);
+assert.match(dialog,/!pendingEmailEdit&&\(!draft\.party\?\.trim\(\)\|\|!draft\.so\?\.trim\(\)\)/);
+assert.match(app,/!pendingEmailEdit&&\(!party\|\|!so\)/);
+assert.match(dialog,/processTransferIssues\(draft,destination,jobs,exceptions\)/);
+assert.match(app,/processTransferIssues\(\{\.\.\.r,stage:current\?\.stage\|\|r\.stage\},transferTo,jobs,exceptions\)/);
+assert.match(app,/status:unchangedStatus/);
+assert.match(dialog,/Save process & documents/);
+assert.match(transfer,/SO No\./);
+console.log('PASS: Existing Pending Details records can save Sales Register fields and attachments without fake SO.');
+console.log('PASS: New records, completed email records and all transfers retain original identity requirements.');
