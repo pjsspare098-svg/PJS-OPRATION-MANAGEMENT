@@ -24,9 +24,9 @@ assert.doesNotMatch(settings,/Queued jobs|Outlook draft workflow|Live office age
 assert.match(settings,/DataDoc submission automation/);
 assert.match(settings,/Pending DataDoc/);
 assert.match(settings,/\['bill_submit','delivery_proof_submit'\]/,'Settings may only count DataDoc jobs');
-assert.match(email,/Manual Outlook workflow — no automation running/);
+assert.match(email,/Outlook sending and carrier tracking are manual/);
 assert.match(email,/I sent this in Outlook · Track/);
-assert.match(email,/Download original \.eml/);
+assert.match(email,/Download original email/);
 assert.match(email,/Copy dispatch text/);
 assert.doesNotMatch(email,/oms_outlook_workers|Queue Reply All draft|Prepare Reply All draft|onQueue\(|onCancelEmailJob|Worker setup guide/);
 assert.match(app,/Manual Outlook Reply All sent confirmed by operator/);
