@@ -35,7 +35,7 @@ const launcher=read('worker/start_worker.py');
 const starter=read('worker/START_OFFICE_WORKERS.ps1');
 const worker=read('worker/outlook_send_worker.py');
 
-assert.match(page,/>Send Email<\/button>/,'Visible per-process send button');
+assert.match(page,/:'Send Email'}/,'Visible per-process send button');
 assert.match(page,/<EmailSendReview record=\{r\}/);
 assert.match(page,/existingRequest\.status==='queued'/);
 assert.match(page,/cancelRequest\(existingRequest\)/);
@@ -58,7 +58,7 @@ assert.match(sql,/grant select on public\.oms_email_send_requests to authenticat
 assert.match(sql,/create policy oms_email_send_owner_read/);
 assert.match(sql,/owner_id=\(select auth\.uid\(\)\)/);
 assert.match(sql,/create or replace function public\.oms_request_email_send/);
-assert.match(sql,/v_proc\.team_id is null/);
+assert.match(sql,/user_id=v_uid and team_id is null/);
 assert.match(sql,/p_confirmation is distinct from 'SEND '\|\|v_proc\.process_no/);
 assert.match(sql,/p_original_document_id/);
 assert.match(sql,/p_invoice_document_id/);
