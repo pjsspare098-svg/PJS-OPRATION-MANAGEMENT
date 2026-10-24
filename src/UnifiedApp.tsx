@@ -95,9 +95,10 @@ export default function UnifiedApp(){
  }
  async function onSave(r:any,files:Record<string,File>,transferTo?:WorkflowStage){
   const process=String(r.process||'').trim(),party=String(r.party||'').trim(),so=String(r.so||'').trim();
-  if(!process||!party||!so)throw Error('Process No., Party Name and SO No. are required.');
-  if(records.some(x=>x.process===process&&x.id!==r.id))throw Error('Process No. already exists: '+process);
   const current=records.find(x=>x.id===r.id);
+  const pendingEmailEdit=Boolean(r.id&&current&&!transferTo&&normalizedStage(current)==='Email to Client'&&current.status==='Pending Details');
+  if(!process||(!pendingEmailEdit&&(!party||!so)))throw Error('Process No., Party Name and SO No. are required. Existing Pending Details email records may save incomplete fields without transferring.');
+  if(records.some(x=>x.process===process&&x.id!==r.id))throw Error('Process No. already exists: '+process);
   if(r.id&&!current&&!demo)throw Error('Process is no longer in the current workspace. Refresh before saving.');
   if(transferTo){
    const issues=processTransferIssues({...r,stage:current?.stage||r.stage},transferTo,jobs,exceptions);
