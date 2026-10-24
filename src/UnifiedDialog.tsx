@@ -95,8 +95,12 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
    if(issues.length){setError(issues.join('. '));return}
    if(!window.confirm('Save and transfer Process '+draft.process+' from '+normalizedStage(draft)+' to '+destination+'? This only moves the record: it will NOT submit to DataDoc, send email or start carrier tracking.'))return;
   }
-  if(!draft.process?.trim()||!draft.party?.trim()||!draft.so?.trim()){
-    const missing=[!draft.process?.trim()?'Process No.':'',!draft.party?.trim()?'Party Name':'',!draft.so?.trim()?'SO No.':''].filter(Boolean).join(', ');
+  // Imported Email to Client records start as Pending Details. Existing
+  // entries must remain editable even if the Sales Register does not contain SO.
+  // Transfers still require complete identity fields.
+  const pendingEmailEdit=Boolean(draft.id&&!destination&&normalizedStage(draft)==='Email to Client'&&draft.status==='Pending Details');
+  if(!draft.process?.trim()||(!pendingEmailEdit&&(!draft.party?.trim()||!draft.so?.trim()))){
+    const missing=[!draft.process?.trim()?'Process No.':!pendingEmailEdit&&!draft.party?.trim()?'Party Name':'',!pendingEmailEdit&&!draft.so?.trim()?'SO No.':''].filter(Boolean).join(', ');
     setError('Please complete '+missing+' above before saving.');
     scrollRef.current?.scrollTo({top:0,behavior:'smooth'});return;
   }
@@ -177,6 +181,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  <header className='ux-drawer-header'><div><div className='ux-kicker dark'>UNIVERSAL PROCESS</div><h2>{draft?.id?'Edit process '+draft.process:'Create new process'}</h2><p>One verified master record for the complete dispatch journey.</p></div><button className='ux-icon-button' aria-label='Close editor' onClick={onClose}><X size={20}/></button></header>
  <div className='ux-drawer-scroll' ref={scrollRef}>
  {sourceFile&&<div className='ux-doc-banner'><FileCheck2 size={20}/><div><strong>{sourceFile.name}</strong><small>{importIssue?'Reading needs attention — complete the missing fields below.':'Process No., Party Name and SO No. extracted. Please verify against the PDF.'}</small></div></div>}
+ {Boolean(draft.id&&draft.status==='Pending Details'&&normalizedStage(draft)==='Email to Client')&&<div className='ux-preview-warning'>Pending Details: You may save invoice, courier, and attachments without an SO No. Missing Party Name and SO No. must still be completed before transfer or confirming the dispatch email.</div>}
  {importIssue&&<div className='ux-import-warning' role='alert'><AlertTriangle size={17}/><span>{importIssue}</span></div>}
  <section className='ux-drawer-section'><div className='ux-section-title'><b>01</b><strong>Process identity</strong></div><div className='ux-field-grid'>
  {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}
