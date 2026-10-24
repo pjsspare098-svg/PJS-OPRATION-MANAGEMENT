@@ -1,4 +1,5 @@
 /** Safe preview of email-stage Excel data, independent of ExcelJS / browser APIs.
+ * New process rows need only a valid Process No.; all remaining details can be uploaded later.
  * Existing records never change stage, status, owner, source documents or workflow history.
  * All updates require an explicit preview and caller must re-check process identity at write time.
  */
@@ -35,14 +36,14 @@ const text=(v:unknown)=>String(v??'').trim();
 const key=(v:unknown)=>text(v).toLowerCase().replace(/[^a-z0-9]/g,'');
 const aliases:Record<EmailExcelField,readonly string[]>={
  process:['processno','processnumber','process','processid'],
- party:['partyname','party','customername','clientname'],
+ party:['partyname','party','customername','clientname','customer','client','name'],
  so:['sono','salesorderno','salesordernumber','salesorder','so'],
  invoice:['invoiceno','invoicenumber','invoice'],
  po:['pono','ponumber','purchaseorderno','purchaseordernumber','po'],
  poDate:['podate','purchaseorderdate'],
  invoiceDate:['invoicedate','billdate'],
  transporter:['courier','couriername','transport','transporter','carrier'],
- lr:['trackinglrno','trackingid','trackingno','lrno','lrnumber','docketno','docketnumber','docno','awbno','awb'],
+ lr:['trackinglrno','trackingid','trackingnumber','trackingno','lrno','lrnumber','docketno','docketnumber','docno','awbno','awb'],
  courierDate:['courierdate','dispatchdate','lrdate'],
  weight:['weightkgs','weightkg','boxweightkgs','boxweight','weight'],
  productName:['productname','product','description'],
@@ -150,8 +151,10 @@ export function previewEmailExcelImport(
     else unchanged++;
    }
   }else if(!reason){
-   if(!normalized.party||!normalized.so)reason='New process requires Party Name and SO No. (existing email processes can leave them blank).';
-   else created.push({line,process,action:'create',data:normalized,fieldsChanged:fields.filter(f=>Boolean(normalized[f]))});
+   // Import the process identity immediately. Party, SO, invoice, courier, etc.
+   // are optional intake fields that the operator can upload or edit later.
+   // Confirmation is still required and the record is NOT marked email-sent.
+   created.push({line,process,action:'create',data:normalized,fieldsChanged:fields.filter(f=>Boolean(normalized[f]))});
   }
   if(reason)rejected.push({line,process,reason});
  }
