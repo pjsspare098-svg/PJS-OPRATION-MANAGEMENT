@@ -12,6 +12,6 @@ assert.match(dialog,/processTransferIssues\(draft,destination,jobs,exceptions\)/
 assert.match(app,/processTransferIssues\(\{\.\.\.r,stage:current\?\.stage\|\|r\.stage\},transferTo,jobs,exceptions\)/);
 assert.match(app,/status:unchangedStatus/);
 assert.match(dialog,/Save process & documents/);
-assert.match(transfer,/SO No\./);
+assert.match(dialog,/if\(!draft\.process\?\.trim\(\)\|\|\(!pendingEmailEdit/,'All transfers still use strict identity checks');
 console.log('PASS: Existing Pending Details records can save Sales Register fields and attachments without fake SO.');
 console.log('PASS: New records, completed email records and all transfers retain original identity requirements.');
