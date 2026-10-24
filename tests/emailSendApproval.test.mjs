@@ -31,6 +31,7 @@ const page=read('src/EmailToClientWorkflow.tsx');
 const panel=read('src/EmailSendReview.tsx');
 const api=read('src/emailSendApi.ts');
 const sql=read('supabase/migrations/034_outlook_send_explicit_approval.sql');
+const correctedRpc=read('supabase/migrations/035_fix_outlook_email_send_rpc_auth.sql');
 const launcher=read('worker/start_worker.py');
 const starter=read('worker/START_OFFICE_WORKERS.ps1');
 const worker=read('worker/outlook_send_worker.py');
@@ -69,7 +70,16 @@ assert.match(sql,/status='running'/);
 assert.match(sql,/create or replace function public\.oms_cancel_email_send/);
 assert.match(sql,/status='queued'/);
 assert.match(sql,/create or replace function public\.oms_finish_email_send/);
-assert.match(sql,/current_user<>'service_role'/);
+// SECURITY DEFINER current_user is postgres/function owner, not service_role.
+assert.doesNotMatch(correctedRpc,/if current_user<>'service_role'/,'No broken service_role comparison in definer functions');
+assert.match(correctedRpc,/create or replace function public\.oms_claim_email_send/);
+assert.match(correctedRpc,/create or replace function public\.oms_finish_email_send/);
+assert.match(correctedRpc,/grant execute on function public\.oms_claim_email_send\(uuid,text\) to service_role/);
+assert.match(correctedRpc,/grant execute on function public\.oms_finish_email_send\(uuid,text,boolean,text\)/);
+assert.match(correctedRpc,/revoke all on function public\.oms_claim_email_send/);
+assert.match(correctedRpc,/revoke all on function public\.oms_finish_email_send/);
+assert.doesNotMatch(correctedRpc,/delete from public\.oms_email_send_requests|update public\.oms_email_send_requests\s+set\s+status='queued'/,
+  'Migration must not delete or resend existing email requests');
 assert.match(sql,/delivery_confirmed',false/);
 assert.match(sql,/outlook_send_invoked/);
 assert.doesNotMatch(sql,/drop trigger.*oms_only_datadoc|delete from public\.oms_jobs|update public\.oms_jobs/i,
