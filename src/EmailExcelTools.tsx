@@ -50,14 +50,14 @@ async function saveWorkbook(records:any[]|null){
  help.getColumn(1).width=34;help.getColumn(2).width=100;
  [
   ['Email to Client Excel','Fill the Email to Client tab, then import it through PJS OMS.'],
-  ['Required header','Process No. Columns can be rearranged. Others are optional for existing email-stage processes.'],
-  ['New processes','Must include Process No., Party Name and SO No.; created in Email to Client with Ready for Email status.'],
+  ['Required header','Process No. Columns can be rearranged. All other fields are optional and can be added later.'],
+  ['New processes','Only a valid Process No. is required. Party Name, SO, Sales Person, Credit / Non-Credit, invoice and tracking fields can be added later; status is Pending Details.'],
   ['Existing processes','Only those already in Email to Client can be updated. Uploaded nonblank values replace matching email fields after explicit review.'],
   ['Protected process fields','Process No. cannot change; Party Name and SO No. conflicts are rejected.'],
   ['Other stages','An existing process in DataDoc, Dispatch Tracking or any other stage is never moved or edited by Excel import.'],
   ['Private attachments','Existing documents and process workflow statuses remain unchanged. No email is drafted or sent.'],
   ['Dates','Use YYYY-MM-DD or DD/MM/YYYY for PO Date, Invoice Date and Courier Date.'],
-  ['Tracking / LR No.','Set columns to Text before typing IDs containing leading zeros.'],
+  ['Tracking / LR No.','Tracking ID from the 4-column tracking template also maps to this field. Set identifiers to Text to preserve leading zeros.'],
   ['Maximum rows',String(EMAIL_EXCEL_LIMIT)],
   ['Security','Preview and confirm changes; other owners and shared-team records cannot be edited by this personal bulk import.'],
   ['Unchanged values','Blank Excel fields never clear existing information.']
@@ -143,7 +143,7 @@ export default function EmailExcelTools({records,authenticated,busy,userId,onImp
    if(latest)throw Error('Process already exists. Re-export and review; not overwritten.');
    return await cloud.save({
     ...row.data,process:row.process,party:row.data.party||'',so:row.data.so||'',
-    stage:'Email to Client',status:'Ready for Email',team_id:null,
+    stage:'Email to Client',status:'Pending Details',team_id:null,
     emailExcelImportedAt:new Date().toISOString(),emailExcelSource:name
    });
   }
@@ -184,7 +184,7 @@ export default function EmailExcelTools({records,authenticated,busy,userId,onImp
   }
   try{await onImported()}catch(e:any){failures.push('Refresh error: '+String(e?.message||'Please refresh'))}
   setPreview(null);setPrevious({});setConfirmed(false);setWorking(false);
-  setProgress('Import complete: '+created+' created, '+updated+' updated, '+(preview.unchanged+preview.rejected.length)+' skipped. No emails were sent.');
+  setProgress('Import complete: '+created+' created (Pending Details), '+updated+' updated, '+(preview.unchanged+preview.rejected.length)+' skipped. Add missing details before sending Outlook email. No emails were sent.');
   if(auditWarnings||failures.length){
    setError([...(auditWarnings?[auditWarnings+' audit log write(s) need review.']:[]),...failures.slice(0,8)].join(' '));
   }
@@ -209,13 +209,14 @@ export default function EmailExcelTools({records,authenticated,busy,userId,onImp
     <span><CheckCircle2 size={14}/> Update: {preview.updated.length}</span>
     <span><AlertTriangle size={14}/> Skipped: {preview.rejected.length+preview.unchanged}</span>
    </div>
+   {preview.created.length>0&&<p className='ux-email-excel-progress'><CheckCircle2 size={15}/> New processes need only a valid Process No. Missing Party Name, SO No., invoice and other details can be entered later. New records stay Pending Details until reviewed.</p>}
    {!!ready&&<div className='ux-email-excel-table-wrap'><table><thead><tr><th>Process No.</th><th>Action</th><th>Party</th><th>Fields to change</th></tr></thead><tbody>
-    {[...preview.created,...preview.updated].slice(0,12).map(row=><tr key={row.line}><td>{row.process}</td><td>{row.action==='create'?'Create':'Update'}</td><td>{row.data.party||'Keep saved party'}</td><td>{row.fieldsChanged.map(f=>EMAIL_EXCEL_FIELDS.find(([key])=>key===f)?.[1]||f).join(', ')}</td></tr>)}
+    {[...preview.created,...preview.updated].slice(0,12).map(row=><tr key={row.line}><td>{row.process}</td><td>{row.action==='create'?'Create':'Update'}</td><td>{row.data.party||(row.action==='create'?'Add later':'Keep saved party')}</td><td>{row.fieldsChanged.map(f=>EMAIL_EXCEL_FIELDS.find(([key])=>key===f)?.[1]||f).join(', ')}</td></tr>)}
    </tbody></table>{ready>12&&<small>First 12 of {ready} eligible changes shown.</small>}</div>}
    {preview.rejected.length>0&&<div className='ux-email-excel-rejected'>{preview.rejected.slice(0,9).map(r=><p key={r.line}>Row {r.line} · {r.process||'—'}: {r.reason}</p>)}</div>}
    {preview.unchanged>0&&<small>{preview.unchanged} row(s) match saved process details and need no changes.</small>}
    {!!ready&&<label className='ux-email-excel-confirm'><input type='checkbox' checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>
-    I checked these process details and authorize {preview.created.length} new record(s) and {preview.updated.length} field update(s). Existing populated email fields listed above may be replaced. Attachments, workflow status and other stages stay unchanged.</label>}
+    I checked these process details and authorize {preview.created.length} new record(s) and {preview.updated.length} field update(s). Existing populated email fields listed above may be replaced. New processes are saved as Pending Details for manual completion. Existing attachments, status and other stages stay unchanged.</label>}
    <div className='ux-email-excel-review-actions'>
     <button type='button' disabled={!confirmed||!ready||working||busy||!authenticated} onClick={()=>void commit()}><ShieldCheck size={15}/> {working?'Importing…':'Confirm & Import ('+ready+')'}</button>
    </div>

@@ -31,7 +31,7 @@ const sheet=[
 ];
 const p=previewEmailExcelImport(sheet,old,userId);
 assert.equal(p.total,11);
-assert.equal(p.created.length,1);
+assert.equal(p.created.length,2);
 assert.equal(p.updated.length,1);
 assert.equal(p.updated[0].process,'292712');
 assert.ok(p.updated[0].fieldsChanged.includes('po'));
@@ -40,15 +40,53 @@ assert.equal(p.updated[0].data.poDate,'2026-10-24');
 assert.equal(p.updated[0].data.courierDate,'2026-10-25');
 assert.equal(p.updated[0].data.credit,'Non Credit');
 assert.equal(p.created[0].process,'292813');
-assert.equal(p.rejected.length,9);
+assert.equal(p.rejected.length,8);
 assert.ok(p.rejected.some(x=>x.reason.includes('another user')));
 assert.ok(p.rejected.some(x=>x.reason.includes('different')||x.reason.includes('DataDoc')));
 assert.ok(p.rejected.some(x=>x.reason.includes('Shared team')));
 assert.ok(p.rejected.some(x=>x.reason.includes('Duplicate')));
-assert.ok(p.rejected.some(x=>x.reason.includes('requires Party Name')));
+assert.ok(p.created.some(x=>x.process==='292814'&&!x.data.party&&!x.data.so),
+ 'Allow saving a new process with missing Party and SO for later completion.');
 assert.ok(p.rejected.some(x=>x.reason.includes('Invalid poDate')));
 assert.ok(p.rejected.some(x=>x.reason.includes('Credit category')));
 assert.ok(p.rejected.some(x=>x.reason.includes('Weight must')));
+// The real operator's existing 4-column tracking-style workbook must be
+// importable directly into the Email to Client process register.
+const fourHeaders=['Process No.','Credit / Non-Credit','Sales Person Name','Tracking ID'];
+const fourRows=[
+ fourHeaders,
+ ['292076','Non Credit','Deepa Bisht','001234567890'],
+ ['292873','Credit','Chetan Solanki','26184200069988'],
+ ['292225','NC','Vivek Pal','AWB-99'],
+];
+const fourPreview=previewEmailExcelImport(fourRows,old,userId);
+assert.equal(fourPreview.created.length,3);
+assert.equal(fourPreview.rejected.length,0);
+assert.equal(fourPreview.unchanged,0);
+assert.equal(fourPreview.created[0].data.process,'292076');
+assert.equal(fourPreview.created[0].data.credit,'Non Credit');
+assert.equal(fourPreview.created[0].data.sales,'Deepa Bisht');
+assert.equal(fourPreview.created[0].data.lr,'001234567890');
+assert.equal(fourPreview.created[1].data.credit,'Credit');
+assert.equal(fourPreview.created[1].data.lr,'26184200069988');
+assert.equal(fourPreview.created[2].data.credit,'Non Credit');
+const nameHeader=['Process No.','Name','Sales Person Name','Credit / Non-Credit'];
+const namePreview=previewEmailExcelImport([nameHeader,['292878','New Client Ltd','Deepa Bisht','Non-Credit']],old,userId);
+assert.equal(namePreview.created.length,1);
+assert.equal(namePreview.created[0].data.party,'New Client Ltd');
+assert.equal(namePreview.created[0].data.sales,'Deepa Bisht');
+assert.equal(namePreview.created[0].data.credit,'Non Credit');
+const processOnly=previewEmailExcelImport([['Process No.'],['292920']],old,userId);
+assert.equal(processOnly.created.length,1,'Process No. alone is valid for a placeholder record');
+assert.equal(processOnly.rejected.length,0);
+const sample46=[fourHeaders,...Array.from({length:46},(_,i)=>[
+ String(293000+i),i%2?'Credit':'Non Credit','Sales Person','001234567890'
+])];
+const bulkPreview=previewEmailExcelImport(sample46,old,userId);
+assert.equal(bulkPreview.total,46);
+assert.equal(bulkPreview.created.length,46,'A valid 46-process import cannot be skipped for missing Party/SO.');
+assert.equal(bulkPreview.rejected.length,0);
+
 const same=previewEmailExcelImport([fields,['292712','Ultratech Cement Ltd','26271014','2627/984']],old,userId);
 assert.equal(same.unchanged,1);
 assert.equal(same.updated.length,0);
@@ -89,9 +127,9 @@ assert.match(tools,/latest\.owner_id!==userId/);
 assert.match(tools,/normalizedStage\(latest\)!=='Email to Client'/);
 assert.match(tools,/snapshot\.fields\[field\]!==String\(latest\[field\]/);
 assert.match(tools,/ops\.audit/);
-assert.match(tools,/stage:'Email to Client',status:'Ready for Email'/);
+assert.match(tools,/stage:'Email to Client',status:'Pending Details'/);
 assert.match(tools,/emailSent:false/);
 assert.doesNotMatch(tools,/ops\.queue|email_reply|cloud\.upload/,'Spreadsheet import may not queue/send emails or attach files');
-console.log('PASS: Email Excel creates and updates checked rows, skips cross-stage/shared/other-owner/conflicting/invalid rows');
+console.log('PASS: Email Excel creates partial entries, accepts 4-column and 46-row files, rejects only invalid/unsafe rows');
 console.log('PASS: Preserves attachments/status/owner, manual Outlook actions, collapsed rows and expanding details');
 console.log('PASS: Spreadsheet parser preview, confirm, concurrency and access guards; no email automation');
