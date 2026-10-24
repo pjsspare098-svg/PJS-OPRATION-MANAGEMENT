@@ -95,7 +95,7 @@ export default function EmailToClientWorkflow({p}:{p:any}){
       <button type='button' onClick={()=>togglePreview(r.id)}><FileText size={14}/> {hasPreview?'Hide Reply All preview':'Preview complete Reply All message'}</button>
       <button type='button' onClick={()=>onDraftEmail(r)}><ClipboardCheck size={14}/> Copy dispatch text</button>
       <button type='button' className='ux-email-entry-sent' disabled={busy||!p.authenticated}
-       onClick={()=>void p.onConfirmEmailSent?.(r)}><Mail size={14}/> I sent this in Outlook · Move to tracking</button>
+       onClick={()=>void p.onConfirmEmailSent?.(r)}><Mail size={14}/> I sent this in Outlook · Track</button>
      </div>
      {hasPreview&&<div className='ux-outlook-preview'>
       <strong>PressureJet — Reply All message preview</strong>
