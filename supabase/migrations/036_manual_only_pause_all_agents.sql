@@ -52,7 +52,7 @@ end;
 $$;
 
 create or replace function public.oms_claim_approved_shree_maruti_batch(
- p_worker_name text,p_owner_id uuid,p_limit integer
+ p_worker_name text,p_owner_id uuid,p_limit integer default 20
 ) returns setof public.oms_jobs
 language plpgsql security definer set search_path='' as $$
 begin
