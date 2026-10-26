@@ -3,9 +3,9 @@ import {AlertCircle,CheckCircle2,Upload,X} from 'lucide-react';
 import {supabase} from './independentClient';
 import {cloud} from './cloud';
 import {dispatchDetailsText} from './emailWorkflow';
-import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type JobType,type Preferences} from './unifiedOps';
+import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type AuditEvent,type Preferences} from './unifiedOps';
 import {teamsApi} from './teamOps';
-import {canCloseProcess,checkBill,checkJob} from './businessRules';
+import {canCloseProcess} from './businessRules';
 import {processTransferIssues,transferStageStatus} from './processTransfer.ts';
 import type {WorkflowStage} from './workflowStages.ts';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
@@ -203,34 +203,6 @@ export default function UnifiedApp(){
   if(!remaining.length){await ops.save({...r,exceptionReason:''},'Exception reason cleared after resolution');}
   await refresh();onNotice('Resolution saved. Process stage is unchanged until you explicitly move it.');
  }
- async function onApproveDataDocProof(r:any,documentId:string){
-  if(!authenticated){setError('Sign in before approving DataDoc proof submissions.');return}
-  const recent=records.find(x=>x.id===r.id);
-  if(!recent){setError('Process not found. Refresh before continuing.');return}
-  const screenshot=(recent.documents||[]).find((d:any)=>d.id===documentId&&d.kind==='trackingShotDoc');
-  if(!screenshot){setError('Select a saved screenshot attached to this process.');return}
-  const category=String(recent.credit||'');
-  const recipient=String(recent.sales||'');
-  if(!window.confirm('Approve a REAL DataDoc Tracking Proof transaction for Process '+recent.process+'?\\n\\nScreenshot: '+screenshot.name+'\\nCredit: '+category+'\\nSales Person: '+recipient+'\\n\\nThe authorized Windows worker will select the next work, clear other response users, attach the screenshot, and click SUBMIT in DataDoc. This will NOT automatically verify delivery. Continue?'))return;
-  setBusy(true);
-  try{
-   await ops.approveTrackingProof(recent,documentId);
-   await refresh();
-   onNotice('Approved DataDoc Tracking Proof for Process '+recent.process+'. Waiting for the separate authorized Windows proof worker; no website-side submit was attempted.');
-  }catch(e:any){setError(e?.message||'Could not approve tracking proof.')}finally{setBusy(false)}
- }
- async function onQueue(r:any,type:JobType){
-  if(!authenticated){onNotice('Sign in to queue office automation.');return}
-  if(type!=='bill_submit'){setError('Only DataDoc Bill Submit automation is enabled. Outlook and carrier tracking are manual.');return}
-  if(type==='bill_submit'&&!window.confirm('Approve a real DataDoc bill for Process '+r.process+'? Check the Invoice No., positive amount, Credit/Non-Credit and that Full Payment Verify = Yes is true. The Windows worker will attach one ZIP and may SUBMIT a real transaction when enabled.'))return;
-  setBusy(true);
-  try{
-    const needsBillInfo=type==='bill_submit'&&!checkBill(r,settings.ebill_threshold).ready;
-    await ops.queue(r,type,jobs,settings);await refresh();
-    onNotice(needsBillInfo?'DataDoc request saved. Office worker will wait for invoice information and files before submitting.':'Approved DataDoc Bill Submit queued for the authorized Windows DataDoc worker.');
-  }catch(e:any){setError(e?.message||'Unable to queue request.')}
-  finally{setBusy(false)}
- }
  async function onConfirmEmailSent(r:any){
   if(!authenticated){setError('Sign in before confirming a real Outlook dispatch.');return}
   if(String(r.stage||'').trim()!=='Email to Client'){setError('Process is not in Email to Client; refresh before confirming.');return}
@@ -258,7 +230,7 @@ export default function UnifiedApp(){
  async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
  if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onQueue,onApproveDataDocProof,onAttach,onDraftEmail,onConfirmEmailSent,onError:setError,onNotice};
+ const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onAttach,onDraftEmail,onConfirmEmailSent,onError:setError,onNotice};
  return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
