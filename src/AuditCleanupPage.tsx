@@ -119,11 +119,11 @@ export default function AuditCleanupPage({p}:{p:any}){
  }
  return <>
   <Heading eyebrow='OPERATIONS INTELLIGENCE' title='Audit & Reports'
-   description='Review automation history, cancel waiting jobs, reconcile stale tracking requests, and clean the visible audit list without deleting evidence.'
+   description='Review saved process activity and historical system jobs. No new automation runs; keep past evidence and manual reconciliation available.'
    actions={<Button onClick={p.onExport}><Download size={16}/> Export CSV</Button>}/>
   <section className='ux-audit-manager' aria-label='Audit and job cleanup controls'>
    <div className='ux-audit-manager-title'>
-    <div><h2><ShieldAlert size={19}/> Process & job cleanup</h2>
+    <div><h2><ShieldAlert size={19}/> Historical records & cleanup</h2>
      <p>Process deletion is recoverable. Clearing audit history only hides older entries from your view; database evidence remains intact.</p></div>
     <button type='button' onClick={()=>{void p.onRefresh?.();void loadControls()}} disabled={pending||busy||loadingScope}><RefreshCw size={15}/> Refresh</button>
    </div>
@@ -153,7 +153,7 @@ export default function AuditCleanupPage({p}:{p:any}){
    {scopes.length>0&&<small className='ux-audit-manager-archive-note'>
     {scopes.length} personal audit display filter(s) active. Queued and Running jobs remain visible; nothing has been erased from Supabase.
    </small>}
-   {!authenticated&&<p className='ux-audit-manager-hint'>Sign in to manage audit displays and queue jobs.</p>}
+   {!authenticated&&<p className='ux-audit-manager-hint'>Sign in to manage audit displays and inspect historical jobs.</p>}
    {localError&&<p className='ux-audit-manager-error' role='alert'>{localError}</p>}
    {localNotice&&<p className='ux-audit-manager-success' role='status'>{localNotice}</p>}
   </section>
@@ -167,8 +167,8 @@ export default function AuditCleanupPage({p}:{p:any}){
       :<Empty icon={FileClock} title='No visible activity'
        help='Use Restore history above if you previously cleared your audit display.'/>}
    </Panel>
-   <Panel title='Automation history'
-    subtitle='Active jobs remain visible. Finished and failed jobs are retained even when hidden from this list.'
+   <Panel title='Previous job history'
+    subtitle='Read-only history of earlier agents. Two historical Running entries may need manual reconciliation after the Windows worker is stopped.'
     actions={<span className='ux-offline'>AUDIT HISTORY</span>}>
     <div className='ux-tabs' role='group' aria-label='Filter audit jobs'>
      {filters.map(filter=><button type='button' key={filter} className={statusFilter===filter?'selected':''}
@@ -217,7 +217,7 @@ export default function AuditCleanupPage({p}:{p:any}){
        </div>}
       </div>}
      </div>})}</div>
-      :<Empty icon={Activity} title='No matching automation jobs'
+      :<Empty icon={Activity} title='No matching historical jobs'
         help='Change the filter or restore hidden history to inspect finished jobs.'/>}
    </Panel>
   </div>
