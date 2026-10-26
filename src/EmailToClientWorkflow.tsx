@@ -1,5 +1,5 @@
 import {filterStage} from './workflowStages';
-import {useEffect,useMemo,useState} from 'react';
+import {useMemo,useState} from 'react';
 import {
  AlertTriangle,ChevronDown,ChevronRight,ClipboardCheck,Download,ExternalLink,
  FileText,Mail,RefreshCw,Search,Upload,XCircle
@@ -8,8 +8,6 @@ import {Button,Empty,Heading} from './UnifiedKit';
 import {cloud} from './cloud';
 import {dispatchEmailRows,dispatchEmailNotes,originalOutlookMessages} from './emailWorkflow';
 import EmailExcelTools from './EmailExcelTools';
-import EmailSendReview from './EmailSendReview';
-import {cancelEmailSend,emailWorkerActive,getEmailSendWorkerStatus,listEmailSendRequests,type EmailSendRequest,type EmailSendWorkerStatus} from './emailSendApi';
 
 export default function EmailToClientWorkflow({p}:{p:any}){
  const {results,onEdit,onAttach,onDraftEmail,busy}=p;
@@ -17,37 +15,11 @@ export default function EmailToClientWorkflow({p}:{p:any}){
  const [previewed,setPreviewed]=useState<string[]>([]);
  const [query,setQuery]=useState('');
  const [localError,setLocalError]=useState('');
- const [sendReview,setSendReview]=useState<string|null>(null);
- const [emailRequests,setEmailRequests]=useState<EmailSendRequest[]>([]);
- const [emailWorker,setEmailWorker]=useState<EmailSendWorkerStatus|null>(null);
- const [sendBusy,setSendBusy]=useState(false);
  const [selectedOriginal,setSelectedOriginal]=useState<Record<string,string>>({});
  const emailRows=filterStage(results,'Email to Client');
- async function refreshEmailStatus(){
-  if(!p.authenticated){setEmailRequests([]);setEmailWorker(null);return}
-  const [requests,worker]=await Promise.all([listEmailSendRequests(),getEmailSendWorkerStatus()]);
-  setEmailRequests(requests);setEmailWorker(worker);
- }
- useEffect(()=>{
-  let active=true;
-  if(p.authenticated){
-   void Promise.all([listEmailSendRequests(),getEmailSendWorkerStatus()])
-    .then(([requests,worker])=>{if(active){setEmailRequests(requests);setEmailWorker(worker)}})
-    .catch(e=>{if(active)setLocalError('Email worker status could not load: '+String(e?.message||e))});
-  }
-  return ()=>{active=false};
- },[p.authenticated]);
  async function reload(){
-  try{await Promise.all([p.onRefresh?.(),refreshEmailStatus()])}
+  try{await p.onRefresh?.()}
   catch(e:any){setLocalError('Refresh failed: '+String(e?.message||e))}
- }
- async function cancelRequest(request:EmailSendRequest){
-  if(request.status!=='queued'||sendBusy)return;
-  if(!window.confirm('Cancel unsent email request for Process '+request.process_no+'? This can only cancel a request that the Windows worker has not claimed.'))return;
-  setSendBusy(true);setLocalError('');
-  try{await cancelEmailSend(request);await refreshEmailStatus()}
-  catch(e:any){setLocalError(String(e?.message||'Cancellation failed. Check status before retrying.'))}
-  finally{setSendBusy(false)}
  }
  const rows=useMemo(()=>{
   const q=query.toLowerCase().trim();
@@ -57,11 +29,11 @@ export default function EmailToClientWorkflow({p}:{p:any}){
  const togglePreview=(id:string)=>setPreviewed(items=>items.includes(id)?items.filter(x=>x!==id):[...items,id]);
  return <div className='ux-email-workflow ux-email-register'>
   <Heading eyebrow='STAGE 04 · CLIENT COMMUNICATION' title='Email to Client'
-   description='Open a process to review its dispatch details. Use Send Email for an explicitly approved Outlook Reply All via the Windows Python worker, or send manually.'
+   description='Review dispatch details, download documents and prepare Outlook Reply All manually. No email agent, sending queue or background automation.'
    actions={<Button onClick={()=>void reload()}><RefreshCw size={15}/> Refresh</Button>}/>
   <EmailExcelTools records={p.records||[]} authenticated={p.authenticated} busy={busy}
    userId={p.userId||''} onImported={reload}/>
-  <div className='ux-email-send-worker-note'><Mail size={15}/><span>{emailWorkerActive(emailWorker)?'Email Send worker connected and enabled':'Email Send worker offline or paused'} · Sending remains per-process, explicitly approved, with no automatic retries.</span></div>
+  
   <div className='ux-email-register-bar'>
    <div><strong><Mail size={17}/> Email processes</strong>
     <small>{rows.length} visible of {emailRows.length} in Email to Client · open a row for complete dispatch details</small></div>
@@ -72,8 +44,6 @@ export default function EmailToClientWorkflow({p}:{p:any}){
   <div className='ux-email-entry-list'>{rows.length?rows.map((r:any)=>{
    const isOpen=expanded.includes(r.id);
    const hasPreview=previewed.includes(r.id);
-   const existingRequest=emailRequests.find(req=>req.process_id===r.id&&req.status!=='cancelled');
-   const sendIsOpen=sendReview===r.id;
    const docs=originalOutlookMessages(r);
    const originalId=selectedOriginal[r.id]||(docs.length===1?docs[0].id:'');
    const selected=docs.find((doc:any)=>doc.id===originalId);
@@ -91,20 +61,10 @@ export default function EmailToClientWorkflow({p}:{p:any}){
        aria-controls={'email-detail-'+r.id}>{isOpen?<ChevronDown size={15}/>:<ChevronRight size={15}/>} {isOpen?'Hide details':'Open details'}</button>
       <button type='button' onClick={()=>onEdit(r)}><FileText size={14}/> Edit</button>
       <button type='button' onClick={()=>onDraftEmail(r)}><ClipboardCheck size={14}/> Copy email</button>
-      <button type='button' className='ux-email-entry-send' disabled={busy||sendBusy||!p.authenticated||Boolean(existingRequest)}
-       onClick={()=>setSendReview(old=>old===r.id?null:r.id)}><Mail size={14}/>
-       {existingRequest?(existingRequest.status==='queued'?'Send queued':existingRequest.status==='running'?'Sending…':existingRequest.status==='completed'?'Outlook submitted':'Needs review'):'Send Email'}</button>
-      <button type='button' className='ux-email-entry-sent' disabled={busy||!p.authenticated||Boolean(existingRequest)}
+      <button type='button' className='ux-email-entry-sent' disabled={busy||!p.authenticated}
        onClick={()=>void p.onConfirmEmailSent?.(r)}><Mail size={14}/> Sent · Track</button>
      </div>
     </div>
-    {existingRequest&&<div className='ux-email-send-current'>
-      <strong>{existingRequest.status==='queued'?'Waiting for Windows email worker':existingRequest.status==='running'?'Worker has claimed this send; check Outlook':existingRequest.status==='completed'?'Reply All submitted to Outlook': 'Email send needs manual review'}</strong>
-      <small>{existingRequest.status==='completed'?'Submitted to Outlook, not guaranteed delivered. Refresh to see Dispatch Tracking.':existingRequest.status==='review_required'||existingRequest.status==='running'?'Do not send again. Inspect the authorized Outlook Sent Items / Outbox before resolving.':'You may cancel before the worker claims this email.'}</small>
-      {existingRequest.status==='queued'&&<button type='button' onClick={()=>void cancelRequest(existingRequest)} disabled={sendBusy}>Cancel queued send</button>}
-     </div>}
-    {sendIsOpen&&!existingRequest&&<EmailSendReview record={r} busy={busy||sendBusy} onEdit={onEdit} onClose={()=>setSendReview(null)}
-      onQueued={async()=>{setSendReview(null);await reload()}}/>}
     {isOpen&&<div className='ux-email-entry-details' id={'email-detail-'+r.id}>
      <div className='ux-email-entry-section-heading'><strong>Dispatch details</strong>
       <span>Review these values before replying to the customer</span></div>
@@ -168,7 +128,7 @@ export default function EmailToClientWorkflow({p}:{p:any}){
       </div>
       <Button onClick={()=>onDraftEmail(r)}><ClipboardCheck size={15}/> Copy dispatch text</Button>
      </div>}
-     <p className='ux-outlook-footnote'>For manual sending, confirm Sent · Track only after sending Reply All yourself. For Python sending, use the separate Send Email approval, then verify status in Outlook. Customer delivery is never guaranteed.</p>
+     <p className='ux-outlook-footnote'>Manual sending only. Confirm Sent · Track after you personally send Reply All in Outlook and verify recipients and attachments. PJS OMS never sends email automatically.</p>
     </div>}
    </article>;
   }):<Empty icon={Mail} title={query?'No matching email processes':'No email-ready processes'}
