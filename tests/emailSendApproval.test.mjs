@@ -36,11 +36,11 @@ const launcher=read('worker/start_worker.py');
 const starter=read('worker/START_OFFICE_WORKERS.ps1');
 const worker=read('worker/outlook_send_worker.py');
 
-assert.match(page,/:'Send Email'}/,'Visible per-process send button');
-assert.match(page,/<EmailSendReview record=\{r\}/);
-assert.match(page,/existingRequest\.status==='queued'/);
-assert.match(page,/cancelRequest\(existingRequest\)/);
-assert.match(page,/emailWorkerActive\(emailWorker\)/);
+assert.doesNotMatch(page,/:'Send Email'}/,'No per-process agent send button during manual-only rebuild');
+assert.doesNotMatch(page,/<EmailSendReview record=\{r\}/);
+assert.doesNotMatch(page,/existingRequest\.status==='queued'/);
+assert.doesNotMatch(page,/cancelRequest\(existingRequest\)/);
+assert.doesNotMatch(page,/emailWorkerActive\(emailWorker\)/);
 assert.match(page,/I sent this in Outlook · Track/,'Manual Outlook remains available');
 assert.match(panel,/checkEmailSend\(record,selected\)/);
 assert.match(panel,/phrase===expected/);
@@ -99,6 +99,6 @@ assert.match(worker,/byid\[doc_id\]\.get\("kind"\)!=kind/);
 assert.match(worker,/check_settings\(settings\)/);
 assert.match(worker,/worker.*enabled/i);
 
-console.log('PASS: Send Email per process, explicit typed approval, attachments, status and cancel controls');
+console.log('PASS: Historical send protections retained in source, active Send Email UI removed');
 console.log('PASS: Owner-only RLS and no-retry separate queue; DataDoc and manual tracking preserved');
-console.log('PASS: Windows sender fail-closed by default and authentic Outlook Reply All only');
+console.log('PASS: Archived Python sender can be redesigned later, but no active UI authorizes new work');
