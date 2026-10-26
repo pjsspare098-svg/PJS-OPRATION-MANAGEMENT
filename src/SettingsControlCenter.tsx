@@ -8,30 +8,25 @@ import {
 import {Button,Heading} from './UnifiedKit';
 import TeamWorkspace from './TeamWorkspace';
 import HistoricalImport from './HistoricalImport';
-import WorkerFleetStatus from './WorkerFleetStatus';
-import SettingsNotifications from './SettingsNotifications';
 import WorkspaceResetPanel from './WorkspaceResetPanel';
 import PdfOcrTestBench from './PdfOcrTestBench';
 import {ops,type Preferences} from './unifiedOps';
 import './settings-control-center.css';
 
-type Tab='overview'|'appearance'|'mobile'|'dashboard'|'alerts'|'automation'|'camera'|'security'|'backup'|'worker'|'users'|'dispatch'|'pdf';
+type Tab='overview'|'appearance'|'mobile'|'dashboard'|'camera'|'security'|'backup'|'users'|'dispatch'|'pdf';
 const tabs=[
   {id:'overview',label:'Settings Home',icon:LayoutDashboard},
   {id:'appearance',label:'Appearance & Accessibility',icon:Palette},
   {id:'mobile',label:'Android Navigation',icon:Smartphone},
   {id:'dashboard',label:'Dashboard Layout',icon:PanelsTopLeft},
-  {id:'alerts',label:'Smart Notifications',icon:Bell},
-  {id:'automation',label:'Automation Control',icon:Workflow},
   {id:'camera',label:'Camera & Documents',icon:Camera},
   {id:'security',label:'Security & Account',icon:ShieldCheck},
   {id:'backup',label:'Data & Backup',icon:DatabaseBackup},
-  {id:'worker',label:'Office Worker Monitor',icon:Server},
   {id:'users',label:'Users & Roles',icon:Users},
   {id:'dispatch',label:'Dispatch Rules',icon:Truck},
   {id:'pdf',label:'PDF / OCR Test Bench',icon:ScanText},
 ] as const;
-const settingsEight=['appearance','mobile','dashboard','alerts','automation','camera','security','backup'] as const;
+const foundationSections=['appearance','mobile','dashboard','camera','security','backup'] as const;
 
 function SectionHeader({title,description,badge}:{title:string;description:string;badge?:string}){
   return <div className='sc-section-head'><div><h2>{title}</h2><p>{description}</p></div>{badge&&<span className='sc-chip'>{badge}</span>}</div>;
@@ -90,21 +85,17 @@ export default function SettingsControlCenter({p}:{p:any}){
     setDirty(true);
   }
   function switchTab(t:Tab){setTab(t);window.scrollTo({top:0,behavior:'smooth'});}
-  const datadocJobs=jobs.filter((j:any)=>['bill_submit','delivery_proof_submit'].includes(j.job_type));
-  const pendingSubmit=datadocJobs.filter((j:any)=>j.status==='queued').length;
-  const runningSubmit=datadocJobs.filter((j:any)=>j.status==='running').length;
-  const failedSubmit=datadocJobs.filter((j:any)=>j.status==='failed').length;
   return <div className='sc-root'>
     <Heading eyebrow='PERSONALIZATION / ADMINISTRATION' title='Settings 2.0'
-      description='Eight organized sections for phone, desktop and operations. Working preferences are separate from features that still require backend setup.'/>
+      description='Manual-only workspace settings. Keep your appearance, device, storage, permissions and dispatch preferences while we redesign workflows.'/>
     <div className='sc-hero'>
       <div><strong><ShieldCheck size={17}/> Independent OMS</strong><p>Protected cloud workspace. The original PJS Delivery Control database is not used here.</p></div>
-      <div className='sc-hero-status'><Status tone={demo?'warning':'good'}>{demo?'Local demo':'Authenticated cloud'}</Status><Status>View live worker status below</Status></div>
+      <div className='sc-hero-status'><Status tone={demo?'warning':'good'}>{demo?'Local demo':'Authenticated cloud'}</Status><Status>Manual only · agents paused</Status></div>
     </div>
     <div className='sc-layout'>
       <nav aria-label='Settings sections' className='sc-navigation'>
         <div className='sc-nav-label'>SETTINGS 2.0</div>
-        {tabs.map(({id,label,icon:Icon})=><div className='sc-nav-item' key={id}>{id==='worker'&&<div className='sc-nav-label sc-nav-advanced'>EXISTING OPERATIONS</div>}<button className={'sc-nav-link '+(tab===id?'selected':'')} onClick={()=>switchTab(id)} aria-current={tab===id?'page':undefined}><Icon size={17}/><span>{label}</span>{id==='dispatch'&&<span className='sc-nav-dot'/>}</button></div>)}
+        {tabs.map(({id,label,icon:Icon})=><div className='sc-nav-item' key={id}>{id==='users'&&<div className='sc-nav-label sc-nav-advanced'>WORKSPACE SETTINGS</div>}<button className={'sc-nav-link '+(tab===id?'selected':'')} onClick={()=>switchTab(id)} aria-current={tab===id?'page':undefined}><Icon size={17}/><span>{label}</span>{id==='dispatch'&&<span className='sc-nav-dot'/>}</button></div>)}
       </nav>
       <div className='sc-main'>
         {tab==='overview'&&<>
@@ -112,17 +103,17 @@ export default function SettingsControlCenter({p}:{p:any}){
             <SectionHeader title='System overview' description='Actual available services and current operational data.'/>
             <div className='sc-metrics'>
               <div><Database size={19}/><span>Cloud workspace</span><strong>{demo?'Demo':'Connected'}</strong></div>
-              <div><Server size={19}/><span>DataDoc submission</span><strong>Only approved automation</strong></div>
+              <div><ShieldCheck size={19}/><span>Automation agents</span><strong>Disabled</strong></div>
               <div><ClipboardCheck size={19}/><span>Visible processes</span><strong>{records.length}</strong></div>
               <div><Truck size={19}/><span>Courier tracking</span><strong>Manual only</strong></div>
             </div>
           </section>
           <section className='sc-card'>
-            <SectionHeader title='Your eight Settings 2.0 sections' description='Appearance, Android, Dashboard, Alerts, Automation, Camera, Security and Backup. Controls are labeled live or planned.' badge='8 SECTIONS'/>
-            <div className='sc-overview-grid'>{tabs.filter(t=>(settingsEight as readonly string[]).includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={21}/><strong>{label}</strong><ArrowRight size={16}/></button>)}</div>
+            <SectionHeader title='Manual-only Settings sections' description='Appearance, Android, Dashboard, Camera, Security and Backup. No agent controls.' badge='6 SECTIONS'/>
+            <div className='sc-overview-grid'>{tabs.filter(t=>(foundationSections as readonly string[]).includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={21}/><strong>{label}</strong><ArrowRight size={16}/></button>)}</div>
           </section>
-          <section className='sc-card'><SectionHeader title='Existing operational settings' description='Keep using the current Office Worker, Users & Roles, Dispatch Rules and PDF/OCR controls without losing any functionality.' badge='PRESERVED'/><div className='sc-overview-grid'>{tabs.filter(t=>['worker','users','dispatch','pdf'].includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={19}/><strong>{label}</strong><ArrowRight size={15}/></button>)}</div></section>
-          <Note>Only DataDoc submissions use automation on the authorized Windows PC. Outlook Reply All and carrier tracking are manual. In-app notifications and process controls remain available.</Note>
+          <section className='sc-card'><SectionHeader title='Existing operational settings' description='Keep using Users & Roles, Dispatch Rules and PDF/OCR controls.' badge='PRESERVED'/><div className='sc-overview-grid'>{tabs.filter(t=>['users','dispatch','pdf'].includes(t.id)).map(({id,label,icon:Icon})=><button key={id} className='sc-shortcut' onClick={()=>switchTab(id)}><Icon size={19}/><strong>{label}</strong><ArrowRight size={15}/></button>)}</div></section>
+          <Note>All agent execution and new job requests are paused while the base workflow is redesigned. Existing records, document OCR tools, stage transfers and historical audit entries are preserved.</Note>
         </>}
         {tab==='mobile'&&<SettingsPersonalization section='mobile'/>}
         {tab==='dashboard'&&<SettingsPersonalization section='dashboard'/>}
@@ -137,33 +128,11 @@ export default function SettingsControlCenter({p}:{p:any}){
           <div className='sc-actions'><Button disabled={!dirty||saving} onClick={()=>{setDraft(settings);setDirty(false);}}>Discard changes</Button><Button variant='primary' disabled={demo||!authenticated||saving||!dirty||!valid} onClick={()=>void saveDispatch()}><Save size={16}/>{saving?'Saving…':'Save dispatch rules'}</Button></div>
           {demo&&<Note>Sign in to edit and save dispatch rules. Demo mode cannot write to Supabase.</Note>}
         </section>}
-        {tab==='dispatch'&&<Planned title='Advanced dispatch configuration' items={['Overdue delivery escalation','Carrier-specific retry rules','E-Way Bill expiry warnings','Notification recipients and delivery schedule','Rule change history and approval gates']}/>}
-        {tab==='worker'&&<>
-          <section className='sc-card'><SectionHeader title='DataDoc submission worker' description='Monitor only the authorized DataDoc office worker. Email and tracking have no automated workers.' badge='DATADOC ONLY'/>
-            <div className='sc-worker-fleet'><WorkerFleetStatus authenticated={authenticated}/></div>
-            <SettingRow title='DataDoc pending submissions' description='Approved DataDoc bill and tracking-proof submissions only.' right={<strong>{pendingSubmit}</strong>}/>
-            <SettingRow title='Failed DataDoc submissions' description='Verify the DataDoc portal before another submission to avoid duplicates.' right={<strong>{failedSubmit}</strong>}/>
-            <div className='sc-actions'><Button onClick={()=>onGoto('DataDoc')}>View DataDoc jobs <ArrowRight size={15}/></Button>
-              <a className='sc-link-button' href='https://github.com/pjsspare098-svg/PJS-OPRATION-MANAGEMENT/tree/main/worker' target='_blank' rel='noreferrer'>DataDoc-only worker setup</a></div>
-            <Note>For security, a website tab cannot start or stop a local worker. Run only the authorized DataDoc submission workers on the Windows PC; stop legacy Outlook, carrier and cloud agents.</Note>
-          </section>
-        </>}
-        {tab==='automation'&&<>
-          <section className='sc-card'><SectionHeader title='DataDoc submission automation' description='Only DataDoc Bill Submit and DataDoc Tracking Proof jobs are executable by authorized office workers.' badge='DATADOC ONLY'/>
-            <div className='sc-metrics'>
-             <div><Clock3 size={19}/><span>Pending DataDoc</span><strong>{pendingSubmit}</strong></div>
-             <div><Activity size={19}/><span>Submitting</span><strong>{runningSubmit}</strong></div>
-             <div><AlertTriangle size={19}/><span>Needs verification</span><strong>{failedSubmit}</strong></div>
-            </div>
-            <div className='sc-actions'><Button onClick={()=>onGoto('DataDoc')}>Open DataDoc submission <ArrowRight size={15}/></Button>
-             <Button onClick={()=>onGoto('Audit & Reports')}>Review submission history <ArrowRight size={15}/></Button></div>
-            <Note>Outlook Reply All, carrier tracking and other background agents are disabled. All those tasks are manual. DataDoc is the only automation, and the office worker still requires explicit approval and a verified live setting.</Note>
-          </section>
-        </>}
+        {tab==='dispatch'&&<Planned title='Advanced dispatch configuration' items={['Manual overdue-delivery review','Carrier reference notes','E-Way Bill expiry warnings','Manual checklist rules','Rule change history']}/>}
         {tab==='users'&&<>
           <section className='sc-card'><SectionHeader title='Access roles' description='Existing team authorization uses Admin, Operator and Viewer in Supabase.' badge='EXISTING ACCESS'/>
             <SettingRow title='Administrator' description='Manages invitations and approved sharing of personal processes.'/>
-            <SettingRow title='Operator' description='Can work on authorized team processes and queue approved requests.'/>
+            <SettingRow title='Operator' description='Can work on authorized team processes and manage documents manually.'/>
             <SettingRow title='Viewer' description='Read-only access to authorized team processes and documents.'/>
           </section>
           {demo?<Note>Team administration requires cloud sign-in.</Note>:<TeamWorkspace userId={userId} records={records} selectedTeam={activeTeam} onTeamSelect={onTeamSelect} onChanged={onRefresh}/>}
@@ -187,16 +156,7 @@ export default function SettingsControlCenter({p}:{p:any}){
           <section className='sc-card'><SectionHeader title='Photo batch preference' description='Applies to new Done Pick List image selection on this device; the server still enforces a maximum of 25 per upload.' badge='ACTIVE LOCAL SETTING'/>
             <div className='sc-fields'><label className='ux-field'>Maximum photos selected per batch<input type='number' min='1' max='25' step='1' value={photoBatch} onChange={e=>{const v=Number(e.target.value);if(Number.isInteger(v)&&v>=1&&v<=25)setPhotoBatch(v)}}/><small>Saved in this browser. Existing albums and photos are unchanged.</small></label></div>
           </section>
-          <Planned title='Future camera enhancements' items={['Configurable image compression','Device resolution presets','Background upload retry','Optional capture timestamps']}/>
-        </>}
-        {tab==='alerts'&&<>
-          <section className='sc-card'><SectionHeader title='Notifications & alerts' description='Pending task review is available; automatic outbound notifications are not configured.' badge='PARTIALLY AVAILABLE'/>
-            <SettingRow title='Pending process checks' description='Existing completeness checks can be opened from the workspace.' right={<Status tone='good'>Available</Status>}/>
-            <SettingRow title='Email, SMS or WhatsApp delivery' description='Requires server-side delivery integration and opt-in settings.' right={<Status>Not configured</Status>}/>
-            <div className='sc-actions'><Button onClick={()=>onGoto('Audit & Reports')}>Review audit history <ArrowRight size={15}/></Button></div>
-          </section>
-          <SettingsNotifications authenticated={authenticated&&!demo}/>
-          <Planned title='External notification delivery' items={['Email / SMS / WhatsApp providers and verified consent','Quiet hours and notification digest','Rate limits and escalation routing']}/>
+          <Planned title='Future camera enhancements' items={['Configurable image compression','Device resolution presets','Manual upload recovery','Optional capture timestamps']}/>
         </>}
         {tab==='backup'&&<>
           <section className='sc-card'><SectionHeader title='Export & recovery' description='Existing CSV export is not a full database or document backup.' badge='LIMITED EXPORT'/>
