@@ -1,30 +1,52 @@
 import DispatchTrackingPage from './DispatchTrackingPage';
-import {filterStage} from './workflowStages';
+import {filterStage,normalizedStage} from './workflowStages';
 import EmailToClientWorkflow from './EmailToClientWorkflow';
-import {Activity,ArrowRight,FileCheck2,PackageCheck} from 'lucide-react';
-import {Button,Heading,Panel,RecordsTable} from './UnifiedKit';
-import {checkJob} from './businessRules';
+import {ArrowRight,FileImage,FileText,PackageCheck} from 'lucide-react';
+import {Button,Empty,Heading,Panel,RecordsTable} from './UnifiedKit';
 import {useState} from 'react';
-import OfficeDataDocQueue from './OfficeDataDocQueue';
-import DataDocProofQueue from './DataDocProofQueue';
+import {cloud} from './cloud';
 import {trackingProofDocuments} from './datadocProofRules.ts';
-import {normalizedStage} from './workflowStages';
-import {hasAuditOnlyAutomationOutcome} from './jobVisibility';
+
 export default function UnifiedStagePagesA({page,p}:{page:string;p:any}){
- const {results,jobs,onEdit,onStage,onQueue,busy,settings}=p;
- const [tab,setTab]=useState<'Bill Submit'|'Delivery Proof'>('Bill Submit');
- const [status,setStatus]=useState('All');
+ const {results,onEdit,onStage,busy}=p;
+ const [tab,setTab]=useState<'Bills'|'Saved tracking proof'>('Bills');
  if(page==='DataDoc'){
-  const billRows=filterStage(results,'DataDoc').filter((r:any)=>!hasAuditOnlyAutomationOutcome(jobs,r.id,'bill_submit'));
-  const deliveryRows=results.filter((r:any)=>(normalizedStage(r)==='Delivery Proof'||(normalizedStage(r)==='Dispatch Tracking'&&trackingProofDocuments(r).length>0))&&!hasAuditOnlyAutomationOutcome(jobs,r.id,'delivery_proof_submit'));
-  const list=billRows;
-  return <><Heading eyebrow='STAGE 03 · DOCUMENT SUBMISSION' title='DataDoc Control' description='Active DataDoc work only. Successful submissions, failures and review cases are recorded in Audit & Reports.'/>
-   <OfficeDataDocQueue authenticated={p.authenticated} records={results} threshold={settings.ebill_threshold}/><div className='ux-tabs'>{(['Bill Submit','Delivery Proof'] as const).map((t,i)=><button key={t} className={tab===t?'selected':''} onClick={()=>setTab(t)}>{t==='Bill Submit'?<FileCheck2 size={17}/>:<PackageCheck size={17}/>} {t} <b>{(t==='Bill Submit'?billRows:deliveryRows).length}</b></button>)}</div>
-   <Panel title={tab==='Bill Submit'?'DataDoc Bill Submit':'DataDoc Tracking Proof'} subtitle={tab==='Delivery Proof'?'Choose a saved tracking screenshot, confirm Work/Time and salesperson, then approve a real DataDoc transaction for the authorized Windows proof worker.':'Invoice, optional E-Invoice and available E-Way Bill PDFs are bundled into ONE ZIP by the office worker. DataDoc receives this ZIP with the original bill transaction, not separate Add Docs uploads. Pick Slip, Party and SO remain informational.'} actions={tab==='Bill Submit'?<span className='ux-offline'><Activity size={14}/> OFFICE-ONLY DATA DOC QUEUE</span>:<span className='ux-offline'><Activity size={14}/> DATADOC PROOF · OFFICE-ONLY</span>}>
-   {tab==='Delivery Proof'?<DataDocProofQueue p={p} rows={deliveryRows}/>:<RecordsTable records={list} onEdit={onEdit} renderAction={(r:any)=>{const type='bill_submit' as const;const rule=checkJob(r,type,settings,jobs);const billJobs=jobs.filter((j:any)=>j.process_id===r.id&&j.job_type==='bill_submit');const submitted=type==='bill_submit'&&billJobs.some((j:any)=>j.status==='completed');const queued=type==='bill_submit'&&billJobs.some((j:any)=>['queued','running'].includes(j.status));return <><span title={rule.missing.join('\n')} className={'ux-readiness-chip '+(rule.ready?'ready':'missing')}>{type==='bill_submit'?(rule.ready?'Ready'+(rule.warnings.length?' · Notes '+rule.warnings.length:''):'Waiting for bill details · '+rule.missing.length):(rule.ready?'Ready':'Missing '+rule.missing.length)}</span><Button onClick={()=>onEdit(r)}>Review</Button><Button variant='primary' disabled={busy||Boolean(submitted||queued)} onClick={()=>onQueue(r,type)}>{submitted?'Already submitted':queued?'Waiting for office PC':rule.ready?'Approve ZIP Bill Submit':'Queue request · wait for details'}</Button>{tab==='Bill Submit'&&<Button variant='mint' disabled={busy} onClick={()=>onStage(r,'Email to Client','Ready for Email')}>Move to Email <ArrowRight size={14}/></Button>}{(rule.missing.length>0||rule.warnings.length>0)&&<small style={{color:'#ad6c42',maxWidth:270,whiteSpace:'normal'}}>{type==='bill_submit'?'Information only · ':''}{[...rule.missing,...rule.warnings].slice(0,3).join(', ')}{rule.missing.length+rule.warnings.length>3?'…':''}</small>}</>}}/>}</Panel></>;
+  // Manual-only foundation: preserve all processes, documents and recorded status.
+  // Never enqueue a bill or tracking-proof submission from this page.
+  const billRows=filterStage(results,'DataDoc');
+  const proofRows=results.filter((r:any)=>normalizedStage(r)==='Delivery Proof'||
+    (normalizedStage(r)==='Dispatch Tracking'&&trackingProofDocuments(r).length>0));
+  return <>
+   <Heading eyebrow='STAGE 03 · MANUAL DOCUMENT WORK'
+    title='DataDoc'
+    description='Review invoice details, open source documents and record work manually. PJS OMS does not submit DataDoc transactions or start office workers.'/>
+   <div className='ux-tabs' role='tablist' aria-label='DataDoc manual registers'>
+    <button type='button' role='tab' aria-selected={tab==='Bills'} className={tab==='Bills'?'selected':''} onClick={()=>setTab('Bills')}><FileText size={16}/> Bills <b>{billRows.length}</b></button>
+    <button type='button' role='tab' aria-selected={tab==='Saved tracking proof'} className={tab==='Saved tracking proof'?'selected':''} onClick={()=>setTab('Saved tracking proof')}><PackageCheck size={16}/> Saved tracking proof <b>{proofRows.length}</b></button>
+   </div>
+   {tab==='Bills'?
+    <Panel title='DataDoc processes' subtitle='No automation or worker queue. Review the record and complete any DataDoc portal work manually.'>
+     {billRows.length?
+      <RecordsTable records={billRows} onEdit={onEdit}
+       renderAction={(r:any)=><>
+        <Button onClick={()=>onEdit(r)}>Edit details</Button>
+        <Button variant='mint' disabled={busy} onClick={()=>void onStage(r,'Email to Client','Ready for Email')}>Move to Email <ArrowRight size={14}/></Button>
+       </>}/>
+      :<Empty icon={FileText} title='No processes at DataDoc' help='Transfer a process here manually from Universal Process.'/>}
+    </Panel>:
+    <Panel title='Saved tracking evidence' subtitle='Screenshots remain linked to their original Process No. Review them without creating DataDoc submission jobs.'>
+     {proofRows.length?proofRows.map((r:any)=><div className='ux-manual-proof-row' key={r.id}>
+      <div><strong>Process {r.process}</strong><small>{r.party||'Party not recorded'} · {r.transporter||'Transporter pending'} · LR {r.lr||'—'}</small></div>
+      <div className='ux-manual-proof-actions'>
+       <Button onClick={()=>onEdit(r)}>Edit</Button>
+       {trackingProofDocuments(r).map((doc:any)=>
+        <Button key={doc.id} onClick={()=>void cloud.open(r.id,doc.id).catch((e:any)=>p.onError?.(e?.message||'Could not open screenshot'))}><FileImage size={14}/> Open screenshot</Button>)}
+      </div>
+     </div>):<Empty icon={FileImage} title='No saved tracking screenshots' help='Capture tracking evidence manually in Dispatch Tracking.'/>}
+    </Panel>}
+  </>;
  }
  if(page==='Email to Client')return <EmailToClientWorkflow p={p}/>;
  if(page==='Dispatch Tracking')return <DispatchTrackingPage p={p}/>;
-
  return null;
 }
