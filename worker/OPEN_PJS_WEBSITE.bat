@@ -1,17 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
-echo PJS Operations: checking DataDoc submission workers and opening the website...
-call "%~dp0START_OFFICE_WORKERS.bat"
-set "PJS_START_RESULT=%ERRORLEVEL%"
+rem MANUAL-ONLY PJS OMS: this launcher opens the website and NEVER starts a Python worker.
 start "" "https://pjs-oms-independent-pjsspare098-2655.vercel.app/"
-if not "%PJS_START_RESULT%"=="0" (
-  echo.
-  echo PJS website opened, but local worker startup failed.
-  echo See the error above. Check your worker folder and the local .env; do not share keys.
-  pause
-  exit /b 1
-)
-echo.
-echo Website opened. The Control Tower will confirm the DataDoc submission worker online once heartbeats arrive.
+echo PJS Operations opened in manual-only mode. No agents were started.
 endlocal
