@@ -181,7 +181,7 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
  <header className='ux-drawer-header'><div><div className='ux-kicker dark'>UNIVERSAL PROCESS</div><h2>{draft?.id?'Edit process '+draft.process:'Create new process'}</h2><p>One verified master record for the complete dispatch journey.</p></div><button className='ux-icon-button' aria-label='Close editor' onClick={onClose}><X size={20}/></button></header>
  <div className='ux-drawer-scroll' ref={scrollRef}>
  {sourceFile&&<div className='ux-doc-banner'><FileCheck2 size={20}/><div><strong>{sourceFile.name}</strong><small>{importIssue?'Reading needs attention — complete the missing fields below.':'Process No., Party Name and SO No. extracted. Please verify against the PDF.'}</small></div></div>}
- {Boolean(draft.id&&draft.status==='Pending Details'&&normalizedStage(draft)==='Email to Client')&&<div className='ux-preview-warning'>Pending Details: You may save invoice, courier, and attachments without an SO No. Missing Party Name and SO No. must still be completed before transfer or confirming the dispatch email.</div>}
+ {Boolean(draft.id&&draft.status==='Pending Details'&&normalizedStage(draft)==='Email to Client')&&<div className='ux-preview-warning'>Pending Details: You may save invoice, courier, and attachments without an SO No. Missing Party Name and SO No. must still be completed before transfer or manually confirming Outlook dispatch.</div>}
  {importIssue&&<div className='ux-import-warning' role='alert'><AlertTriangle size={17}/><span>{importIssue}</span></div>}
  <section className='ux-drawer-section'><div className='ux-section-title'><b>01</b><strong>Process identity</strong></div><div className='ux-field-grid'>
  {([['process','Process No.'],['party','Party Name'],['so','SO No.']] as const).map(([key,label])=><label className='ux-field' key={key}>{label} <span className='ux-required'>*</span><input aria-invalid={Boolean(error&&!String(draft[key]??'').trim())} value={draft[key]??''} placeholder={key==='process'?'e.g. 292184':key==='so'?'e.g. 26270964':'Customer / party'} disabled={key==='process'&&Boolean(draft?.id)} onChange={e=>setDraft((old:any)=>({...old,[key]:e.target.value}))}/></label>)}
@@ -267,15 +267,15 @@ export default function UnifiedDialog({record,sourceFile,importIssue='',demo,use
    </div>}
   </div>}
   {attachmentNotice&&<div className='ux-attachment-notice' role='status'>{attachmentNotice}</div>}
-  <p className='ux-footnote'>Files up to 5 MB. Invoice, E-Invoice and E-Way Bill are optional for moving to Email. They are checked separately for DataDoc Bill Submit.</p>
+  <p className='ux-footnote'>Files up to 5 MB. Invoice, E-Invoice and E-Way Bill are optional for moving to Email. DataDoc work is performed manually during the current base redesign.</p>
  </section>
  {deleteOpen&&canDelete&&<div className='ux-master-delete' role='alertdialog' aria-label='Confirm Delete Process'>
   <div><Trash2 size={20}/><strong>Delete Process {draft.process}?</strong></div>
-  <p>This moves your personal master process into Trash and preserves attached files and history. This action does not send an email or cancel any automation automatically.</p>
+  <p>This moves your personal master process into Trash and preserves attached files and history. This action does not send an email or execute any automation. Historical jobs remain in Audit & Reports.</p>
   {deletionBlockers.length>0&&<div className='ux-delete-blockers' role='alert'>
-    <strong>Cannot delete while automation is waiting or running.</strong>
+    <strong>Cannot delete while a legacy job remains recorded as queued or running.</strong>
     {deletionBlockers.map((job:any)=><div key={job.id}>Process job: {job.job_type.replace(/_/g,' ')} — {job.status}</div>)}
-    <small>Review legacy jobs in Audit &amp; Reports. No job is automatically cancelled when a process is moved to Trash.</small>
+    <small>Review historical jobs in Audit &amp; Reports. The office worker must be stopped separately; these records cannot be silently deleted.</small>
   </div>}
   <label className='ux-field'>Type Process No. {draft.process} to confirm
    <input value={deleteInput} onChange={e=>setDeleteInput(e.target.value.trim())} placeholder='Exact Process No.' autoComplete='off'/>
