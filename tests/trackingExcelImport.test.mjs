@@ -45,6 +45,6 @@ assert.doesNotMatch(trackingUi,/onBatchTrackShreeMaruti|Track All\s*\(/,'No auto
 assert.match(trackingUi,/ShreeMarutiImport/);
 const parent=readFileSync(new URL('../src/UnifiedApp.tsx',import.meta.url),'utf8');
 assert.doesNotMatch(parent,/onBatchTrackShreeMaruti/,'Auto-queue action must be gone from parent');
-assert.match(parent,/Only DataDoc Bill Submit automation is enabled/,'Only DataDoc automation may queue');
+assert.doesNotMatch(parent,/onQueue|onApproveDataDocProof/,'No agent action callbacks remain in website');
 console.log('PASS: tracking Excel headers, aliases, clean rows, duplicates, missing IDs, zero padding and limits');
 console.log('PASS: Manual Shree Excel intake retained; no automatic Track All queue');

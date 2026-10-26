@@ -20,8 +20,8 @@ assert.equal(trackingProofPlan(record,'shot-1',[{process_id:'proc-1',job_type:'d
 const ops=read('src/unifiedOps.ts'),app=read('src/UnifiedApp.tsx'),page=read('src/UnifiedStagePagesA.tsx'),ui=read('src/DataDocProofQueue.tsx');
 const worker=read('worker/datadoc_proof_worker.py'),agent=read('worker/datadoc.py'),sql=read('supabase/migrations/027_datadoc_tracking_proof_queue.sql');
 assert.ok(ops.includes('oms_approve_datadoc_tracking_proof'));
-assert.ok(app.includes('onApproveDataDocProof')&&app.includes('REAL DataDoc Tracking Proof'));
-assert.ok(page.includes('<DataDocProofQueue')&&page.includes("normalizedStage(r)==='Dispatch Tracking'"));
+assert.ok(!app.includes('onApproveDataDocProof')&&!app.includes('REAL DataDoc Tracking Proof'));
+assert.ok(!page.includes('<DataDocProofQueue')&&page.includes("normalizedStage(r)==='Dispatch Tracking'"));
 assert.ok(ui.includes('Review screenshot')&&ui.includes('Approve & Queue Tracking Proof'));
 assert.ok(worker.includes('PJS_ENABLE_LIVE_DATADOC_PROOF')&&worker.includes('if not live:'));
 assert.ok(worker.includes('oms_claim_datadoc_tracking_proof')&&worker.includes('oms_finish_datadoc_tracking_proof'));
@@ -41,6 +41,6 @@ assert.ok(sql.includes("'office_execution','manual'")||sql.includes("'manual',js
 assert.ok(sql.includes('d.kind=\'trackingShotDoc\''));
 assert.ok(sql.includes("and p.data->>'sales'=j.payload->>'sales_person'"));
 assert.ok(!sql.includes("to_jsonb('Complete'"));
-assert.ok(read('worker/START_OFFICE_WORKERS.ps1').includes("'datadoc_proof_worker.py'"));
+assert.ok(!read('worker/START_OFFICE_WORKERS.ps1').includes("'datadoc_proof_worker.py'"));
 assert.ok(read('worker/.env.example').includes('PJS_ENABLE_LIVE_DATADOC_PROOF=0'));
-console.log('PASS: DataDoc proof mapping, screenshot ownership, explicit queue, single-submit safety, worker start and status-preserving completion');
+console.log('PASS: historical DataDoc proof safety retained, while new approval UI and worker autostart are removed');

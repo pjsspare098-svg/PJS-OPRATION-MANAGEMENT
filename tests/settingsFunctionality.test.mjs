@@ -10,7 +10,8 @@ const notifications=read('src/SettingsNotifications.tsx');
 const office=read('src/WorkerFleetStatus.tsx');
 const photos=read('src/DonePickListPage.tsx');
 const app=read('src/UnifiedApp.tsx');
-assert.ok(settings.includes('<WorkspaceResetPanel')&&settings.includes('<WorkerFleetStatus')&&settings.includes('<SettingsNotifications'));
+assert.ok(settings.includes('<WorkspaceResetPanel')&&settings.includes('<TeamWorkspace')); 
+assert.ok(!settings.includes('<WorkerFleetStatus')&&!settings.includes('<SettingsNotifications'));
 assert.ok(settings.includes('<PdfOcrTestBench/>'));
 assert.ok(reset.includes('DELETE ALL MY PROCESSES'));
 assert.ok(reset.includes('window.confirm('),'Require secondary explicit confirmation');
@@ -38,4 +39,4 @@ assert.ok(office.includes('oms_office_workers')&&!office.includes('oms_outlook_w
 assert.ok(!office.includes('oms_tracking_workers'),'Retired carrier automation worker must not be polled or listed');
 assert.ok(photos.includes('pjs_oms_photo_batch_limit_v1'));
 assert.ok(app.includes('pjs_oms_landing_page_v1'));
-console.log('PASS: Reset preview, owner-only confirmed deletion, active worker status and live Settings controls');
+console.log('PASS: Reset safeguards and manual-only Settings retain security, users, OCR and backups');

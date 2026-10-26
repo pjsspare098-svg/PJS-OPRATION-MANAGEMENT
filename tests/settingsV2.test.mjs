@@ -28,9 +28,9 @@ assert.ok(!mobileChoices.includes('AI Command Center'),'Retired AI center must n
 assert.deepEqual(dashboardChoices,['total','workflow','attention','completed']);
 assert.match(prefs,/localStorage\.setItem\(SETTINGS_V2_KEY/,'UI settings must be browser-local');
 assert.doesNotMatch(prefs,/from ['"]\.\/independentClient|createClient|SUPABASE_SERVICE_ROLE_KEY|\bfetch\(/i,'Local settings must have no server calls or secrets');
-for(const section of ['appearance','mobile','dashboard','alerts','automation','camera','security','backup'])
+for(const section of ['appearance','mobile','dashboard','camera','security','backup'])
  assert.ok(ui.includes("id:'"+section+"'"),'Required Settings 2.0 section '+section);
-for(const existing of ["<WorkerFleetStatus","<TeamWorkspace","<SettingsNotifications","<WorkspaceResetPanel","<PdfOcrTestBench","<HistoricalImport","ops.updatePreferences","onExport"])
+for(const existing of ["<TeamWorkspace","<WorkspaceResetPanel","<PdfOcrTestBench","<HistoricalImport","ops.updatePreferences","onExport"])
  assert.ok(ui.includes(existing),'Previously working control must remain: '+existing);
 assert.match(ui,/SettingsPersonalization section='appearance'/);
 assert.match(ui,/SettingsPersonalization section='mobile'/);
@@ -44,4 +44,5 @@ assert.match(controls,/selectNav\(index,e.target.value as MobilePage\)/);
 assert.match(controls,/if\(previous>=0\)/,'Duplicate navigation selection must swap positions');
 assert.match(controls,/if\(exists&&prefs.dashboardCards.length===1\)return/,'Keep at least one card');
 assert.match(app,/applySettingsV2\(readSettingsV2\(\)\)/);
-console.log('PASS: Settings 2.0 preferences, validation, 8 sections and operational invariants');
+assert.doesNotMatch(ui,/<WorkerFleetStatus|<SettingsNotifications|id:'automation'|id:'worker'/);
+console.log('PASS: Settings 2.0 remains functional with manual-only sections, without agent controls');
