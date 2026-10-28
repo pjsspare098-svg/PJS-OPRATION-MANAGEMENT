@@ -15,16 +15,17 @@ const prefs=read('src/settingsV2Preferences.ts');
 assert.equal(SETTINGS_V2_KEY,'pjs_oms_local_settings_v2');
 assert.equal(SETTINGS_V2_EVENT,'pjs-oms-settings-v2-changed');
 assert.deepEqual(normalizeSettingsV2(null),defaultSettingsV2);
-assert.deepEqual(normalizeSettingsV2({fontSize:'extra',highContrast:true,reduceMotion:true,mobileNav:['DataDoc','Data Store','Settings','Control Tower'],dashboardCards:['attention','completed']}),{
+assert.deepEqual(normalizeSettingsV2({fontSize:'extra',highContrast:true,reduceMotion:true,mobileNav:['DataDoc · Submit Process','DataDoc · Dispatch Process','Settings','Dashboard'],dashboardCards:['attention','completed']}),{
  fontSize:'extra',highContrast:true,reduceMotion:true,
- mobileNav:['DataDoc','Data Store','Settings','Control Tower'],
+ mobileNav:['DataDoc · Submit Process','DataDoc · Dispatch Process','Settings','Dashboard'],
  dashboardCards:['attention','completed']
 });
 assert.deepEqual(normalizeSettingsV2({mobileNav:['Control Tower','Control Tower','Data Store','DataDoc'],dashboardCards:[]}).mobileNav,defaultSettingsV2.mobileNav,'Duplicate bottom tabs must fall back safely');
 assert.deepEqual(normalizeSettingsV2({dashboardCards:[]}).dashboardCards,defaultSettingsV2.dashboardCards,'Never hide all dashboard cards');
 assert.deepEqual(normalizeSettingsV2({fontSize:'invalid'}).fontSize,'normal');
-assert.equal(mobileChoices.length,11);
+assert.equal(mobileChoices.length,7);
 assert.ok(!mobileChoices.includes('AI Command Center'),'Retired AI center must not appear in mobile choices');
+assert.deepEqual(mobileChoices,['Dashboard','DataDoc · Dispatch Process','DataDoc · Submit Process','Check List','Sales Register','Transport Bill','Settings']);
 assert.deepEqual(dashboardChoices,['total','workflow','attention','completed']);
 assert.match(prefs,/localStorage\.setItem\(SETTINGS_V2_KEY/,'UI settings must be browser-local');
 assert.doesNotMatch(prefs,/from ['"]\.\/independentClient|createClient|SUPABASE_SERVICE_ROLE_KEY|\bfetch\(/i,'Local settings must have no server calls or secrets');

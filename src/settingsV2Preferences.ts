@@ -5,11 +5,8 @@
 export const SETTINGS_V2_KEY='pjs_oms_local_settings_v2';
 export const SETTINGS_V2_EVENT='pjs-oms-settings-v2-changed';
 
-export const mobileChoices=[
- 'Control Tower','Universal Process','Data Store','Dispatch Tracking',
- 'DataDoc','Email to Client','Done Pick List','Check List',
- 'Excel & LR Finder','Audit & Reports','Settings'
-] as const;
+import {primaryPages,resolveSiteRoute} from './siteNavigation.ts';
+export const mobileChoices=primaryPages;
 export type MobilePage=typeof mobileChoices[number];
 
 export const dashboardChoices=['total','workflow','attention','completed'] as const;
@@ -24,7 +21,7 @@ export type LocalSettingsV2={
 };
 export const defaultSettingsV2:LocalSettingsV2={
  fontSize:'normal',highContrast:false,reduceMotion:false,
- mobileNav:['Control Tower','Universal Process','Data Store','Dispatch Tracking'],
+ mobileNav:['Dashboard','DataDoc · Dispatch Process','DataDoc · Submit Process','Check List'],
  dashboardCards:['total','workflow','attention','completed']
 };
 function uniqueAllowed<T extends string>(value:unknown,allowed:readonly T[]):T[]{
@@ -34,7 +31,11 @@ function uniqueAllowed<T extends string>(value:unknown,allowed:readonly T[]):T[]
 export function normalizeSettingsV2(input:unknown):LocalSettingsV2{
  if(!input||typeof input!=='object')return {...defaultSettingsV2,mobileNav:[...defaultSettingsV2.mobileNav],dashboardCards:[...defaultSettingsV2.dashboardCards]};
  const raw=input as Record<string,unknown>;
- const nav=uniqueAllowed(raw.mobileNav,mobileChoices);
+ // Migrate old browser shortcuts without modifying cloud records.
+ const mapped=Array.isArray(raw.mobileNav)?raw.mobileNav
+  .filter((v):v is string=>typeof v==='string')
+  .map(v=>resolveSiteRoute(v).page):[];
+ const nav=uniqueAllowed(mapped,mobileChoices);
  const cards=uniqueAllowed(raw.dashboardCards,dashboardChoices);
  return {
   fontSize:raw.fontSize==='large'||raw.fontSize==='extra'?raw.fontSize:'normal',

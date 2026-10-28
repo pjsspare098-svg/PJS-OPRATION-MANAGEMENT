@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test:pick-slip && npm run test:done-pick && npm run test:migration && npm run test:business && npm run test:process-options && npm run test:email-workflow && npm run test:workflow-stages && npm run test:lr && npm run test:excel && npm run test:document-fields && npm run test:done-pick-albums && npm run test:document-merge && npm run test:agent && npm run test:carrier && npm run test:website-start && npm run test:settings && npm run test:transport && npm run test:transfer && npm run test:datadoc-proof && npm run test:responsive && npm run test:settings-v2 && npm run test:job-visibility && npm run test:tracking-import && npm run test:audit-cleanup && npm run test:manual-dispatch && npm run test:carrier-bulk-trash && npm run test:attachment-trash && npm run test:datadoc-only && npm run test:email-excel && npm run test:partial-email-edit && npm run test:email-send && npm run test:manual-only && vite build",
+    "build": "npm run test:pick-slip && npm run test:done-pick && npm run test:migration && npm run test:business && npm run test:process-options && npm run test:email-workflow && npm run test:workflow-stages && npm run test:lr && npm run test:excel && npm run test:document-fields && npm run test:done-pick-albums && npm run test:document-merge && npm run test:agent && npm run test:carrier && npm run test:website-start && npm run test:settings && npm run test:transport && npm run test:transfer && npm run test:datadoc-proof && npm run test:responsive && npm run test:settings-v2 && npm run test:job-visibility && npm run test:tracking-import && npm run test:audit-cleanup && npm run test:manual-dispatch && npm run test:carrier-bulk-trash && npm run test:attachment-trash && npm run test:datadoc-only && npm run test:email-excel && npm run test:partial-email-edit && npm run test:email-send && npm run test:manual-only && npm run test:seven-pages && vite build",
     "preview": "vite preview",
     "test:done-pick": "node --experimental-strip-types tests/donePickReader.test.mjs",
     "test:pick-slip": "node --experimental-strip-types tests/pickSlipReader.test.mjs",
@@ -38,7 +38,8 @@
     "test:email-excel": "node --experimental-strip-types tests/emailExcelRegister.test.mjs",
     "test:partial-email-edit": "node tests/partialEmailEdit.test.mjs",
     "test:email-send": "node --experimental-strip-types tests/emailSendApproval.test.mjs",
-    "test:manual-only": "node --experimental-strip-types tests/manualOnlyBaseline.test.mjs"
+    "test:manual-only": "node --experimental-strip-types tests/manualOnlyBaseline.test.mjs",
+    "test:seven-pages": "node --experimental-strip-types tests/sevenPageLayout.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",

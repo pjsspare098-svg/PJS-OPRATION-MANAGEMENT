@@ -56,7 +56,7 @@ export default function SettingsControlCenter({p}:{p:any}){
     try{return localStorage.getItem(PREF_DENSITY)==='compact'?'compact':'comfortable';}catch{return 'comfortable';}
   });
   const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem(PREF_THEME)==='dark'?'dark':'light'}catch{return 'light'}});
-  const [landing,setLanding]=useState<'Control Tower'|'Universal Process'|'DataDoc'|'Dispatch Tracking'>(()=>{try{const v=localStorage.getItem(PREF_LANDING);return v==='Universal Process'||v==='DataDoc'||v==='Dispatch Tracking'?v:'Control Tower'}catch{return 'Control Tower'}});
+  const [landing,setLanding]=useState<'Dashboard'|'DataDoc · Dispatch Process'|'DataDoc · Submit Process'>(()=>{try{const v=localStorage.getItem(PREF_LANDING);return v==='DataDoc · Dispatch Process'||v==='DataDoc · Submit Process'?v:'Dashboard'}catch{return 'Dashboard'}});
   const [photoBatch,setPhotoBatch]=useState(()=>{try{const v=Number(localStorage.getItem(PREF_PHOTO_BATCH));return Number.isInteger(v)&&v>=1&&v<=25?v:25}catch{return 25}});
   useEffect(()=>{if(!dirty)setDraft(settings);},[settings,dirty]);
   useEffect(()=>{document.documentElement.dataset.omsTheme=theme;try{localStorage.setItem(PREF_THEME,theme)}catch{}},[theme]);
@@ -159,7 +159,7 @@ export default function SettingsControlCenter({p}:{p:any}){
           <Planned title='Future camera enhancements' items={['Configurable image compression','Device resolution presets','Manual upload recovery','Optional capture timestamps']}/>
         </>}
         {tab==='backup'&&<>
-          <section className='sc-card'><SectionHeader title='Export & recovery' description='Existing CSV export is not a full database or document backup.' badge='LIMITED EXPORT'/>
+          <section className='sc-card'><SectionHeader title='Export & recovery' description='Existing CSV export is not a full database or document backup. The Sales Register page also exports Excel.' badge='LIMITED EXPORT'/>
             <SettingRow title='Process register export' description='Export visible process reference fields as CSV; attached PDFs/images are not included.' right={<Status tone='good'>Available</Status>}/>
             <div className='sc-actions'><Button disabled={!records.length} onClick={onExport}><Download size={16}/> Export current register CSV</Button></div>
             <Note>Backup schedules, storage retention, and restoration cannot be validated from the browser. Do not rely on CSV alone as a backup or test restore against production.</Note>
@@ -186,7 +186,7 @@ export default function SettingsControlCenter({p}:{p:any}){
           </section>
           <section className='sc-card'><SectionHeader title='Theme and landing page' description='Working display preferences stored on this browser.' badge='ACTIVE LOCAL SETTINGS'/>
             <div className='sc-fields'><label className='ux-field'>Color scheme<select value={theme} onChange={e=>setTheme(e.target.value==='dark'?'dark':'light')}><option value='light'>Light</option><option value='dark'>Dark</option></select></label>
-              <label className='ux-field'>Initial page after sign-in<select value={landing} onChange={e=>setLanding(e.target.value as typeof landing)}>{(['Control Tower','Universal Process','DataDoc','Dispatch Tracking'] as const).map(v=><option key={v}>{v}</option>)}</select></label></div>
+              <label className='ux-field'>Initial page after sign-in<select value={landing} onChange={e=>setLanding(e.target.value as typeof landing)}>{(['Dashboard','DataDoc · Dispatch Process','DataDoc · Submit Process'] as const).map(v=><option key={v}>{v}</option>)}</select></label></div>
           </section>
           <SettingsPersonalization section='appearance'/>
           <Planned title='Advanced appearance' items={['Per-table column visibility','Cloud-synced preferences between devices']}/>
