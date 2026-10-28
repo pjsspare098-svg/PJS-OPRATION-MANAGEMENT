@@ -32,7 +32,7 @@ import {applySettingsV2,readSettingsV2,SETTINGS_V2_EVENT} from './settingsV2Pref
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
  const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
- const [page,setPage]=useState<SitePage>(()=>resolveSiteRoute(localStorage.getItem('pjs_oms_landing_page_v1')).page);
+ const [page,setPage]=useState<SitePage>(()=>{const candidate=resolveSiteRoute(localStorage.getItem('pjs_oms_landing_page_v1')).page;return candidate==='Transport Bill'?'Dashboard':candidate});
  const [dispatchTab,setDispatchTab]=useState<DispatchTab>('pending');
  const [submitTab,setSubmitTab]=useState<SubmitTab>('bill');
  const [pendingView,setPendingView]=useState<PendingView>('work');
@@ -79,7 +79,7 @@ export default function UnifiedApp(){
  function onNotice(v:string){setNotice(v);window.setTimeout(()=>setNotice(''),7500)}
  function onGoto(v:Section){
   const next=resolveSiteRoute(v);
-  setPage(next.page);
+  setPage(next.page==='Transport Bill'?'Dashboard':next.page);
   if(next.dispatchTab)setDispatchTab(next.dispatchTab);
   if(next.submitTab)setSubmitTab(next.submitTab);
   if(next.pendingView)setPendingView(next.pendingView);
@@ -288,7 +288,7 @@ export default function UnifiedApp(){
   {page==='DataDoc · Dispatch Process'&&<DispatchProcessPage p={p}/>}
   {page==='DataDoc · Submit Process'&&<SubmitProcessPage p={p}/>}
   {page==='Sales Register'&&<SalesRegisterPage p={p}/>}
-  {(page==='Check List'||page==='Transport Bill'||page==='Settings')&&<UnifiedStagePagesB page={page} p={p}/>}
+  {(page==='Check List'||page==='Settings')&&<UnifiedStagePagesB page={page} p={p}/>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
   {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} exceptions={exceptions} onDelete={onDeleteProcess} onAttachmentChanged={refresh} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
