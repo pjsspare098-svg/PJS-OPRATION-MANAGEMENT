@@ -91,7 +91,7 @@ export default function UnifiedApp(){
  const stats=useMemo(()=>({total:records.length,complete:records.filter(r=>String(r.stage||'').toLowerCase()==='complete').length,pending:records.filter(r=>missingDocs(r).length>0).length,exceptions:new Set([...records.filter(isException).map(r=>r.id),...exceptions.filter(x=>x.status!=='resolved').map(x=>x.process_id)]).size}),[records,exceptions]);
  const authenticated=Boolean(user&&!demo);
  function onNotice(v:string){setNotice(v);window.setTimeout(()=>setNotice(''),7500)}
- function onGoto(v:Section){setPage(v);setSearch('')}
+ function onGoto(v:Section){setPage(v==='AI Command Center'?'Control Tower':v);setSearch('')}
  async function refresh(){
   if(demo){setRecords(mockRecords());return}
   if(!authenticated)return;
@@ -256,6 +256,7 @@ export default function UnifiedApp(){
   }catch(e:any){setError(e?.message||'Could not approve tracking proof.')}finally{setBusy(false)}
  }
  async function onQueue(r:any,type:JobType){
+  setError('Automation is disabled. Complete this process manually.');return;
   if(!authenticated){onNotice('Sign in to queue office automation.');return}
   if(type==='bill_submit'&&!window.confirm('Approve a real DataDoc bill for Process '+r.process+'? Check the Invoice No., positive amount, Credit/Non-Credit and that Full Payment Verify = Yes is true. The Windows worker will attach one ZIP and may SUBMIT a real transaction when enabled.'))return;
   setBusy(true);
@@ -271,6 +272,7 @@ export default function UnifiedApp(){
   finally{setBusy(false)}
  }
  async function onBatchTrackShreeMaruti(requested:any[]){
+  setError('Automatic tracking is disabled. Use manual tracking.');return;
   if(!authenticated){setError('Sign in before requesting carrier tracking.');return}
   if(!requested.length){onNotice('No eligible Shree Maruti tracking IDs in the current view.');return}
   if(!window.confirm('Track All: queue '+requested.length+' Shree Maruti tracking IDs from the currently filtered view?\n\nThe office carrier worker handles approved lookups. The updated Shree Maruti Windows worker will search up to 20 IDs per carrier page and save each result to its own Process No. Older workers may still run individual searches until updated.\n\nNo emails, DataDoc submissions or delivery confirmations will be sent.'))return;
