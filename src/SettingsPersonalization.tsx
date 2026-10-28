@@ -7,11 +7,11 @@ import {
 
 type Panel='appearance'|'mobile'|'dashboard';
 const navLabel:Record<MobilePage,string>={
- 'Control Tower':'Home / Control Tower','Universal Process':'Universal Process',
- 'Data Store':'Documents / Data Store','Dispatch Tracking':'Dispatch Tracking',
- 'DataDoc':'DataDoc','Email to Client':'Email to Client','Done Pick List':'Done Pick List',
- 'Check List':'Check List','Excel & LR Finder':'Excel & LR Finder',
- 'AI Command Center':'AI Command Center','Audit & Reports':'Audit & Reports','Settings':'Settings'
+ 'Dashboard':'Dashboard',
+ 'DataDoc · Dispatch Process':'Dispatch Process',
+ 'DataDoc · Submit Process':'Submit Process',
+ 'Check List':'Check List','Sales Register':'Sales Register',
+ 'Transport Bill':'Transport Bill','Settings':'Settings'
 };
 const cardLabel:Record<DashboardCard,string>={
  total:'Total processes',workflow:'In workflow',attention:'Needs attention',completed:'Completed'
@@ -69,10 +69,10 @@ export default function SettingsPersonalization({section}:{section:Panel}){
  </>;
  return <>
   <section className='sc-card'>
-   <div className='sc-section-head'><div><h2>Control Tower cards</h2><p>Show only the overview metrics you want. This does not modify the underlying process counts or records.</p></div><span className='sc-chip'>ACTIVE LOCAL SETTING</span></div>
+   <div className='sc-section-head'><div><h2>Dashboard cards</h2><p>Show only the overview metrics you want. This does not modify the underlying process counts or records.</p></div><span className='sc-chip'>ACTIVE LOCAL SETTING</span></div>
    <div className='sv2-content'>
     <div className='sv2-check-grid'>{dashboardChoices.map(card=><label className='sv2-dashboard-card' key={card}><input type='checkbox' checked={prefs.dashboardCards.includes(card)} disabled={prefs.dashboardCards.length===1&&prefs.dashboardCards.includes(card)} onChange={()=>toggleCard(card)}/><LayoutDashboard size={20}/><strong>{cardLabel[card]}</strong>{prefs.dashboardCards.includes(card)&&<CheckCircle2 size={17}/>}</label>)}</div>
-    <small className='sv2-help'>At least one card must remain visible. The new selection applies to Control Tower immediately.</small>
+    <small className='sv2-help'>At least one card must remain visible. The new selection applies to Dashboard immediately.</small>
     <div className='sv2-actions'><button type='button' onClick={()=>update({dashboardCards:[...defaultSettingsV2.dashboardCards]})}><RotateCcw size={15}/> Restore all cards</button></div>
    </div>
   </section>
