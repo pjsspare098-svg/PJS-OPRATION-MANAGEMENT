@@ -11,7 +11,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const db = createClient(URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 type Process = {id:string;process_no:string;deleted_at:string|null};
-type Manifest={processes:Process[]; paths:{bucket:string;path:string}[];albums:number; queued:number;running:number};
+type Manifest={processes:Process[]; paths:{bucket:string;path:string}[];albums:number; queued:number;running:number;jobHistory:number;emailRequests:number};
 
 function json(body:unknown,status=200,origin=""){
   return new Response(JSON.stringify(body),{status,headers:{
@@ -39,18 +39,27 @@ async function getManifest(owner:string):Promise<Manifest>{
  if(processes.length>MAX_PROCESSES)throw new Error("Workspace exceeds the safe one-operation limit; contact administrator");
  const ids=processes.map(p=>p.id);
  const numbers=[...new Set(processes.map(p=>p.process_no))];
- if(!ids.length)return {processes,paths:[],albums:0,queued:0,running:0};
+ if(!ids.length)return {processes,paths:[],albums:0,queued:0,running:0,jobHistory:0,emailRequests:0};
  const docRows: {path:string;user_id:string}[]=[];
  const albumRows: {id:string}[]=[];
- let queued=0,running=0;
+ let queued=0,running=0,jobHistory=0,emailRequests=0;
  for(const batch of batches(ids,80)){
    const docs=required((await db.from("oms_documents").select("path,user_id").eq("user_id",owner).in("process_id",batch).limit(MAX_FILES+1)) as any,"Documents") as typeof docRows;
    docRows.push(...docs);
    for(const table of ["oms_jobs","oms_cloud_jobs"]){
-     const jobs=required((await db.from(table).select("status").eq("user_id",owner).in("process_id",batch).in("status",["queued","running"]).limit(MAX_FILES+1)) as any,"Job count") as {status:string}[];
+     const jobs=required((await db.from(table).select("status").eq("user_id",owner).in("process_id",batch).limit(MAX_FILES+1)) as any,"Job history") as {status:string}[];
+     jobHistory+=jobs.length;
      queued+=jobs.filter(j=>j.status==="queued").length;
      running+=jobs.filter(j=>j.status==="running").length;
    }
+   // Outlook send requests also belong to the selected personal processes.
+   // Include them in both the warning and the eventual deletion receipt.
+   const emails=required((await db.from("oms_email_send_requests")
+     .select("status").eq("owner_id",owner).in("process_id",batch)
+     .limit(MAX_FILES+1)) as any,"Email requests") as {status:string}[];
+   emailRequests+=emails.length;
+   queued+=emails.filter(e=>e.status==="queued").length;
+   running+=emails.filter(e=>e.status==="running").length;
  }
  for(const batch of batches(numbers,80)){
    const albums=required((await db.from("oms_done_pick_albums").select("id").eq("user_id",owner).in("process_no",batch).limit(MAX_FILES+1)) as any,"Albums") as typeof albumRows;
@@ -69,7 +78,7 @@ async function getManifest(owner:string):Promise<Manifest>{
  if(files.some(x=>x.user_id!==owner||!x.path.startsWith(owner+"/")||x.path.split("/").some(segment=>segment==="."||segment===".."||segment==="")))
    throw new Error("Attachment ownership path inconsistent; reset not allowed");
  const distinct=new Map(files.map(x=>[x.bucket+"|"+x.path,{bucket:x.bucket,path:x.path}]));
- return {processes,paths:[...distinct.values()],albums:albumRows.length,queued,running};
+ return {processes,paths:[...distinct.values()],albums:albumRows.length,queued,running,jobHistory,emailRequests};
 }
 Deno.serve(async req=>{
  const origin=req.headers.get("origin")??"";
@@ -94,18 +103,24 @@ Deno.serve(async req=>{
        document_count:manifest.paths.filter(x=>x.bucket==="oms-documents").length,
        photo_count:manifest.paths.filter(x=>x.bucket==="oms-done-pick-photos").length,
        album_count:manifest.albums,queued_count:manifest.queued,running_count:manifest.running,
+       job_history_count:manifest.jobHistory,email_request_count:manifest.emailRequests,
        pending_cleanup:Boolean(pending), managed_backups_removed:false},200,origin);
    }
    if(body.confirm!==CONFIRM_TEXT||body.expected_count!==manifest.processes.length)
      return json({error:"Confirmation or preview count mismatch. Refresh before proceeding."},409,origin);
-   if(manifest.running) return json({error:"Running jobs exist. Wait for completion before deleting."},409,origin);
+   // Stale Running markers from retired agents must not disable the Reset button.
+   // The operator must explicitly acknowledge that any office/Windows agents
+   // have been stopped. This Edge Function cannot stop external programs.
+   if(manifest.running>0&&body.workers_stopped!==true)
+     return json({error:"Confirm that all office/Windows PJS workers are stopped. The reset cancels stored jobs but cannot stop a running external program."},409,origin);
    if(!manifest.processes.length) return json({error:"No personal processes to delete."},409,origin);
    const session=required((await db.rpc("oms_prepare_personal_reset",{
       p_owner:user.id,p_expected_count:manifest.processes.length
    })) as any,"Reset preparation") as string;
-   // Once prepared, all requests are cancelled and process records are hidden
-   // from both website and agent claim RPC. Storage delete uses official API,
-   // never direct SQL storage.objects deletion.
+   // Once prepared, stale queued/running job rows and Outlook requests are
+   // cancelled and personal processes are hidden. Server-side worker claims
+   // remain disabled globally. Use the official Storage API for files.
+   // Never delete directly from storage.objects via SQL.
    for(const bucket of ["oms-documents","oms-done-pick-photos"]){
      const paths=manifest.paths.filter(x=>x.bucket===bucket).map(x=>x.path);
      for(const group of batches(paths,100)){
