@@ -2,29 +2,11 @@ import {useMemo,useState} from 'react';
 import {AlertTriangle,CheckCheck,ClipboardCheck,FileCheck2,FileText,Mail,Search,ShieldCheck,Truck} from 'lucide-react';
 import {Button,Empty,Heading,Tone} from './UnifiedKit';
 import {creditCategory,manualSubmitFields,submitRecords,submitTabs,type SubmitTab} from './siteNavigation';
-import {displayedTrackingResult} from './manualDispatchTracking';
-import {trackingProofDocuments} from './datadocProofRules';
+import {missingSubmissionRequirements} from './manualSubmitRules';
 import {showDate} from './unifiedOps';
 import {cloud} from './cloud';
 
 type CreditFilter='All'|'Credit'|'Non Credit'|'Unknown';
-export function missingSubmissionRequirements(record:any,category:SubmitTab):string[]{
- const missing:string[]=[];
- if(!record.process)missing.push('Process No.');
- if(creditCategory(record.credit)==='Unknown')missing.push('Credit / Non-credit');
- if(!String(record.sales||'').trim())missing.push('Sales Person');
- if(category==='bill'){
-  if(!String(record.invoice||'').trim())missing.push('Invoice No.');
-  if(!String(record.amount||'').trim())missing.push('Invoice Amount');
-  if(!(record.documents||[]).some((d:any)=>d.kind==='invoiceDoc'))missing.push('Invoice PDF');
- }else if(category==='email'){
-  if(!(record.documents||[]).some((d:any)=>d.kind==='emailDoc'&&/\.eml$/i.test(d.name||'')))missing.push('Original Outlook email (.eml)');
- }else{
-  if(!trackingProofDocuments(record).length)missing.push('Tracking screenshot');
-  if(displayedTrackingResult(record).status!=='Delivered')missing.push('Verified Delivered tracking status');
- }
- return missing;
-}
 export default function SubmitProcessPage({p}:{p:any}){
  const {results=[],records=[],userId,authenticated,demo,busy,onEdit,onMarkManualSubmit}=p;
  const active=p.submitTab as SubmitTab;
