@@ -5,6 +5,7 @@ import {
  creditCategory,pendingDispatchRecords,submitRecords,manualSubmitFields
 } from '../src/siteNavigation.ts';
 import {normalizeSettingsV2} from '../src/settingsV2Preferences.ts';
+import {missingSubmissionRequirements} from '../src/manualSubmitRules.ts';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 assert.deepEqual(primaryPages,[
@@ -72,7 +73,11 @@ assert.match(dispatch,/All Process Documents/);
 assert.match(submit,/submitTabs\.map/);
 assert.match(submit,/Credit \/ Non-credit filter/);
 assert.match(submit,/Record manual submission/);
-assert.match(submit,/Verified Delivered tracking status/);
+const check=read('src/manualSubmitRules.ts');
+assert.match(check,/Verified Delivered tracking status/);
+assert.ok(missingSubmissionRequirements({process:'292864',credit:'Credit',sales:'Deepa',documents:[],trackingCaptureStatus:'In Transit'},'proof').includes('Verified Delivered tracking status'));
+assert.ok(missingSubmissionRequirements({process:'292864',credit:'Non Credit',sales:'Deepa',documents:[{id:'shot1',kind:'trackingShotDoc',name:'292864.png'}],trackingCaptureStatus:'Delivered'},'proof').length===0);
+assert.ok(missingSubmissionRequirements({process:'292864',credit:'Credit',sales:'Deepa',documents:[{kind:'invoiceDoc'}],invoice:'2627/1006',amount:'100'},'bill').length===0);
 assert.match(submit,/DataDoc transaction reference/);
 assert.match(secondary,/page==='Check List'/);
 assert.match(secondary,/DonePickListPage/);
