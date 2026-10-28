@@ -17,7 +17,7 @@ assert.equal(SETTINGS_V2_EVENT,'pjs-oms-settings-v2-changed');
 assert.deepEqual(normalizeSettingsV2(null),defaultSettingsV2);
 assert.deepEqual(normalizeSettingsV2({fontSize:'extra',highContrast:true,reduceMotion:true,mobileNav:['DataDoc · Submit Process','DataDoc · Dispatch Process','Settings','Dashboard'],dashboardCards:['attention','completed']}),{
  fontSize:'extra',highContrast:true,reduceMotion:true,
- mobileNav:['DataDoc','Data Store','Settings','Control Tower'],
+ mobileNav:['DataDoc · Submit Process','DataDoc · Dispatch Process','Settings','Dashboard'],
  dashboardCards:['attention','completed']
 });
 assert.deepEqual(normalizeSettingsV2({mobileNav:['Control Tower','Control Tower','Data Store','DataDoc'],dashboardCards:[]}).mobileNav,defaultSettingsV2.mobileNav,'Duplicate bottom tabs must fall back safely');
