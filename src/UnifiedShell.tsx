@@ -7,7 +7,7 @@ const nav:{name:string;items:[SitePage,any][]}[]=[
  {name:'PJS OMS · OPERATIONS',items:[
   ['Dashboard',LayoutDashboard],['DataDoc · Dispatch Process',Truck],
   ['DataDoc · Submit Process',FileCheck2],['Check List',ClipboardList],
-  ['Sales Register',FileSpreadsheet],['Transport Bill',BarChart3],['Settings',Settings2]
+  ['Sales Register',FileSpreadsheet],['Settings',Settings2]
  ]}
 ];
 const mobileLabels:Record<MobilePage,string>={
