@@ -1,10 +1,18 @@
 import {filterStage} from './workflowStages';
 import {Activity,AlertTriangle,ArrowRight,CheckCircle2,ChevronRight,Clock3,Cloud,Database,Download,FileCheck2,FileClock,FileText,FileUp,Inbox,PackageCheck,Plus,RefreshCw,ShieldCheck,Sparkles,Truck,Upload} from 'lucide-react';
-import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone,steps} from './UnifiedKit';
+import {Button,Empty,Heading,Panel,RecordsTable,SearchBar,Stat,Tone} from './UnifiedKit';
 import {missingDocs,readyForBill} from './unifiedOps';
 import {useEffect,useState} from 'react';
 import {readSettingsV2,SETTINGS_V2_EVENT} from './settingsV2Preferences';
 
+const dashboardSteps=[
+ ['01','Pending for Dispatch','Prepare', 'Universal Process'],
+ ['02','Email to Client','Manual Outlook', 'Email to Client'],
+ ['03','Tracking','Carrier results', 'Dispatch Tracking'],
+ ['04','Bill Submit','Manual DataDoc', 'DataDoc'],
+ ['05','Email Submit','Manual DataDoc', 'DataDoc · Submit Process'],
+ ['06','Tracking Proof Submit','Manual DataDoc', 'DataDoc · Submit Process']
+] as const;
 export default function UnifiedCorePages({page,p}:{page:string;p:any}){
  const {records,trashedProcesses=[],onRestoreProcess,results,stats,onEdit,onImport,onDonePick,onNew,onExport,onGoto,onStage,search,setSearch,jobs,demo,busy}=p;
  const [showDeleted,setShowDeleted]=useState(false);
@@ -16,10 +24,16 @@ export default function UnifiedCorePages({page,p}:{page:string;p:any}){
  },[]);
  if(page==='Control Tower'){
    return <>
-   <section className='ux-hero'><div className='ux-hero-copy'><span className='ux-kicker light'><Sparkles size={15}/> DISPATCH COMMAND CENTER</span><h1>One system. <em>Every dispatch under control.</em></h1><p>From the first Pick Slip through DataDoc, emails, courier tracking and final delivery confirmation—all in one independent workspace.</p><div className='ux-hero-buttons'><Button variant='white' onClick={onImport}><Upload size={17}/> Upload Pick Slip</Button><Button variant='ghost-light' onClick={onDonePick}><FileCheck2 size={16}/> Done Pick List Photo</Button><Button variant='ghost-light' onClick={()=>onGoto('Universal Process')}>Open process workspace <ArrowRight size={17}/></Button></div></div><div className='ux-hero-visual'><div className='ux-hero-circle'><Activity size={50}/></div><div>DISPATCH FLOW<br/>CONNECTED</div></div></section>
+   <section className='ux-hero'><div className='ux-hero-copy'><span className='ux-kicker light'><Sparkles size={15}/> OPERATIONS DASHBOARD</span><h1>Dashboard. <em>Your dispatch work in one place.</em></h1><p>Review your processes across Pending for Dispatch, Email to Client, Tracking and the three DataDoc Submit registers. All work remains manual until you approve new workflows.</p><div className='ux-hero-buttons'><Button variant='white' onClick={onImport}><Upload size={17}/> Upload Pick Slip</Button><Button variant='ghost-light' onClick={onDonePick}><FileCheck2 size={16}/> Done Pick List Photo</Button><Button variant='ghost-light' onClick={()=>onGoto('Universal Process')}>Open process workspace <ArrowRight size={17}/></Button></div></div><div className='ux-hero-visual'><div className='ux-hero-circle'><Activity size={50}/></div><div>MANUAL WORKFLOW<br/>CONNECTED</div></div></section>
    <div className='ux-stats'>{visibleCards.includes('total')&&<Stat icon={Database} label='Total processes' value={stats.total} note={demo?'This browser only':'Cloud process master'}/>} {visibleCards.includes('workflow')&&<Stat icon={Clock3} label='In workflow' value={stats.total-stats.complete} note='Active dispatch files' tone='purple'/>} {visibleCards.includes('attention')&&<Stat icon={AlertTriangle} label='Needs attention' value={stats.pending} note='Document / field gaps' tone='orange'/>} {visibleCards.includes('completed')&&<Stat icon={CheckCircle2} label='Completed' value={stats.complete} note='Closed processes' tone='green'/>}</div>
-   <Panel title='Dispatch journey' subtitle='PJS operations workflow, combined with the modern OMS document model.' actions={<span className='ux-caption'>7 STAGES</span>}><div className='ux-journey'>{steps.map(([no,title,sub],i)=><div className='ux-step' key={no}><span>{no}</span><b>{title}</b><small>{sub}</small>{i<steps.length-1&&<ArrowRight size={14}/>}</div>)}</div></Panel>
-   <div className='ux-two-col'><Panel title='Recent processes' subtitle='Continue where each dispatch last stopped.' actions={<button className='ux-link' onClick={()=>onGoto('Universal Process')}>View all <ArrowRight size={14}/></button>}>{records.length?records.slice(0,6).map((r:any)=><button className='ux-recent' key={r.id} onClick={()=>onEdit(r)}><span className='ux-recent-icon'><FileText size={17}/></span><span className='ux-recent-name'><strong>{r.process} <span>· {r.party}</span></strong><small>SO {r.so||'—'} · {r.transporter||'Transporter pending'}</small></span><Tone value={r.stage}/><ChevronRight size={16}/></button>):<Empty icon={Inbox} title='Start with a Pick Slip' help='Click Upload Pick Slip to create your first process record.'/>}</Panel>
+   <Panel title='Your dispatch and DataDoc workflow' subtitle='Select a stage below to open its register. This is navigation only; no agent runs.' actions={<span className='ux-caption'>6 WORK REGISTERS</span>}>
+    <div className='oms-dashboard-journey'>{dashboardSteps.map(([no,title,sub,route])=>
+     <button type='button' className='oms-dashboard-step' key={no}
+      onClick={()=>{if(no==='05')p.onSubmitTab('email');if(no==='06')p.onSubmitTab('proof');onGoto(route)}}>
+      <span>{no}</span><strong>{title}</strong><small>{sub}</small><ArrowRight size={16}/>
+     </button>)}</div>
+   </Panel>
+   <div className='ux-two-col'><Panel title='Recent processes' subtitle='Continue where each dispatch last stopped.' actions={<button className='ux-link' onClick={()=>onGoto('Data Store')}>View all <ArrowRight size={14}/></button>}>{records.length?records.slice(0,6).map((r:any)=><button className='ux-recent' key={r.id} onClick={()=>onEdit(r)}><span className='ux-recent-icon'><FileText size={17}/></span><span className='ux-recent-name'><strong>{r.process} <span>· {r.party}</span></strong><small>SO {r.so||'—'} · {r.transporter||'Transporter pending'}</small></span><Tone value={r.stage}/><ChevronRight size={16}/></button>):<Empty icon={Inbox} title='Start with a Pick Slip' help='Click Upload Pick Slip to create your first process record.'/>}</Panel>
    <Panel title='System readiness' subtitle='Private records and document storage. Background agents are disabled.'><div className='ux-readiness'><div><span className='ux-ready-icon green'><Cloud size={19}/></span><div><strong>Independent Supabase</strong><small>Owner-scoped database and RLS</small></div><b className={demo?'orange':'green'}>{demo?'Not signed in':'Connected'}</b></div><div><span className='ux-ready-icon green'><ShieldCheck size={19}/></span><div><strong>Private document storage</strong><small>Pick Slips, invoices and LR documents</small></div><b className={demo?'orange':'green'}>{demo?'Not in use':'Configured'}</b></div><div><span className='ux-ready-icon green'><FileCheck2 size={19}/></span><div><strong>Manual dispatch workflow</strong><small>Records, uploads and process transfers only. No background workers.</small></div><b className='green'>Manual only</b></div></div></Panel></div>
   </>;
  }
