@@ -8,8 +8,8 @@ import {teamsApi} from './teamOps';
 import {canCloseProcess} from './businessRules';
 import {processTransferIssues,transferStageStatus} from './processTransfer.ts';
 import {normalizedStage,type WorkflowStage} from './workflowStages.ts';
-import {resolveSiteRoute,manualSubmitFields,creditCategory,type SitePage,type DispatchTab,type SubmitTab,type CheckTab,type SettingsTab,type PendingView} from './siteNavigation';
-import {missingSubmissionRequirements} from './SubmitProcessPage';
+import {resolveSiteRoute,manualSubmitFields,creditCategory,submitRecords,type SitePage,type DispatchTab,type SubmitTab,type CheckTab,type SettingsTab,type PendingView} from './siteNavigation';
+import {missingSubmissionRequirements} from './manualSubmitRules';
 import {displayedTrackingResult} from './manualDispatchTracking';
 import DispatchProcessPage from './DispatchProcessPage';
 import SubmitProcessPage from './SubmitProcessPage';
@@ -246,6 +246,8 @@ export default function UnifiedApp(){
   if(!latest||latest.id!==record.id||latest.owner_id!==user?.id||latest.team_id)
    throw Error('The personal process was moved or is not owned by your login. Refresh.');
   if(creditCategory(latest.credit)==='Unknown')throw Error('Choose Credit or Non-credit before recording DataDoc work.');
+  if(!submitRecords([latest],category).length)
+   throw Error('Process stage changed. Open the correct DataDoc Submit register and review again.');
   const blockers=missingSubmissionRequirements(latest,category);
   if(blockers.length)throw Error('Complete these details first: '+blockers.join(', '));
   const field=manualSubmitFields[category], refKey=field.replace(/At$/,'Reference');
