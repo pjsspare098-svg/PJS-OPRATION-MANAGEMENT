@@ -21,7 +21,7 @@ const ops=read('src/unifiedOps.ts'),app=read('src/UnifiedApp.tsx'),page=read('sr
 const worker=read('worker/datadoc_proof_worker.py'),agent=read('worker/datadoc.py'),sql=read('supabase/migrations/027_datadoc_tracking_proof_queue.sql');
 assert.ok(ops.includes('oms_approve_datadoc_tracking_proof'));
 assert.ok(app.includes('onApproveDataDocProof')&&app.includes('REAL DataDoc Tracking Proof'));
-assert.ok(page.includes('<DataDocProofQueue')&&page.includes("normalizedStage(r)==='Dispatch Tracking'"));
+assert.ok(page.includes('Manual DataDoc Review')&&!page.includes('<DataDocProofQueue '),'Website must not expose automated proof queue');
 assert.ok(ui.includes('Review screenshot')&&ui.includes('Approve & Queue Tracking Proof'));
 assert.ok(worker.includes('PJS_ENABLE_LIVE_DATADOC_PROOF')&&worker.includes('if not live:'));
 assert.ok(worker.includes('oms_claim_datadoc_tracking_proof')&&worker.includes('oms_finish_datadoc_tracking_proof'));
