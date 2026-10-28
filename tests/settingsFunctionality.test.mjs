@@ -15,7 +15,10 @@ assert.ok(!settings.includes('<WorkerFleetStatus')&&!settings.includes('<Setting
 assert.ok(settings.includes('<PdfOcrTestBench/>'));
 assert.ok(reset.includes('DELETE ALL MY PROCESSES'));
 assert.ok(reset.includes('window.confirm('),'Require secondary explicit confirmation');
-assert.ok(reset.includes('preview.running_count===0'),'Never allow live deletion during running jobs');
+assert.ok(!reset.includes('preview.running_count===0'),'Historical Running markers must not permanently lock the reset button');
+assert.ok(reset.includes('legacyRunning===0||workersStopped'),'Require owner acknowledgment that office workers were stopped');
+assert.ok(reset.includes('workers_stopped:legacyRunning===0||workersStopped'),'Protected reset receives worker-stop acknowledgment');
+assert.ok(edge.includes('body.workers_stopped!==true'),'Server refuses unacknowledged Running job cleanup');
 assert.ok(reset.includes('managed backups'),'Must distinguish managed database backups from app files');
 assert.ok(edge.includes('getUser(token)')&&edge.includes('ALLOWED_ORIGINS'),'Verify user/session on privileged edge');
 assert.ok(edge.includes('x.path.split("/").some(segment=>segment==="."||segment===".."||segment==="")'),'Reject only actual unsafe path segments');

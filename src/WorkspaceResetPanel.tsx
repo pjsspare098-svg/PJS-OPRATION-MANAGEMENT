@@ -6,7 +6,8 @@ import {Button} from './UnifiedKit';
 type Preview={
  scope:'personal_only';process_count:number;trashed_count:number;
  document_count:number;photo_count:number;album_count:number;
- queued_count:number;running_count:number;pending_cleanup:boolean;
+ queued_count:number;running_count:number;job_history_count:number;
+ email_request_count:number;pending_cleanup:boolean;
  managed_backups_removed:false;
 };
 const PHRASE='DELETE ALL MY PROCESSES';
@@ -27,6 +28,7 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
  const [preview,setPreview]=useState<Preview|null>(null);
  const [typed,setTyped]=useState('');
  const [ack,setAck]=useState(false);
+ const [workersStopped,setWorkersStopped]=useState(false);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
@@ -42,22 +44,31 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
   finally{setBusy(false)}
  },[authenticated,demo]);
  useEffect(()=>{void load()},[load]);
+ const legacyRunning=preview?.running_count||0;
  const allowed=Boolean(preview&&preview.process_count>0&&
-   preview.running_count===0&&typed.trim()===PHRASE&&ack&&!busy);
+   typed.trim()===PHRASE&&ack&&(legacyRunning===0||workersStopped)&&!busy);
  async function execute(){
   if(!allowed||!preview||!supabase)return;
-  if(!window.confirm('Permanently delete '+preview.process_count+' of YOUR personal processes, their attached files, photo albums, related job history and Trash? Queued jobs will be cancelled. This cannot be undone. Supabase-managed backups will NOT be deleted.'))return;
+  if(!window.confirm(
+    'FINAL DELETION CONFIRMATION\n\nPermanently delete '+preview.process_count+
+    ' of YOUR personal processes (including Trash), '+preview.document_count+
+    ' documents, '+preview.photo_count+' photos and '+preview.job_history_count+
+    ' agent jobs plus '+preview.email_request_count+' email-send requests?\n\nOld queued/running job records will be cancelled and removed, regardless of their previous status. This does NOT stop an external Windows worker or undo a sent email. Your login, settings, other users\' records and Supabase-managed backups are retained.\n\nThis action CANNOT BE UNDONE.'
+   ))return;
   const count=preview.process_count;
   setBusy(true);setError('');setNotice('');
   try{
    const {data,error}=await supabase.functions.invoke('oms-personal-workspace-reset',{
-    body:{action:'execute',confirm:PHRASE,expected_count:count}
+    body:{action:'execute',confirm:PHRASE,expected_count:count,
+     workers_stopped:legacyRunning===0||workersStopped}
    });
    if(error)throw error;
    if(data?.error)throw Error(data.error);
    if(!data?.ok)throw Error('Server did not confirm completed reset.');
-   setPreview(null);setTyped('');setAck(false);
-   setNotice('Reset completed: '+data.result.deleted_processes+' personal processes and their related records removed. Independent Supabase-managed backups remain unchanged.');
+   setPreview(null);setTyped('');setAck(false);setWorkersStopped(false);
+   setNotice('Reset completed: '+data.result.deleted_processes+' personal processes, '+
+    (data.result.deleted_jobs+data.result.deleted_cloud_jobs+data.result.deleted_email_requests)+
+    ' related job/email-request records, and linked documents/photos removed. Supabase-managed backups, your login and settings remain unchanged.');
    await onChanged();
    await load();
   }catch(e:any){
@@ -70,7 +81,7 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
   <div className='sc-section-head'><div>
    <h2><Trash2 size={17} style={{verticalAlign:'middle',marginRight:8}}/>Delete all my processes</h2>
    <p>Permanently remove your personal processes, including Trash, attached documents,
-    Done Pick List albums/photos, related queue history and process events. Shared team records are protected.</p>
+    Done Pick List albums/photos, related agent/job history, Outlook send requests and process events — including entries in Trash. Shared team records, your login and settings are protected.</p>
   </div><span className='sc-chip'>DANGER ZONE</span></div>
   <div className='sc-reset-body'>
    <div className='sc-note'><ShieldAlert size={18}/>
@@ -83,10 +94,17 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
     <span><strong>{preview?.trashed_count??'—'}</strong> In Trash</span>
     <span><strong>{preview?.document_count??'—'}</strong> Document files</span>
     <span><strong>{preview?.photo_count??'—'}</strong> Photos</span>
-    <span><strong>{preview?.queued_count??'—'}</strong> Queued jobs (cancelled)</span>
+    <span><strong>{preview?.job_history_count??'—'}</strong> Agent jobs (all statuses)</span>
+    <span><strong>{preview?.email_request_count??'—'}</strong> Email-send requests</span>
    </div>
    {preview?.pending_cleanup&&<p className='sc-invalid' role='alert'>A previous deletion was interrupted. Confirm again to resume storage cleanup and finish deleting the personal records.</p>}
-   {Boolean(preview?.running_count)&&<p className='sc-invalid' role='alert'>Running jobs exist. Wait for them to finish before deleting anything.</p>}
+   {legacyRunning>0&&<div className='sc-note' role='alert'>
+     <ShieldAlert size={18}/>
+     <div><strong>{legacyRunning} old job record(s) still show Running.</strong>
+       This no longer blocks your reset. The website can cancel and delete those job records,
+       but it cannot stop an office Python/Outlook program that is already executing.
+       Stop the old PJS worker programs in Windows before confirming the reset.</div>
+    </div>}
    {error&&<p className='sc-invalid' role='alert'>{error}</p>}
    {!preview&&<p className='sc-invalid' role='status'>Typing is locked until the server verifies the process count. Click Refresh count after reconnecting.</p>}
    {notice&&<p className='sc-reset-success' role='status'>{notice}</p>}
@@ -94,9 +112,15 @@ export default function WorkspaceResetPanel({authenticated,demo,onChanged}:{
     <input autoComplete='off' spellCheck={false} placeholder={PHRASE} value={typed}
       onChange={e=>setTyped(e.target.value)} disabled={busy||!preview?.process_count}/>
    </label>
-   <label className='sc-reset-checkbox'><input type='checkbox' checked={ack} onChange={e=>setAck(e.target.checked)}/>
-    <span>I understand that this deletes my personal records and attachments, cancels queued jobs,
-    and does not remove Supabase-managed backups or downloaded files.</span></label>
+   {legacyRunning>0&&<label className='sc-reset-checkbox'>
+    <input type='checkbox' checked={workersStopped} onChange={e=>setWorkersStopped(e.target.checked)} disabled={busy}/>
+    <span>I have stopped all old PJS Python/Outlook/office agents on the Windows PC.
+     I understand that deleting their stored job records cannot interrupt any external action already in progress.</span>
+   </label>}
+   <label className='sc-reset-checkbox'><input type='checkbox' checked={ack} onChange={e=>setAck(e.target.checked)} disabled={busy}/>
+    <span>I authorize permanent deletion of my personal process entries (including Trash), uploaded documents,
+    Done Pick List photos, related agent job history, Outlook send requests, and process events.
+    I understand Supabase-managed backups and already downloaded files are not deleted.</span></label>
   </div>
   <div className='sc-actions'>
    <Button disabled={busy||!authenticated||demo} onClick={()=>void load()}><RefreshCw size={15}/>Refresh count</Button>
