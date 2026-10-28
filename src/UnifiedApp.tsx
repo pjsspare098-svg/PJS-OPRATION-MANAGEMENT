@@ -7,7 +7,13 @@ import {ops,mockRecords,saveDemo,missingDocs,isException,defaults,type Job,type 
 import {teamsApi} from './teamOps';
 import {canCloseProcess} from './businessRules';
 import {processTransferIssues,transferStageStatus} from './processTransfer.ts';
-import type {WorkflowStage} from './workflowStages.ts';
+import {normalizedStage,type WorkflowStage} from './workflowStages.ts';
+import {resolveSiteRoute,manualSubmitFields,creditCategory,type SitePage,type DispatchTab,type SubmitTab,type CheckTab,type SettingsTab,type PendingView} from './siteNavigation';
+import {missingSubmissionRequirements} from './SubmitProcessPage';
+import {displayedTrackingResult} from './manualDispatchTracking';
+import DispatchProcessPage from './DispatchProcessPage';
+import SubmitProcessPage from './SubmitProcessPage';
+import SalesRegisterPage from './SalesRegisterPage';
 import UnifiedDialog,{blankProcess} from './UnifiedDialog';
 import UnifiedLogin from './UnifiedLogin';
 import DonePickListUpload from './DonePickListUpload';
@@ -25,7 +31,13 @@ import {applySettingsV2,readSettingsV2,SETTINGS_V2_EVENT} from './settingsV2Pref
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
 export default function UnifiedApp(){
  const [checking,setChecking]=useState(true),[user,setUser]=useState<any>(null),[demo,setDemo]=useState(false);
- const [page,setPage]=useState<Section>(()=>{const saved=localStorage.getItem('pjs_oms_landing_page_v1');return saved==='Universal Process'||saved==='DataDoc'||saved==='Dispatch Tracking'?saved:'Control Tower'}),[records,setRecords]=useState<any[]>([]),[trashedProcesses,setTrashedProcesses]=useState<any[]>([]);
+ const [page,setPage]=useState<SitePage>(()=>resolveSiteRoute(localStorage.getItem('pjs_oms_landing_page_v1')).page);
+ const [dispatchTab,setDispatchTab]=useState<DispatchTab>('pending');
+ const [submitTab,setSubmitTab]=useState<SubmitTab>('bill');
+ const [pendingView,setPendingView]=useState<PendingView>('work');
+ const [checkTab,setCheckTab]=useState<CheckTab>('exceptions');
+ const [settingsTab,setSettingsTab]=useState<SettingsTab>('preferences');
+ const [records,setRecords]=useState<any[]>([]),[trashedProcesses,setTrashedProcesses]=useState<any[]>([]);
  const [jobs,setJobs]=useState<Job[]>([]),[events,setEvents]=useState<AuditEvent[]>([]),[exceptions,setExceptions]=useState<any[]>([]),[settings,setSettings]=useState<Preferences>(defaults);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [search,setSearch]=useState(''),[dialog,setDialog]=useState(false),[record,setRecord]=useState<any>(null),[pickFile,setPickFile]=useState<File|null>(null);
@@ -64,7 +76,16 @@ export default function UnifiedApp(){
  const stats=useMemo(()=>({total:records.length,complete:records.filter(r=>String(r.stage||'').toLowerCase()==='complete').length,pending:records.filter(r=>missingDocs(r).length>0).length,exceptions:new Set([...records.filter(isException).map(r=>r.id),...exceptions.filter(x=>x.status!=='resolved').map(x=>x.process_id)]).size}),[records,exceptions]);
  const authenticated=Boolean(user&&!demo);
  function onNotice(v:string){setNotice(v);window.setTimeout(()=>setNotice(''),7500)}
- function onGoto(v:Section){setPage(v);setSearch('')}
+ function onGoto(v:Section){
+  const next=resolveSiteRoute(v);
+  setPage(next.page);
+  if(next.dispatchTab)setDispatchTab(next.dispatchTab);
+  if(next.submitTab)setSubmitTab(next.submitTab);
+  if(next.pendingView)setPendingView(next.pendingView);
+  if(next.checkTab)setCheckTab(next.checkTab);
+  if(next.settingsTab)setSettingsTab(next.settingsTab);
+  setSearch('');
+ }
  async function refresh(){
   if(demo){setRecords(mockRecords());return}
   if(!authenticated)return;
@@ -216,6 +237,30 @@ export default function UnifiedApp(){
   }catch(e:any){setError(e?.message||'Unable to record manual sent confirmation.')}
   finally{setBusy(false)}
  }
+ async function onMarkManualSubmit(record:any,category:SubmitTab,reference:string){
+  if(!authenticated||demo)throw Error('Sign in to record a manual DataDoc submission.');
+  if(!/^[0-9]{5,9}$/.test(String(record.process||'')))throw Error('Valid Process No. is required.');
+  if(!reference.trim()||reference.trim().length>120)throw Error('Enter a DataDoc transaction reference (up to 120 characters).');
+  const latest=await cloud.findByProcess(String(record.process));
+  if(!latest||latest.id!==record.id||latest.owner_id!==user?.id||latest.team_id)
+   throw Error('The personal process was moved or is not owned by your login. Refresh.');
+  if(creditCategory(latest.credit)==='Unknown')throw Error('Choose Credit or Non-credit before recording DataDoc work.');
+  const blockers=missingSubmissionRequirements(latest,category);
+  if(blockers.length)throw Error('Complete these details first: '+blockers.join(', '));
+  const field=manualSubmitFields[category], refKey=field.replace(/At$/,'Reference');
+  if(latest[field])throw Error('Manual DataDoc submission is already recorded for this category. Do not duplicate it.');
+  const now=new Date().toISOString();
+  // No dispatch tracking status or stage is changed, no external portal call is made.
+  const saved=await ops.save({...latest,[field]:now,[refKey]:reference.trim()},
+    'Manual DataDoc '+category+' submission confirmed');
+  await ops.audit(saved,'Manual DataDoc submit recorded',{
+   category,reference:reference.trim(),confirmed_by_user:true,
+   executed_in_datadoc_by_website:false,material_receipt_confirmed:false,
+   agent_execution:false
+  });
+  await refresh();
+  onNotice('Process '+record.process+': manual '+category+' submission recorded. No DataDoc agent ran.');
+ }
  function onDraftEmail(r:any){
   void navigator.clipboard.writeText(dispatchDetailsText(r))
    .then(()=>onNotice('Dispatch details copied. Reply All in Outlook retains the original email recipients and thread.'))
@@ -227,14 +272,20 @@ export default function UnifiedApp(){
   const csv='\uFEFF'+keys.map(x=>quote(x[1])).join(',')+'\n'+results.map(r=>keys.map(x=>quote(r[x[0]])).join(',')).join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='PJS_OMS_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
  }
- async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Control Tower');setError('')}
+ async function onSignOut(){if(user&&supabase)await supabase.auth.signOut();setDemo(false);setUser(null);setRecords([]);setActiveTeam('');setPage('Dashboard');setError('')}
  if(checking)return <div className='ux-loading'><span/><b>Loading PJS Operations…</b></div>;
- if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Control Tower')}}/>;
- const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onAttach,onDraftEmail,onConfirmEmailSent,onError:setError,onNotice};
- return <UnifiedShell page={page} onPage={onGoto} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
+ if(!user&&!demo)return <UnifiedLogin onDemo={()=>{setDemo(true);setPage('Dashboard')}}/>;
+ const p={records,trashedProcesses,onRestoreProcess,onDeleteProcess,results,stats,authenticated,onOpenDonePickOCR:()=>setDonePickOpen(true),jobs,events,exceptions,onReportException,onResolveException,settings,setSettings,busy,demo,userId:user?.id||'',activeTeam,onTeamSelect:setActiveTeam,onRefresh:refresh,search,setSearch,onEdit,onImport:()=>picker.current?.click(),onDonePick:()=>onGoto('Done Pick List'),onNew,onExport,onGoto,onStage,onAttach,onDraftEmail,onConfirmEmailSent,onError:setError,onNotice,dispatchTab,onDispatchTab:setDispatchTab,submitTab,onSubmitTab:setSubmitTab,
+  pendingView,onPendingView:setPendingView,checkTab,onCheckTab:setCheckTab,
+  settingsTab,onSettingsTab:setSettingsTab,onMarkManualSubmit};
+ return <UnifiedShell page={page} onPage={onGoto} dispatchTab={dispatchTab} submitTab={submitTab} onDispatchTab={setDispatchTab} onSubmitTab={setSubmitTab} onRefresh={()=>void refresh()} onSignOut={()=>void onSignOut()} demo={demo} user={user} stats={stats} busy={busy}>
   {error&&<div className='ux-alert error' role='alert'><AlertCircle size={18}/><span>{error}</span><button onClick={()=>setError('')}><X size={15}/></button></div>}
   {notice&&<div className='ux-alert info' role='status'><CheckCircle2 size={18}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
-  {(['Control Tower','Data Store','Universal Process'] as Section[]).includes(page)?<UnifiedCorePages page={page} p={p}/>:<><UnifiedStagePagesA page={page} p={p}/><UnifiedStagePagesB page={page} p={p}/></>}
+  {page==='Dashboard'&&<UnifiedCorePages page='Control Tower' p={p}/>}
+  {page==='DataDoc · Dispatch Process'&&<DispatchProcessPage p={p}/>}
+  {page==='DataDoc · Submit Process'&&<SubmitProcessPage p={p}/>}
+  {page==='Sales Register'&&<SalesRegisterPage p={p}/>}
+  {(page==='Check List'||page==='Transport Bill'||page==='Settings')&&<UnifiedStagePagesB page={page} p={p}/>}
   <input ref={picker} type='file' hidden accept='.pdf,.jpg,.jpeg,.png' onChange={e=>{void onImportFile(e.target.files?.[0]);e.target.value=''}}/>
   {donePickOpen&&<DonePickListUpload records={records} authenticated={authenticated} onClose={()=>setDonePickOpen(false)} onAttach={onAttachDonePick} onGoToDataStore={()=>{setDonePickOpen(false);onGoto('Data Store')}}/>}
   {dialog&&record&&<UnifiedDialog key={record.id||record.process||'new'} record={record} sourceFile={pickFile} importIssue={importIssue} demo={demo} userId={user?.id||''} jobs={jobs} exceptions={exceptions} onDelete={onDeleteProcess} onAttachmentChanged={refresh} onClose={()=>{setDialog(false);setPickFile(null)}} onSave={onSave}/>}
