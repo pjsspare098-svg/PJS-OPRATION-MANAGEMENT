@@ -5,7 +5,7 @@
 export const SETTINGS_V2_KEY='pjs_oms_local_settings_v2';
 export const SETTINGS_V2_EVENT='pjs-oms-settings-v2-changed';
 
-import {primaryPages,resolveSiteRoute} from './siteNavigation';
+import {primaryPages,resolveSiteRoute} from './siteNavigation.ts';
 export const mobileChoices=primaryPages;
 export type MobilePage=typeof mobileChoices[number];
 
