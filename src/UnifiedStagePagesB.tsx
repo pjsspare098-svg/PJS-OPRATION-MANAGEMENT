@@ -1,6 +1,7 @@
 import {AlertTriangle,BarChart3,Camera,FileSpreadsheet,Settings2} from 'lucide-react';
 import {Heading} from './UnifiedKit';
 import ExcelLRWorkspace from './ExcelLRWorkspace';
+import TransportBillWorkflow from './TransportBillWorkflow';
 import DonePickListPage from './DonePickListPage';
 import ExceptionDesk from './ExceptionDesk';
 import SettingsControlCenter from './SettingsControlCenter';
@@ -25,6 +26,7 @@ export default function UnifiedStagePagesB({page,p}:{page:string;p:any}){
  if(page==='Transport Bill')return <div className='oms-seven-page'>
   <Heading eyebrow='MODULE 06 / TRANSPORT ACCOUNTS' title='Transport Bill'
    description='Reconcile transporter invoices by LR / Docket number against the existing PJS process and sales register. Review every match before export.'/>
+  <TransportBillWorkflow records={records}/>
   <ExcelLRWorkspace records={records}/>
  </div>;
  if(page==='Settings')return <div className='oms-seven-page'>
