@@ -7,10 +7,10 @@ const styles=readFileSync('src/responsive-redesign.css','utf8');
 const prefs=readFileSync('src/settingsV2Preferences.ts','utf8');
 
 for(const [section,label] of [
- ['Control Tower','Home'],
- ['Universal Process','Processes'],
- ['Data Store','Documents'],
- ['Dispatch Tracking','Tracking']
+ ['Dashboard','Home'],
+ ['DataDoc · Dispatch Process','Dispatch'],
+ ['DataDoc · Submit Process','Submit'],
+ ['Check List','Checklist']
 ]){
  assert.ok(prefs.includes("'"+section+"'"),section+' must remain a valid mobile destination');
  assert.ok(shell.includes("'"+section+"':'"+label+"'"),label+' must retain a readable label');
