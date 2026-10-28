@@ -1,3 +1,4 @@
+import {normalizedStage} from './workflowStages.ts';
 /** Seven visible modules. Keep stage labels unchanged in Supabase.
  * Navigation aliases are for older links/buttons and do not rewrite records.
  */
@@ -64,12 +65,12 @@ export function creditCategory(value:unknown):'Credit'|'Non Credit'|'Unknown'{
  return 'Unknown';
 }
 export function pendingDispatchRecords<T extends {stage?:string}>(records:T[]):T[]{
- return records.filter(row=>['universal process','datadoc','new','intake',''].includes(String(row.stage??'').trim().toLowerCase()));
+ return records.filter(row=>['Universal Process','DataDoc'].includes(normalizedStage(row)));
 }
 export function submitRecords<T extends {stage?:string;documents?:{kind:string}[]}>(records:T[],tab:SubmitTab):T[]{
- if(tab==='bill')return records.filter(row=>String(row.stage??'').trim().toLowerCase()==='datadoc');
- if(tab==='email')return records.filter(row=>['email to client','dispatch tracking','delivery proof','complete'].includes(String(row.stage??'').trim().toLowerCase()));
- return records.filter(row=>['dispatch tracking','delivery proof','complete'].includes(String(row.stage??'').trim().toLowerCase()));
+ if(tab==='bill')return records.filter(row=>normalizedStage(row)==='DataDoc');
+ if(tab==='email')return records.filter(row=>['Email to Client','Dispatch Tracking','Delivery Proof','Complete'].includes(normalizedStage(row)));
+ return records.filter(row=>['Dispatch Tracking','Delivery Proof','Complete'].includes(normalizedStage(row)));
 }
 export const manualSubmitFields={
  bill:'omsBillSubmittedAt',
