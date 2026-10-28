@@ -14,8 +14,8 @@ export default function TransportBillWorkflow({records}:{records:any[]}){
  const [area,setArea]=useState<'maruti'|'bhuvan'|'tci'|'vexpress'>('maruti');
  const [rows,setRows]=useState<Record<Sheet,Row[]>>({maruti:[blank()],bhuvan:[blank()]});
  const [lrInputs,setLrInputs]=useState({tci:'',vexpress:''});
- const lrText=lrInputs[carrier];
  const [carrier,setCarrier]=useState<'tci'|'vexpress'>('tci');
+ const lrText=lrInputs[carrier];
  const [selected,setSelected]=useState<string[]>([]);
  const [message,setMessage]=useState('');
  const switchArea=(id:'maruti'|'bhuvan'|'tci'|'vexpress')=>{setArea(id);setSelected([]);if(id==='maruti'||id==='bhuvan')setSheet(id);else setCarrier(id)};
