@@ -26,6 +26,7 @@ import './unified.css';
 import './unified-extra.css';
 import './responsive-redesign.css';
 import './settings-v2.css';
+import './seven-page.css';
 import {applySettingsV2,readSettingsV2,SETTINGS_V2_EVENT} from './settingsV2Preferences';
 
 const includes=(value:any,query:string)=>String(value??'').toLowerCase().includes(query);
