@@ -113,11 +113,19 @@ export default function SalesRegisterPage({p}:{p:any}){
    await book.xlsx.load(new Uint8Array(await file.arrayBuffer()) as any);
    const sheet=book.worksheets.find(w=>/sales[\s_-]*regist/i.test(w.name))||book.worksheets[0];
    if(!sheet||sheet.rowCount>4000)throw Error('Sales Register worksheet missing or over 4,000 rows');
-   if(!/sales[\s_-]*regist/i.test(sheet.name))throw Error('Use a worksheet named SALES REGISTER for the fixed B–P column mapping');
+   const pjsExport=String(sheet.getRow(1).getCell(1).value||'').trim().toLowerCase()==='process no.'
+    &&String(sheet.getRow(1).getCell(2).value||'').trim().toLowerCase()==='invoice no.';
+   if(!pjsExport&&!/sales[\s_-]*(regist|ragist)/i.test(sheet.name))
+    throw Error('For external data use a SALES REGISTER sheet with Process No. in column B.');
+   const selectedMap=pjsExport
+    ? fields.map(([key],index)=>[key,index+1] as const).filter(([key])=>
+       importMap.some(([allowed])=>allowed===key))
+    :importMap;
+   const processCol=pjsExport?1:2;
    const imported:PreviewRow[]=[];
    const seen=new Set<string>();
    for(let line=1;line<=sheet.rowCount;line++){
-    const process=readCell(sheet.getRow(line).getCell(2)).replace(/\.0$/,'').trim();
+    const process=readCell(sheet.getRow(line).getCell(processCol)).replace(/\.0$/,'').trim();
     if(!validProcess(process))continue; // headings/footers are not processes
     if(seen.has(process)){imported.push({line,process,changes:{},reason:'Duplicate Process No. in workbook'});continue}
     seen.add(process);
@@ -129,7 +137,7 @@ export default function SalesRegisterPage({p}:{p:any}){
     }
     const changes:Record<string,string>={};
     let reason='';
-    for(const [key,col] of importMap){
+    for(const [key,col] of selectedMap){
      if(key==='process')continue;
      let v='';
      try{
