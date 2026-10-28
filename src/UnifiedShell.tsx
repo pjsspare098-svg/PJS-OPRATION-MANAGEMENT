@@ -1,18 +1,21 @@
-import {Activity,AlertTriangle,BarChart3,ChevronRight,ClipboardCheck,Cloud,Database,FileCheck2,Images,FileSpreadsheet,LayoutDashboard,LogOut,LogIn,Mail,Menu,PackageCheck,RefreshCw,Settings2,ShieldCheck,Truck,UserRound,X} from 'lucide-react';
+import {AlertTriangle,BarChart3,ChevronRight,ClipboardList,FileCheck2,FileSpreadsheet,LayoutDashboard,LogIn,LogOut,Menu,RefreshCw,Settings2,ShieldCheck,Truck,UserRound,X} from 'lucide-react';
 import {type ReactNode,useEffect,useState} from 'react';
 import {readSettingsV2,SETTINGS_V2_EVENT,type MobilePage} from './settingsV2Preferences';
-export type Section='Control Tower'|'Data Store'|'Universal Process'|'DataDoc'|'Email to Client'|'Dispatch Tracking'|'Done Pick List'|'Check List'|'Excel & LR Finder'|'Audit & Reports'|'Settings';
-const nav:{name:string;items:[Section,any][]}[]=[
- {name:'COMMAND CENTER',items:[['Control Tower',LayoutDashboard],['Data Store',Database],['Universal Process',ClipboardCheck]]},
- {name:'DISPATCH WORKFLOW',items:[['DataDoc',FileCheck2],['Email to Client',Mail],['Dispatch Tracking',Truck],['Done Pick List',Images],['Check List',AlertTriangle]]},
- {name:'INTELLIGENCE & TOOLS',items:[['Excel & LR Finder',FileSpreadsheet],['Audit & Reports',BarChart3],['Settings',Settings2]]},
+import {dispatchTabs,submitTabs,type DispatchTab,type SubmitTab,type SitePage,type SiteRoute} from './siteNavigation';
+export type Section=SiteRoute;
+const nav:{name:string;items:[SitePage,any][]}[]=[
+ {name:'PJS OMS · OPERATIONS',items:[
+  ['Dashboard',LayoutDashboard],['DataDoc · Dispatch Process',Truck],
+  ['DataDoc · Submit Process',FileCheck2],['Check List',ClipboardList],
+  ['Sales Register',FileSpreadsheet],['Transport Bill',BarChart3],['Settings',Settings2]
+ ]}
 ];
-const mobileLabels:Partial<Record<MobilePage,string>>={
- 'Control Tower':'Home','Universal Process':'Processes','Data Store':'Documents',
- 'Dispatch Tracking':'Tracking','Email to Client':'Email','Done Pick List':'Photos',
- 'Excel & LR Finder':'Excel','Audit & Reports':'Audit'
+const mobileLabels:Record<MobilePage,string>={
+ 'Dashboard':'Home','DataDoc · Dispatch Process':'Dispatch',
+ 'DataDoc · Submit Process':'Submit','Check List':'Checklist',
+ 'Sales Register':'Sales','Transport Bill':'Bills','Settings':'Settings'
 };
-export default function UnifiedShell({page,onPage,onRefresh,onSignOut,demo,user,stats,notificationCount=0,busy,children}:{page:Section;onPage:(p:Section)=>void;onRefresh:()=>void;onSignOut:()=>void;demo:boolean;user:any;stats:any;notificationCount?:number;busy:boolean;children:ReactNode}){
+export default function UnifiedShell({page,onPage,onRefresh,onSignOut,demo,user,stats,notificationCount=0,busy,dispatchTab,submitTab,onDispatchTab,onSubmitTab,children}:{page:SitePage;onPage:(p:SitePage)=>void;onRefresh:()=>void;onSignOut:()=>void;demo:boolean;user:any;stats:any;notificationCount?:number;busy:boolean;dispatchTab:DispatchTab;submitTab:SubmitTab;onDispatchTab:(t:DispatchTab)=>void;onSubmitTab:(t:SubmitTab)=>void;children:ReactNode}){
  const [mobile,setMobile]=useState(false);
  const [phoneNav,setPhoneNav]=useState(()=>readSettingsV2().mobileNav);
  useEffect(()=>{
@@ -21,10 +24,24 @@ export default function UnifiedShell({page,onPage,onRefresh,onSignOut,demo,user,
   return()=>{window.removeEventListener(SETTINGS_V2_EVENT,sync);window.removeEventListener('storage',sync)};
  },[]);
  const mobileNav=phoneNav.map(page=>({page,label:mobileLabels[page]||page,Icon:nav.flatMap(group=>group.items).find(([id])=>id===page)?.[1]||LayoutDashboard}));
- function go(p:Section){onPage(p);setMobile(false)}
+ function go(p:SitePage){onPage(p);setMobile(false)}
  return <div className='ux-shell'><a className='ux-skip-link' href='#oms-main-content'>Skip to main content</a><aside id='oms-sidebar' aria-label='PJS Operations sections' className={'ux-sidebar '+(mobile?'mobile-open':'')}>
-  <div className='ux-brand'><div className='ux-logo'>P</div><div><strong>PJS <i>Operations</i></strong><small>UNIFIED CONTROL SYSTEM</small></div><button type='button' className='ux-mobile-close' aria-label='Close menu' onClick={()=>setMobile(false)}><X size={20}/></button></div>
-  <nav className='ux-side-menu'>{nav.map(g=><div className='ux-nav-group' key={g.name}><div className='ux-nav-heading'>{g.name}</div>{g.items.map(([id,Icon])=><button className={'ux-nav-btn '+(page===id?'active':'')} key={id} onClick={()=>go(id)}><Icon size={18}/><span>{id}</span>{id==='Check List'&&stats.exceptions>0&&<b>{stats.exceptions}</b>}</button>)}</div>)}</nav>
+  <div className='ux-brand'><div className='ux-logo'>P</div><div><strong>PJS <i>Operations</i></strong><small>DISPATCH · DOCUMENTS · SALES</small></div><button type='button' className='ux-mobile-close' aria-label='Close menu' onClick={()=>setMobile(false)}><X size={20}/></button></div>
+  <nav className='ux-side-menu' aria-label='Main website modules'>
+   {nav.map(g=><div className='ux-nav-group' key={g.name}><div className='ux-nav-heading'>{g.name}</div>
+    {g.items.map(([id,Icon])=><div key={id} className='oms-seven-sidebar-group'>
+     <button className={'ux-nav-btn '+(page===id?'active':'')} onClick={()=>go(id)} aria-current={page===id?'page':undefined}>
+      <Icon size={18}/><span>{id}</span>{id==='Check List'&&stats.exceptions>0&&<b>{stats.exceptions}</b>}
+     </button>
+     {id==='DataDoc · Dispatch Process'&&page===id&&<div className='oms-seven-side-subnav'>
+      {dispatchTabs.map(t=><button key={t.id} type='button' className={dispatchTab===t.id?'active':''} onClick={()=>{onDispatchTab(t.id);setMobile(false)}}>{t.title}</button>)}
+     </div>}
+     {id==='DataDoc · Submit Process'&&page===id&&<div className='oms-seven-side-subnav'>
+      {submitTabs.map(t=><button key={t.id} type='button' className={submitTab===t.id?'active':''} onClick={()=>{onSubmitTab(t.id);setMobile(false)}}>{t.title}</button>)}
+     </div>}
+    </div>)}
+   </div>)}
+  </nav>
   <div className='ux-side-bottom'><div className='ux-account'><div className='ux-account-avatar'><UserRound size={17}/></div><div><b>{demo?'Local preview':user?.email?.split('@')[0]||'OMS User'}</b><small>{demo?'This browser only':'Private workspace'}</small></div><button onClick={onSignOut} title={demo?'Sign in to cloud':'Sign out'} aria-label={demo?'Sign in to cloud':'Sign out'}>{demo?<LogIn size={18}/>:<LogOut size={18}/>}</button></div></div>
  </aside>
  {mobile&&<button className='ux-mobile-scrim' onClick={()=>setMobile(false)} aria-label='Close navigation'/>}
